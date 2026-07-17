@@ -32,6 +32,19 @@ The SVG source was authored directly in this repository with Codex on 17 July
 2026. It uses only XML text, basic geometric paths, and locally chosen colors;
 there are no downloaded, traced, or embedded external assets.
 
+## Tiny negative fixture
+
+The separate `negative_unresolved_meaning/` package is the single intentionally
+negative fixture. It is a valid minimal supported package containing one
+synthetic original and its required metadata row, with no derivatives. The
+fixed profile projects `campaña` to `campana`, so the family has a mechanically
+flagged Meaning risk. With that human decision left unresolved, whole-package
+export must stop before creating any staged output.
+
+Its SVG was authored directly in this repository with Codex on 17 July 2026
+from basic geometric shapes and text. It contains no personal, third-party, or
+downloaded source data and is distributed under the repository's MIT license.
+
 | Original family | Declared derivatives | Intended demonstration role |
 |---|---|---|
 | `campaña-poster.svg` | access + preservation | One bounded Meaning-risk card and human resolution propagated to the full family |

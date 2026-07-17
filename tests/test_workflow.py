@@ -207,6 +207,10 @@ async def test_connected_walking_skeleton_requires_model_then_human_then_proof(
         follow_redirects=True,
     ) as client:
         initial = await client.get("/")
+        initial_view = workflow.view_model()
+        missing_proof_artifact = await client.get(
+            "/proof-artifacts/name-atlas/verification_report.json"
+        )
         premature_stage = await client.post("/stage")
         generated = await client.post(f"/families/{family_id}/generate")
         approved = await client.post(f"/families/{family_id}/approve")
@@ -218,14 +222,35 @@ async def test_connected_walking_skeleton_requires_model_then_human_then_proof(
         )
         second_batch = await client.post("/approve-low-risk")
         staged = await client.post("/stage")
+        proof_artifact = await client.get(
+            "/proof-artifacts/name-atlas/verification_report.json"
+        )
+        unknown_artifact = await client.get(
+            "/proof-artifacts/data/objects/NA-0001__campana__original.svg"
+        )
 
     assert initial.status_code == 200
     assert "Campaña poster" in initial.text
+    assert "Repository-ready identity profile" in initial.text
     assert "What GPT-5.6 will see" in initial.text
     assert "Mechanical blocker" in initial.text
-    assert "Approve eligible low-risk families" in initial.text
-    assert "Blocked by decisions" in premature_stage.text
+    assert "Mechanical blocker; no model call" in initial.text
+    assert "Transformation trace, risks, and affected links" in initial.text
+    assert "Approve 9 eligible low-risk families" in initial.text
+    assert initial_view["eligible_low_risk_count"] == 9
+    assert {
+        item["family"].canonical_identifier for item in initial_view["decision_items"]
+    } == {"NA-0001", "CASE-010", "case-010"}
+    assert missing_proof_artifact.status_code == 404
+    assert "Blocked · action required" in premature_stage.text
     assert "GPT is advisory" in generated.text
+    assert "Possible interpretations" in generated.text
+    assert "The source spelling may distinguish the intended Spanish term." in (
+        generated.text
+    )
+    assert "The descriptor remains visible after repository ingest." in generated.text
+    assert provider.packets[0].candidate_paths[0] in generated.text
+    assert provider.packets[0].metadata_evidence[2].evidence_id in generated.text
     assert len(provider.packets) == 1
     assert workflow.decisions[family_id].export_ready is True
     assert "Stored state:" in approved.text
@@ -237,6 +262,18 @@ async def test_connected_walking_skeleton_requires_model_then_human_then_proof(
     )
     assert workflow.stage_result is not None
     assert workflow.stage_result.artifacts.report.map_row_count == 28
+    resolved_view = workflow.view_model()
+    assert resolved_view["eligible_low_risk_count"] == 0
+    assert {
+        item["family"].canonical_identifier for item in resolved_view["decision_items"]
+    } == {"NA-0001", "CASE-010"}
+    assert proof_artifact.status_code == 200
+    assert proof_artifact.json()["claim"] == (
+        "Verified round-trip integrity within the supported package contract"
+    )
+    assert unknown_artifact.status_code == 404
+    assert "Proof artifacts" in staged.text
+    assert "name-atlas/verification_report.json" in staged.text
     assert BagItPackageValidator().validate(workflow.stage_result.stage_root).valid
     assert {
         path.relative_to(source).as_posix(): path.read_bytes()
@@ -272,6 +309,41 @@ async def test_low_risk_batch_approval_makes_no_provider_call(
     assert len(decisions) == 1
     assert decisions[0].export_ready
     assert provider.packets == []
+
+
+@pytest.mark.anyio
+async def test_low_risk_batch_never_overwrites_an_explicit_refusal(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "low-risk-refusal"
+    _write_low_risk_package(source)
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=FakeDecisionCardProvider(),
+        package_validator=BagItPackageValidator(),
+    )
+    family_id = workflow.package.families[0].family_id
+    config = RuntimeConfig.from_environment(mode=RunMode.REPLAY, environ={})
+    transport = httpx.ASGITransport(app=create_app(config, workflow))
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+        follow_redirects=True,
+    ) as client:
+        initial = await client.get("/")
+        refused = await client.post(f"/families/{family_id}/refuse")
+        batch = await client.post("/approve-low-risk")
+
+    assert "1 routine fixed-profile family still awaits" in initial.text
+    assert workflow.view_model()["eligible_low_risk_count"] == 0
+    assert workflow.decisions[family_id].action is HumanAction.REFUSED
+    assert "Refused · export blocked" in refused.text
+    assert "decision-state decision-state--red" in refused.text
+    assert "Human refusal blocks the complete package" in refused.text
+    assert "No unresolved low-risk families are eligible." in batch.text
+    assert workflow.decisions[family_id].action is HumanAction.REFUSED
 
 
 def test_supported_long_and_empty_metadata_is_visibly_bounded_for_gpt(

@@ -28,6 +28,7 @@ from name_atlas.decision_cards import (
 )
 from name_atlas.decisions import (
     DecisionError,
+    HumanAction,
     HumanDecision,
     approve_family,
     edit_family,
@@ -326,17 +327,7 @@ class WorkflowSession:
 
         decisions: list[HumanDecision] = []
         for family in self.package.families:
-            existing = self.decisions.get(family.family_id)
-            if existing is not None and existing.export_ready:
-                continue
-            selected = tuple(
-                proposal
-                for proposal in self.proposals
-                if proposal.family_id == family.family_id
-            )
-            if self.family_requires_card(family.family_id) or any(
-                proposal.mechanical_blockers for proposal in selected
-            ):
+            if not self._low_risk_batch_eligible(family.family_id):
                 continue
             decisions.append(
                 approve_family(
@@ -350,6 +341,17 @@ class WorkflowSession:
         for decision in decisions:
             self._store_decision(decision)
         return tuple(decisions)
+
+    def _low_risk_batch_eligible(self, family_id: str) -> bool:
+        """Return whether a batch action may create the first family decision."""
+
+        if family_id in self.decisions or self.family_requires_card(family_id):
+            return False
+        return not any(
+            proposal.mechanical_blockers
+            for proposal in self.proposals
+            if proposal.family_id == family_id
+        )
 
     def refuse(self, family_id: str) -> HumanDecision:
         """Record an explicit refusal and block complete export."""
@@ -444,6 +446,36 @@ class WorkflowSession:
                 }
             )
         ready_count = sum(bool(item["ready"]) for item in families)
+        eligible_low_risk_count = sum(
+            self._low_risk_batch_eligible(item["family"].family_id) for item in families
+        )
+        hard_blocker_count = sum(
+            bool(item["mechanically_blocked"])
+            or item["card_error"] is not None
+            or (
+                isinstance(item["decision"], HumanDecision)
+                and item["decision"].action is HumanAction.REFUSED
+            )
+            for item in families
+        )
+        decision_items = tuple(
+            item
+            for item in families
+            if bool(item["requires_card"])
+            or bool(item["mechanically_blocked"])
+            or item["card"] is not None
+            or bool(item["card_stale"])
+            or item["card_error"] is not None
+            or (
+                isinstance(item["decision"], HumanDecision)
+                and item["decision"].action
+                in {
+                    HumanAction.EDITED,
+                    HumanAction.REFUSED,
+                    HumanAction.UNRESOLVED,
+                }
+            )
+        )
         proof: StageArtifacts | None = (
             self.stage_result.artifacts if self.stage_result is not None else None
         )
@@ -457,6 +489,9 @@ class WorkflowSession:
                 category.value: risk_counts[category.value] for category in RiskCategory
             },
             "families": families,
+            "decision_items": decision_items,
+            "eligible_low_risk_count": eligible_low_risk_count,
+            "hard_blocker_count": hard_blocker_count,
             "ready_count": ready_count,
             "export_ready": ready_count == len(families),
             "cards_requested": self.cards_requested,

@@ -3,8 +3,8 @@
 from pathlib import Path
 from urllib.parse import parse_qs
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -168,6 +168,30 @@ def create_app(
             except StagingError as exc:
                 app.state.action_error = str(exc)
             return RedirectResponse(url="/#proof", status_code=303)
+
+        @app.get(
+            "/proof-artifacts/{artifact_path:path}",
+            response_class=FileResponse,
+            include_in_schema=False,
+        )
+        async def proof_artifact(artifact_path: str) -> FileResponse:
+            stage_result = workflow.stage_result
+            if stage_result is None:
+                raise HTTPException(status_code=404, detail="No verified proof exists.")
+            if artifact_path not in stage_result.artifacts.report.artifact_paths:
+                raise HTTPException(status_code=404, detail="Unknown proof artifact.")
+            stage_root = stage_result.stage_root.resolve()
+            candidate = (stage_root / artifact_path).resolve()
+            try:
+                candidate.relative_to(stage_root)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Unknown proof artifact.",
+                ) from exc
+            if not candidate.is_file():
+                raise HTTPException(status_code=404, detail="Proof artifact is absent.")
+            return FileResponse(candidate)
 
     return app
 

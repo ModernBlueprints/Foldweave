@@ -19,6 +19,7 @@ from name_atlas.decision_cards import (
     ReplayProviderError,
 )
 from name_atlas.domain import RunMode
+from name_atlas.package_import import PackageImportError
 from name_atlas.verification import BagItPackageValidator
 from name_atlas.workflow import UnavailableReplayDecisionCardProvider, WorkflowSession
 
@@ -54,6 +55,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_PORT,
         help=f"Loopback port (default: {DEFAULT_PORT}).",
     )
+    demo.add_argument(
+        "--source",
+        type=Path,
+        default=HERO_SOURCE_ROOT,
+        help="Supported package root (default: the included hero package).",
+    )
+    demo.add_argument(
+        "--output",
+        type=Path,
+        default=OUTPUT_ROOT,
+        help="Copy-only staging parent (default: .name-atlas/stages).",
+    )
     return parser
 
 
@@ -67,12 +80,20 @@ def run(
     args = build_parser().parse_args(argv)
     mode = RunMode(args.mode)
     selected_environment = os.environ if environ is None else environ
+    source_root = args.source.expanduser().resolve()
+    output_root = args.output.expanduser().resolve()
+    uses_hero_source = source_root == HERO_SOURCE_ROOT.resolve()
+    replay_record_path = REPLAY_RECORD_PATH if uses_hero_source else None
 
     replay_record_configured = False
-    if mode is RunMode.REPLAY and REPLAY_RECORD_PATH.is_file():
+    if (
+        mode is RunMode.REPLAY
+        and replay_record_path is not None
+        and replay_record_path.is_file()
+    ):
         try:
             decision_card_provider = RecordedReplayDecisionCardProvider(
-                REPLAY_RECORD_PATH.read_bytes()
+                replay_record_path.read_bytes()
             )
         except (OSError, ReplayProviderError) as exc:
             print(f"Replay startup blocked: {exc}", file=sys.stderr)
@@ -99,17 +120,21 @@ def run(
     assert decision_card_provider is not None
     try:
         workflow = WorkflowSession(
-            source_root=HERO_SOURCE_ROOT,
-            output_root=OUTPUT_ROOT,
+            source_root=source_root,
+            output_root=output_root,
             decision_card_provider=decision_card_provider,
             package_validator=BagItPackageValidator(),
-            replay_record_path=REPLAY_RECORD_PATH,
+            replay_record_path=replay_record_path,
             budget_ledger_path=BUDGET_LEDGER_PATH,
         )
-    except BudgetLedgerError as exc:
+    except (BudgetLedgerError, PackageImportError) as exc:
         print(f"Startup blocked: {exc}", file=sys.stderr)
         return 2
-    if mode is RunMode.REPLAY and REPLAY_RECORD_PATH.is_file():
+    if (
+        mode is RunMode.REPLAY
+        and replay_record_path is not None
+        and replay_record_path.is_file()
+    ):
         try:
             workflow.require_replay_record_compatible()
         except DecisionCardProviderError as exc:

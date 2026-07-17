@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#174f3d">
     <title>Reversible Name Atlas</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%23174f3d%22/><text x=%2211%22 y=%2241%22 font-size=%2226%22 fill=%22white%22>NA</text></svg>">
-    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}?v=20260717-m5g">
   </head>
   <body>
     <main class="shell">
@@ -60,6 +60,7 @@
             <div>
               <p class="eyebrow">01 · Atlas</p>
               <h2 id="atlas-title">One identity, every declared relationship</h2>
+              <p class="atlas-context"><strong>Repository-ready identity profile</strong><span class="mono">{{ view.source_root }}</span></p>
             </div>
             <p>{{ view.family_count }} families · {{ view.content_count }} content objects · {{ view.proposal_count }} visible proposals</p>
           </div>
@@ -73,15 +74,15 @@
           </div>
 
           {% for item in view.families %}
-            <article class="family-card">
-              <header class="family-card__header">
-                <div>
+            <details class="family-card" {% if item.requires_card or item.mechanically_blocked %}open{% endif %}>
+              <summary class="family-card__header">
+                <span class="family-card__identity">
                   <span class="id-chip">{{ item.family.canonical_identifier }}</span>
-                  <h3>{{ item.family.metadata_row.value('dc.title') }}</h3>
-                  <p class="mono subtle">Family {{ item.family.family_id[:16] }}…</p>
-                </div>
-                {% if item.ready %}<span class="state state--green">Human resolved</span>{% elif item.mechanically_blocked %}<span class="state state--red">Mechanical blocker</span>{% else %}<span class="state state--amber">Judgment required</span>{% endif %}
-              </header>
+                  <strong class="family-card__title">{{ item.family.metadata_row.value('dc.title') }}</strong>
+                  <span class="mono subtle">Family {{ item.family.family_id[:16] }}…</span>
+                </span>
+                {% if item.ready %}<span class="state state--green">Human resolved</span>{% elif item.mechanically_blocked %}<span class="state state--red">Mechanical blocker</span>{% elif item.requires_card %}<span class="state state--amber">Meaning review</span>{% else %}<span class="state state--amber">Awaiting batch approval</span>{% endif %}
+              </summary>
 
               <div class="relationship-strip" aria-label="Declared family roles">
                 <span>Original</span><i aria-hidden="true">→</i>
@@ -120,9 +121,12 @@
                       <li><span>{{ step.operation }}</span><code>{{ step.before }} → {{ step.after }}</code></li>
                     {% endfor %}
                   </ol>
+                  <ul class="reference-list">
+                    {% for reference in proposal.affected_references %}<li><code>{{ reference }}</code></li>{% endfor %}
+                  </ul>
                 {% endfor %}
               </details>
-            </article>
+            </details>
           {% endfor %}
         </section>
 
@@ -136,8 +140,8 @@
           </div>
 
           <form class="batch-action" method="post" action="/approve-low-risk">
-            <p>Explicitly approve every currently unblocked family that has no Meaning risk. This action never calls GPT-5.6.</p>
-            <button class="button" type="submit">Approve eligible low-risk families</button>
+            <p><strong>{{ view.eligible_low_risk_count }} low-risk {% if view.eligible_low_risk_count == 1 %}family is{% else %}families are{% endif %} eligible.</strong> Approve the visible fixed-profile proposals as one explicit human action. This never calls GPT-5.6.</p>
+            <button class="button" type="submit" {% if view.eligible_low_risk_count == 0 %}disabled{% endif %}>{% if view.eligible_low_risk_count %}Approve {{ view.eligible_low_risk_count }} eligible low-risk {% if view.eligible_low_risk_count == 1 %}family{% else %}families{% endif %}{% else %}All low-risk families resolved{% endif %}</button>
           </form>
 
           <details class="decision-metrics">
@@ -161,10 +165,51 @@
             </dl>
           </details>
 
-          {% for item in view.families %}
+          {% for item in view.decision_items %}
             <article class="decision-layout">
+              <header class="decision-family-header">
+                <div>
+                  <span class="id-chip">{{ item.family.canonical_identifier }}</span>
+                  <h3>{{ item.family.metadata_row.value('dc.title') }}</h3>
+                  <p class="mono subtle">{{ item.family.original.relative_path }}</p>
+                </div>
+                {% if item.ready %}
+                  <span class="state state--green">Human resolved</span>
+                {% elif item.decision and item.decision.action.value == 'refused' %}
+                  <span class="state state--red">Refused · export blocked</span>
+                {% elif item.mechanically_blocked %}
+                  <span class="state state--red">Mechanical blocker</span>
+                {% else %}
+                  <span class="state state--amber">Human decision required</span>
+                {% endif %}
+              </header>
               <section class="evidence-panel" aria-labelledby="packet-{{ loop.index }}">
                 <span class="panel-label">Bounded outbound evidence</span>
+                <div class="exception-paths" aria-label="Exact proposed path changes">
+                  {% for proposal in item.proposals %}
+                    <div>
+                      <strong>{{ proposal.role.value }}</strong>
+                      <code>{{ proposal.original_relative_path }}</code>
+                      <span aria-hidden="true">→</span>
+                      <code>{{ proposal.proposed_relative_path }}</code>
+                    </div>
+                  {% endfor %}
+                </div>
+                <details class="exception-trace">
+                  <summary>Transformation trace, risks, and affected links</summary>
+                  {% for proposal in item.proposals %}
+                    <h4>{{ proposal.role.value }}</h4>
+                    <ol>
+                      {% for step in proposal.transformation_steps %}
+                        <li><strong>{{ step.operation }}</strong><code>{{ step.before }} → {{ step.after }}</code></li>
+                      {% endfor %}
+                    </ol>
+                    <ul class="reference-list">
+                      {% for reference in proposal.affected_references %}<li><code>{{ reference }}</code></li>{% endfor %}
+                    </ul>
+                    {% for risk in proposal.risk_signals %}<p class="risk-detail"><strong>{{ risk.category.value }}:</strong> {{ risk.message }}</p>{% endfor %}
+                  {% endfor %}
+                </details>
                 {% if item.requires_card %}
                   <h3 id="packet-{{ loop.index }}">What GPT-5.6 will see</h3>
                   <p>No payload bytes. No approval fields. The call occurs only when you request it.</p>
@@ -183,6 +228,9 @@
                       {% if diagnostics.mode == 'live' %}Generate neutral card with gpt-5.6{% else %}Load recorded GPT-5.6 card{% endif %}
                     </button>
                   </form>
+                {% elif item.mechanically_blocked %}
+                  <h3 id="packet-{{ loop.index }}">Mechanical blocker; no model call</h3>
+                  <p>Deterministic collision checks rejected this target. Enter one exact family descriptor to recompute the complete family map; no evidence leaves the application.</p>
                 {% else %}
                   <h3 id="packet-{{ loop.index }}">No model call required</h3>
                   <p>Mechanics found no Meaning risk. The complete proposal remains visible for explicit human approval, and no evidence leaves the application.</p>
@@ -192,15 +240,33 @@
               <section class="ai-panel" aria-labelledby="card-{{ loop.index }}">
                 <span class="panel-label panel-label--neutral">GPT is advisory</span>
                 <h3 id="card-{{ loop.index }}">Decision card</h3>
-                {% if not item.requires_card %}
+                {% if item.mechanically_blocked %}
+                  <p class="empty-state empty-state--error">Skipped by design. A deterministic collision—not a language ambiguity—must be resolved by editing the family descriptor.</p>
+                {% elif not item.requires_card %}
                   <p class="empty-state">Skipped by design. Low-risk mechanics do not invoke GPT-5.6.</p>
                 {% elif item.card %}
                   {% if diagnostics.mode == 'replay' and diagnostics.replay_record_configured %}<p class="recorded-label">Recorded GPT-5.6 response</p>{% endif %}
+                  <p><strong>Possible interpretations</strong></p>
+                  <ul class="card-observations">
+                    {% for observation in item.card.possible_interpretations %}<li><span>{{ observation.text }}</span><small>Evidence · {{ observation.evidence_ids|join(', ') }}</small></li>{% endfor %}
+                  </ul>
                   <p><strong>Possible meaning loss</strong></p>
-                  <ul>
-                    {% for observation in item.card.possible_meaning_loss %}<li>{{ observation.text }}</li>{% endfor %}
+                  <ul class="card-observations">
+                    {% for observation in item.card.possible_meaning_loss %}<li><span>{{ observation.text }}</span><small>Evidence · {{ observation.evidence_ids|join(', ') }}</small></li>{% endfor %}
                   </ul>
                   <p><strong>Uncertainty</strong><br>{{ item.card.uncertainty }}</p>
+                  <p><strong>Why the distinction matters</strong><br>{{ item.card.why_the_distinction_matters }}</p>
+                  {% if item.card.candidate_explanations %}
+                    <details class="candidate-explanations" open>
+                      <summary>Mechanically supplied candidate explanations</summary>
+                      <ul class="card-observations">
+                        {% for candidate in item.card.candidate_explanations %}
+                          <li><code>{{ candidate.candidate_path }}</code><span>{{ candidate.explanation }}</span><small>Evidence · {{ candidate.evidence_ids|join(', ') }}</small></li>
+                        {% endfor %}
+                      </ul>
+                    </details>
+                  {% endif %}
+                  <p><strong>One discriminating human question</strong></p>
                   <blockquote>{{ item.card.discriminating_question }}</blockquote>
                 {% elif item.card_stale %}
                   <p class="empty-state">The proposal evidence changed after this card was generated. Request a new evidence-bound card before another Meaning-risk decision.</p>
@@ -215,7 +281,7 @@
                 <span class="panel-label panel-label--human">Human authority</span>
                 <h3 id="human-{{ loop.index }}">Resolve the family</h3>
                 {% if item.decision %}
-                  <p class="decision-state">Stored state: <strong>{{ item.decision.action.value }}</strong></p>
+                  <p class="decision-state {% if item.decision.action.value in ['approved', 'edited'] %}decision-state--green{% elif item.decision.action.value == 'refused' %}decision-state--red{% else %}decision-state--amber{% endif %}">Stored state: <strong>{{ item.decision.action.value }}</strong></p>
                 {% endif %}
                 <form method="post" action="/families/{{ item.family.family_id }}/approve">
                   <button class="button" type="submit" {% if not item.approve_enabled %}disabled{% endif %}>Approve proposed family map</button>
@@ -229,6 +295,15 @@
                 </form>
                 <p class="authority-note">GPT cannot press these controls, populate the descriptor, or change export readiness.</p>
               </section>
+            </article>
+          {% else %}
+            <article class="decision-empty">
+              <h3>No individual exceptions remain.</h3>
+              {% if view.eligible_low_risk_count %}
+                <p>{{ view.eligible_low_risk_count }} routine fixed-profile {% if view.eligible_low_risk_count == 1 %}family still awaits{% else %}families still await{% endif %} the explicit batch approval above.</p>
+              {% else %}
+                <p>Every fixed-profile proposal is resolved through explicit human actions.</p>
+              {% endif %}
             </article>
           {% endfor %}
         </section>
@@ -252,12 +327,50 @@
                 {% endfor %}
                 <div><span class="checkmark" aria-hidden="true">✓</span><p><strong>Library of Congress BagIt validation</strong><small>{{ view.proof.report.bagit_validation.messages[0] }}</small></p></div>
               </div>
+              <section class="artifact-shelf" aria-labelledby="artifact-title">
+                <div>
+                  <p class="eyebrow">Proof artifacts</p>
+                  <h4 id="artifact-title">Inspect the durable evidence.</h4>
+                </div>
+                <ul>
+                  {% for artifact_path in view.proof.report.artifact_paths %}
+                    <li>
+                      <code>{{ artifact_path }}</code>
+                      <span>
+                        <a href="/proof-artifacts/{{ artifact_path }}" target="_blank" rel="noopener">Open</a>
+                        <a href="/proof-artifacts/{{ artifact_path }}" download>Download</a>
+                      </span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </section>
               <footer>{{ view.proof.report.content_object_count }} content objects · {{ view.proof.report.content_bytes }} bytes · {{ view.proof.report.map_row_count }} forward/reverse rows</footer>
             </article>
           {% else %}
             <article class="proof-card">
-              <header><span class="state {% if view.export_ready %}state--green{% else %}state--amber{% endif %}">{% if view.export_ready %}Ready to prove{% else %}Blocked by decisions{% endif %}</span><h3>No staged package has been exposed.</h3></header>
+              <header><span class="state {% if view.export_ready %}state--green{% elif view.hard_blocker_count %}state--red{% else %}state--amber{% endif %}">{% if view.export_ready %}Ready to prove{% elif view.hard_blocker_count %}Blocked · action required{% else %}Blocked by decisions{% endif %}</span><h3>No staged package has been exposed.</h3></header>
               <p>The source remains untouched. Complete every required family decision, then run the copy-only staging transaction.</p>
+              {% if not view.export_ready %}
+                <ul class="blocker-list" aria-label="Items preventing staging">
+                  {% for item in view.decision_items if not item.ready %}
+                    <li>
+                      <strong>{{ item.family.canonical_identifier }}</strong>
+                      {% if item.decision and item.decision.action.value == 'refused' %}
+                        Human refusal blocks the complete package.
+                      {% elif item.mechanically_blocked %}
+                        A deterministic target collision requires an edited descriptor.
+                      {% elif item.card_error %}
+                        Decision-card generation failed; the Meaning decision remains unresolved.
+                      {% elif item.requires_card %}
+                        Meaning review requires a card and explicit human decision.
+                      {% else %}
+                        An explicit human decision is still required.
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                  {% if view.eligible_low_risk_count %}<li><strong>{{ view.eligible_low_risk_count }} routine {% if view.eligible_low_risk_count == 1 %}family{% else %}families{% endif %}</strong> {% if view.eligible_low_risk_count == 1 %}awaits{% else %}await{% endif %} the explicit low-risk batch approval.</li>{% endif %}
+                </ul>
+              {% endif %}
               <form method="post" action="/stage"><button class="button button--primary" type="submit" {% if not view.export_ready %}disabled{% endif %}>Stage copies and run complete proof</button></form>
             </article>
           {% endif %}
