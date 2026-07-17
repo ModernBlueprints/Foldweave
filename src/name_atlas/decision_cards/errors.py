@@ -9,6 +9,14 @@ class InvalidEvidencePacketError(DecisionCardProviderError):
     """The outbound evidence packet is ambiguous or internally inconsistent."""
 
 
+class DecisionCardCapExhaustedError(DecisionCardProviderError):
+    """The configured live-call or cost cap prevents another request."""
+
+
+class BudgetLedgerError(DecisionCardProviderError):
+    """The persistent project budget record is unavailable or invalid."""
+
+
 class DecisionCardOutputError(DecisionCardProviderError):
     """A returned decision card failed the bounded output contract."""
 
@@ -59,6 +67,10 @@ class ReplayProviderError(DecisionCardProviderError):
 
 class ReplayRecordInvalidError(ReplayProviderError):
     """A replay record is missing, malformed, or not schema-valid."""
+
+
+class ReplayRecordWriteError(ReplayProviderError):
+    """A validated live response could not become the canonical replay record."""
 
 
 class ReplayModelMismatchError(ReplayProviderError):

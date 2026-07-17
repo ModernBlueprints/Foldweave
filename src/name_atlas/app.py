@@ -58,7 +58,11 @@ def create_app(
 
     @app.get("/healthz")
     async def health() -> dict[str, str | bool | int]:
-        ready = config.mode.value == "replay" or config.api_key_configured
+        ready = (
+            config.replay_record_configured
+            if config.mode.value == "replay"
+            else config.api_key_configured
+        )
         response: dict[str, str | bool | int] = {
             "status": "ready" if ready else "blocked",
             "mode": config.mode.value,
@@ -81,10 +85,25 @@ def create_app(
         async def generate_card(family_id: str) -> RedirectResponse:
             _clear_action_state(app)
             try:
+                cache_hits_before = workflow.cache_hits
                 await workflow.generate_card(family_id)
-                app.state.notice = (
-                    "Neutral decision card generated from the visible packet."
-                )
+                if workflow.cache_hits > cache_hits_before:
+                    app.state.notice = (
+                        "Validated cached card reused for identical evidence."
+                    )
+                elif config.mode.value == "replay":
+                    app.state.notice = (
+                        "Recorded GPT-5.6 response loaded for the exact visible packet."
+                    )
+                else:
+                    app.state.notice = (
+                        "Neutral GPT-5.6 decision card generated from the visible "
+                        "packet."
+                    )
+                if workflow.replay_record_error is not None:
+                    app.state.action_error = workflow.replay_record_error
+                elif workflow.budget_reporting_error is not None:
+                    app.state.action_error = workflow.budget_reporting_error
             except (DecisionCardProviderError, DecisionError) as exc:
                 app.state.action_error = str(exc)
             return RedirectResponse(url="/#decisions", status_code=303)

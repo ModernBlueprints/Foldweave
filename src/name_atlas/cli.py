@@ -12,6 +12,8 @@ import uvicorn
 from name_atlas.app import create_app
 from name_atlas.config import DEFAULT_PORT, LOOPBACK_HOST, RuntimeConfig
 from name_atlas.decision_cards import (
+    BudgetLedgerError,
+    DecisionCardProviderError,
     LiveDecisionCardProvider,
     RecordedReplayDecisionCardProvider,
     ReplayProviderError,
@@ -27,6 +29,7 @@ REPLAY_RECORD_PATH = (
     PROJECT_ROOT / "src" / "name_atlas" / "recordings" / "hero_decision_card.json"
 )
 OUTPUT_ROOT = PROJECT_ROOT / ".name-atlas" / "stages"
+BUDGET_LEDGER_PATH = PROJECT_ROOT / ".name-atlas" / "api_budget.json"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -71,22 +74,16 @@ def run(
             decision_card_provider = RecordedReplayDecisionCardProvider(
                 REPLAY_RECORD_PATH.read_bytes()
             )
-            replay_record_configured = True
-        except (OSError, ReplayProviderError):
-            decision_card_provider = UnavailableReplayDecisionCardProvider()
+        except (OSError, ReplayProviderError) as exc:
+            print(f"Replay startup blocked: {exc}", file=sys.stderr)
+            return 2
     elif mode is RunMode.REPLAY:
         decision_card_provider = UnavailableReplayDecisionCardProvider()
     else:
         decision_card_provider = None
 
-    config = RuntimeConfig.from_environment(
-        mode=mode,
-        port=args.port,
-        environ=selected_environment,
-        replay_record_configured=replay_record_configured,
-    )
-
-    if mode is RunMode.LIVE and not config.api_key_configured:
+    api_key_configured = bool(selected_environment.get("OPENAI_API_KEY", "").strip())
+    if mode is RunMode.LIVE and not api_key_configured:
         print(
             "Live mode is blocked: configure OPENAI_API_KEY locally, then rerun. "
             "Do not paste the key into chat.",
@@ -100,12 +97,31 @@ def run(
         )
 
     assert decision_card_provider is not None
-    workflow = WorkflowSession(
-        source_root=HERO_SOURCE_ROOT,
-        output_root=OUTPUT_ROOT,
-        decision_card_provider=decision_card_provider,
-        package_validator=BagItPackageValidator(),
-        replay_record_path=REPLAY_RECORD_PATH,
+    try:
+        workflow = WorkflowSession(
+            source_root=HERO_SOURCE_ROOT,
+            output_root=OUTPUT_ROOT,
+            decision_card_provider=decision_card_provider,
+            package_validator=BagItPackageValidator(),
+            replay_record_path=REPLAY_RECORD_PATH,
+            budget_ledger_path=BUDGET_LEDGER_PATH,
+        )
+    except BudgetLedgerError as exc:
+        print(f"Startup blocked: {exc}", file=sys.stderr)
+        return 2
+    if mode is RunMode.REPLAY and REPLAY_RECORD_PATH.is_file():
+        try:
+            workflow.require_replay_record_compatible()
+        except DecisionCardProviderError as exc:
+            print(f"Replay startup blocked: {exc}", file=sys.stderr)
+            return 2
+        replay_record_configured = True
+
+    config = RuntimeConfig.from_environment(
+        mode=mode,
+        port=args.port,
+        environ=selected_environment,
+        replay_record_configured=replay_record_configured,
     )
 
     logging.basicConfig(level=logging.INFO)

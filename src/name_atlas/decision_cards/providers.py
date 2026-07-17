@@ -48,6 +48,10 @@ DECISION_CARD_INSTRUCTIONS = (
     "Return only the DecisionCard structured output."
 )
 
+STANDARD_INPUT_USD_PER_MILLION = 5.0
+STANDARD_CACHED_INPUT_USD_PER_MILLION = 0.5
+STANDARD_OUTPUT_USD_PER_MILLION = 30.0
+
 
 class _ResponsesResource(Protocol):
     async def parse(self, **kwargs: object) -> object:
@@ -80,23 +84,54 @@ def _usage_from_response(response: object, latency_ms: float) -> ReplayUsage:
     usage = getattr(response, "usage", None)
     input_details = getattr(usage, "input_tokens_details", None)
     output_details = getattr(usage, "output_tokens_details", None)
+    input_tokens = _optional_nonnegative_int(getattr(usage, "input_tokens", None))
+    cached_input_tokens = _optional_nonnegative_int(
+        getattr(input_details, "cached_tokens", None)
+    )
+    output_tokens = _optional_nonnegative_int(getattr(usage, "output_tokens", None))
+    estimated_cost_usd = _estimate_standard_cost(
+        input_tokens=input_tokens,
+        cached_input_tokens=cached_input_tokens,
+        output_tokens=output_tokens,
+    )
     return ReplayUsage(
-        input_tokens=_optional_nonnegative_int(getattr(usage, "input_tokens", None)),
-        cached_input_tokens=_optional_nonnegative_int(
-            getattr(input_details, "cached_tokens", None)
-        ),
-        output_tokens=_optional_nonnegative_int(getattr(usage, "output_tokens", None)),
+        input_tokens=input_tokens,
+        cached_input_tokens=cached_input_tokens,
+        output_tokens=output_tokens,
         reasoning_tokens=_optional_nonnegative_int(
             getattr(output_details, "reasoning_tokens", None)
         ),
         total_tokens=_optional_nonnegative_int(getattr(usage, "total_tokens", None)),
         latency_ms=latency_ms,
-        estimated_cost_usd=None,
+        estimated_cost_usd=estimated_cost_usd,
     )
+
+
+def _estimate_standard_cost(
+    *,
+    input_tokens: int | None,
+    cached_input_tokens: int | None,
+    output_tokens: int | None,
+) -> float | None:
+    """Estimate standard GPT-5.6 Sol token cost from reported usage."""
+
+    if input_tokens is None or output_tokens is None:
+        return None
+    cached = cached_input_tokens or 0
+    if cached > input_tokens:
+        return None
+    uncached = input_tokens - cached
+    return (
+        uncached * STANDARD_INPUT_USD_PER_MILLION
+        + cached * STANDARD_CACHED_INPUT_USD_PER_MILLION
+        + output_tokens * STANDARD_OUTPUT_USD_PER_MILLION
+    ) / 1_000_000
 
 
 class LiveDecisionCardProvider:
     """Bounded live provider using the official async Responses API."""
+
+    provider_kind = "live"
 
     def __init__(
         self,
@@ -238,6 +273,8 @@ def load_recorded_decision_card(
 
 class RecordedReplayDecisionCardProvider:
     """Evidence-bound provider for one real, recorded GPT-5.6 response."""
+
+    provider_kind = "replay"
 
     def __init__(
         self,

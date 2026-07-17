@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler, model_validator
 from pydantic_core import core_schema
 
-from name_atlas.domain import ContentRole
+from name_atlas.domain import ContentRole, TransformationStep
 from name_atlas.proposals import (
     PathProposal,
     ProposalSource,
@@ -169,6 +169,17 @@ def refuse_family(family_id: str) -> HumanDecision:
     )
 
 
+def pending_family(family_id: str) -> HumanDecision:
+    """Restore a provider-recovered family to human-pending state."""
+
+    return HumanDecision(
+        family_id=family_id,
+        action=HumanAction.PENDING,
+        human_input=None,
+        resolved_targets={},
+    )
+
+
 def unresolved_family(family_id: str) -> HumanDecision:
     """Record a provider or evidence failure as explicitly unresolved."""
 
@@ -206,6 +217,14 @@ def proposals_after_decision(
                 {
                     "proposed_relative_path": target,
                     "proposal_source": ProposalSource.HUMAN_EDIT,
+                    "transformation_steps": (
+                        *proposal.transformation_steps,
+                        TransformationStep(
+                            operation="human_descriptor_edit",
+                            before=proposal.proposed_relative_path,
+                            after=target,
+                        ),
+                    ),
                     "risk_signals": tuple(
                         risk
                         for risk in proposal.risk_signals

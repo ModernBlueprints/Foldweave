@@ -29,6 +29,18 @@ def _copy_hero(tmp_path: Path) -> Path:
     return destination
 
 
+def _replace_control_text(
+    root: Path,
+    relative_path: str,
+    old: str,
+    new: str,
+) -> None:
+    path = root / relative_path
+    current = path.read_text(encoding="utf-8")
+    assert old in current
+    path.write_text(current.replace(old, new, 1), encoding="utf-8")
+
+
 def test_hero_import_is_complete_and_stable() -> None:
     package = import_package(HERO_ROOT)
     repeated = import_package(HERO_ROOT)
@@ -180,6 +192,299 @@ def test_metadata_row_with_missing_trailing_field_fails_closed(tmp_path: Path) -
     )
 
     with pytest.raises(PackageImportError, match="fields; expected"):
+        import_package(root)
+
+
+@pytest.mark.parametrize(
+    "identifier",
+    ["", "-NA-0001", "NA 0001", "NÅ-0001", "A" * 65],
+)
+def test_invalid_or_empty_identifier_fails_closed(
+    tmp_path: Path,
+    identifier: str,
+) -> None:
+    root = _copy_hero(tmp_path)
+    _replace_control_text(
+        root,
+        "metadata/metadata.csv",
+        "objects/campaña-poster.svg,NA-0001,",
+        f"objects/campaña-poster.svg,{identifier},",
+    )
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"Invalid dc\.identifier at metadata row 2",
+    ):
+        import_package(root)
+
+
+def test_missing_identifier_column_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    _replace_control_text(
+        root,
+        "metadata/metadata.csv",
+        "filename,dc.identifier,dc.title",
+        "filename,local_identifier,dc.title",
+    )
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"exactly one dc\.identifier column",
+    ):
+        import_package(root)
+
+
+def test_duplicate_identifier_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    _replace_control_text(
+        root,
+        "metadata/metadata.csv",
+        "objects/river-festival-program.svg,NA-0002,",
+        "objects/river-festival-program.svg,NA-0001,",
+    )
+
+    with pytest.raises(PackageImportError, match="Duplicate dc.identifier: NA-0001"):
+        import_package(root)
+
+
+def test_duplicate_metadata_original_reference_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    metadata_path = root / "metadata" / "metadata.csv"
+    with metadata_path.open("a", encoding="utf-8", newline="") as handle:
+        handle.write(
+            "objects/campaña-poster.svg,NA-0099,Duplicate source reference,"
+            "Synthetic duplicate,en\n"
+        )
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"Duplicate original reference: objects/campaña-poster\.svg",
+    ):
+        import_package(root)
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "message"),
+    [
+        ("metadata/metadata.csv", "metadata/metadata.csv is not valid UTF-8"),
+        ("normalization.csv", "normalization.csv is not valid UTF-8"),
+    ],
+)
+def test_non_utf8_control_file_fails_closed(
+    tmp_path: Path,
+    relative_path: str,
+    message: str,
+) -> None:
+    root = _copy_hero(tmp_path)
+    (root / relative_path).write_bytes(b"\xff\xfe\xfa")
+
+    with pytest.raises(PackageImportError, match=message):
+        import_package(root)
+
+
+def test_duplicate_normalization_row_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    normalization_path = root / "normalization.csv"
+    first_row = normalization_path.read_text(encoding="utf-8").splitlines()[0]
+    with normalization_path.open("a", encoding="utf-8", newline="") as handle:
+        handle.write(f"{first_row}\n")
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"Original has more than one normalization row: "
+        r"objects/campaña-poster\.svg",
+    ):
+        import_package(root)
+
+
+def test_derivative_cannot_belong_to_multiple_families(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    _replace_control_text(
+        root,
+        "normalization.csv",
+        "manualNormalization/access/river-festival-program-access.svg",
+        "manualNormalization/access/campaña-poster-access.svg",
+    )
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"Derivative belongs to more than one family: "
+        r"manualNormalization/access/campaña-poster-access\.svg",
+    ):
+        import_package(root)
+
+
+def test_normalization_row_must_declare_a_derivative(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    _replace_control_text(
+        root,
+        "normalization.csv",
+        "objects/campaña-poster.svg,"
+        "manualNormalization/access/campaña-poster-access.svg,"
+        "manualNormalization/preservation/campaña-poster-preservation.svg",
+        "objects/campaña-poster.svg,,",
+    )
+
+    with pytest.raises(
+        PackageImportError,
+        match="Normalization row 1 declares no derivative",
+    ):
+        import_package(root)
+
+
+def test_unreferenced_original_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    (root / "objects" / "unreferenced.svg").write_text(
+        "unreferenced original",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"Metadata/original accounting mismatch;.*objects/unreferenced\.svg",
+    ):
+        import_package(root)
+
+
+def test_metadata_reference_to_missing_original_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    _replace_control_text(
+        root,
+        "metadata/metadata.csv",
+        "objects/campaña-poster.svg,NA-0001,",
+        "objects/missing.svg,NA-0001,",
+    )
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"Metadata/original accounting mismatch;.*objects/missing\.svg",
+    ):
+        import_package(root)
+
+
+def test_unreferenced_derivative_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    (root / "manualNormalization" / "access" / "unreferenced.svg").write_text(
+        "unreferenced derivative",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"Access derivative accounting mismatch;.*unreferenced\.svg",
+    ):
+        import_package(root)
+
+
+def test_wrong_derivative_role_prefix_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    _replace_control_text(
+        root,
+        "normalization.csv",
+        "manualNormalization/access/campaña-poster-access.svg",
+        "objects/campaña-poster-access.svg",
+    )
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"access path outside manualNormalization/access/",
+    ):
+        import_package(root)
+
+
+def test_derivatives_require_normalization_control_file(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    (root / "normalization.csv").unlink()
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"normalization\.csv is required when derivative roots contain files",
+    ):
+        import_package(root)
+
+
+def test_normalization_is_optional_when_no_derivatives_exist(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    (root / "normalization.csv").unlink()
+    shutil.rmtree(root / "manualNormalization")
+
+    package = import_package(root)
+
+    assert package.normalization_present is False
+    assert package.normalization_rows == ()
+    assert all(len(family.members) == 1 for family in package.families)
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "message"),
+    [
+        ("unexpected.txt", "Unexpected regular file in source package"),
+        ("metadata/extra.csv", "Unexpected regular file in source package"),
+    ],
+)
+def test_unexpected_regular_file_fails_closed(
+    tmp_path: Path,
+    relative_path: str,
+    message: str,
+) -> None:
+    root = _copy_hero(tmp_path)
+    path = root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("unsupported", encoding="utf-8")
+
+    with pytest.raises(PackageImportError, match=message):
+        import_package(root)
+
+
+def test_unexpected_directory_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    (root / "unexpected").mkdir()
+
+    with pytest.raises(
+        PackageImportError,
+        match="Unexpected directory in source package: unexpected",
+    ):
+        import_package(root)
+
+
+def test_missing_metadata_control_file_fails_closed(tmp_path: Path) -> None:
+    root = _copy_hero(tmp_path)
+    (root / "metadata" / "metadata.csv").unlink()
+
+    with pytest.raises(
+        PackageImportError,
+        match=r"Required metadata/metadata\.csv is missing",
+    ):
+        import_package(root)
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "contents", "message"),
+    [
+        ("metadata/metadata.csv", b"", "metadata/metadata.csv is empty"),
+        (
+            "metadata/metadata.csv",
+            b'filename,dc.identifier\n"unterminated',
+            "metadata/metadata.csv is malformed CSV",
+        ),
+        ("normalization.csv", b"", "normalization.csv is empty"),
+        (
+            "normalization.csv",
+            b'objects/example.svg,"unterminated',
+            "normalization.csv is malformed CSV",
+        ),
+    ],
+)
+def test_empty_or_malformed_control_file_fails_closed(
+    tmp_path: Path,
+    relative_path: str,
+    contents: bytes,
+    message: str,
+) -> None:
+    root = _copy_hero(tmp_path)
+    (root / relative_path).write_bytes(contents)
+
+    with pytest.raises(PackageImportError, match=message):
         import_package(root)
 
 

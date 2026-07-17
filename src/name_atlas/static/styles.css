@@ -334,6 +334,48 @@ pre {
   line-height: 1.45;
 }
 
+.decision-metrics {
+  margin: 0 0 24px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.decision-metrics summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.decision-metrics dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.decision-metrics dl div {
+  display: grid;
+  gap: 3px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.decision-metrics dt {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.decision-metrics dd {
+  margin: 0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -449,6 +491,12 @@ pre {
 .risk--amber {
   color: #874c0c;
   background: #ffebc8;
+}
+
+.state--red,
+.risk--red {
+  color: var(--red);
+  background: var(--red-soft);
 }
 
 .risk--neutral,
@@ -767,6 +815,10 @@ blockquote {
   min-height: 94px;
   padding: 17px;
   background: white;
+}
+
+.proof-grid > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 .checkmark {

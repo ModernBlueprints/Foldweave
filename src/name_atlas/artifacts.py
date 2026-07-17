@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 import os
 from datetime import datetime
@@ -11,13 +12,32 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from name_atlas.decisions import HumanDecision
 from name_atlas.domain import ContentRole, PackageValidationResult
 from name_atlas.source import SourceSnapshot
 
 oslo_tz = ZoneInfo("Europe/Oslo")
+
+FORWARD_PATH_MAP_HEADER = (
+    "family_id",
+    "canonical_identifier",
+    "role",
+    "source_path",
+    "target_path",
+    "size",
+    "sha256",
+)
+REVERSE_PATH_MAP_HEADER = (
+    "family_id",
+    "canonical_identifier",
+    "role",
+    "target_path",
+    "source_path",
+    "size",
+    "sha256",
+)
 
 
 class ProofStatus(StrEnum):
@@ -49,7 +69,7 @@ class ControlFileProof(BaseModel):
     logical_path: str
     source_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     staged_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
-    rewritten_fields: tuple[str, ...] = Field(min_length=1)
+    rewritten_fields: tuple[str, ...]
     non_path_fields_unchanged: bool
 
 
@@ -76,8 +96,11 @@ class VerificationReport(BaseModel):
     staged_location: str
     source_snapshot_commitment: str = Field(pattern=r"^[a-f0-9]{64}$")
     prestaging_snapshot_commitment: str = Field(pattern=r"^[a-f0-9]{64}$")
-    postcopy_snapshot_commitment: str = Field(pattern=r"^[a-f0-9]{64}$")
-    source_unchanged: bool
+    postcopy_snapshot_commitment: str | None = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+    )
+    source_unchanged: bool | None
     content_object_count: int = Field(ge=0)
     content_bytes: int = Field(ge=0)
     control_files: tuple[ControlFileProof, ...]
@@ -96,6 +119,10 @@ class StageArtifacts(BaseModel):
     forward_map: tuple[PathMapRow, ...]
     reverse_map: tuple[PathMapRow, ...]
     report: VerificationReport
+
+
+class ArtifactReadError(ValueError):
+    """A serialized proof artifact does not satisfy its exact contract."""
 
 
 def canonical_json_bytes(value: BaseModel | dict[str, Any] | list[Any]) -> bytes:
@@ -145,34 +172,9 @@ def write_path_map(
 ) -> None:
     """Write one deterministic logical forward or reverse CSV map."""
 
-    import io
-
     stream = io.StringIO(newline="")
     writer = csv.writer(stream, lineterminator="\n")
-    if reverse:
-        writer.writerow(
-            (
-                "family_id",
-                "canonical_identifier",
-                "role",
-                "target_path",
-                "source_path",
-                "size",
-                "sha256",
-            )
-        )
-    else:
-        writer.writerow(
-            (
-                "family_id",
-                "canonical_identifier",
-                "role",
-                "source_path",
-                "target_path",
-                "size",
-                "sha256",
-            )
-        )
+    writer.writerow(REVERSE_PATH_MAP_HEADER if reverse else FORWARD_PATH_MAP_HEADER)
     for row in rows:
         common = (row.family_id, row.canonical_identifier, row.role.value)
         paths = (
@@ -182,6 +184,76 @@ def write_path_map(
         )
         writer.writerow((*common, *paths, row.size, row.sha256))
     _write_new(path, stream.getvalue().encode())
+
+
+def parse_path_map(data: bytes, *, reverse: bool) -> tuple[PathMapRow, ...]:
+    """Strictly parse one serialized logical path map into canonical rows."""
+
+    label = "reverse" if reverse else "forward"
+    try:
+        text = data.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ArtifactReadError(f"{label} path map is not valid UTF-8.") from exc
+    try:
+        raw_rows = list(csv.reader(io.StringIO(text, newline=""), strict=True))
+    except csv.Error as exc:
+        raise ArtifactReadError(f"{label} path map is malformed CSV: {exc}") from exc
+    expected_header = REVERSE_PATH_MAP_HEADER if reverse else FORWARD_PATH_MAP_HEADER
+    if not raw_rows or tuple(raw_rows[0]) != expected_header:
+        raise ArtifactReadError(f"{label} path map has an invalid schema header.")
+    if len(raw_rows) == 1:
+        raise ArtifactReadError(f"{label} path map has no content-object rows.")
+
+    parsed: list[PathMapRow] = []
+    for row_number, values in enumerate(raw_rows[1:], start=2):
+        if len(values) != len(expected_header):
+            raise ArtifactReadError(
+                f"{label} path map row {row_number} has {len(values)} fields; "
+                f"expected {len(expected_header)}."
+            )
+        (
+            family_id,
+            identifier,
+            role_value,
+            first_path,
+            second_path,
+            size_text,
+            digest,
+        ) = values
+        if not size_text or not size_text.isascii() or not size_text.isdecimal():
+            raise ArtifactReadError(
+                f"{label} path map row {row_number} has a non-canonical size."
+            )
+        try:
+            parsed_size = int(size_text)
+        except ValueError as exc:
+            raise ArtifactReadError(
+                f"{label} path map row {row_number} has an unsupported size."
+            ) from exc
+        if size_text != str(parsed_size):
+            raise ArtifactReadError(
+                f"{label} path map row {row_number} has a non-canonical size."
+            )
+        source_path, target_path = (
+            (second_path, first_path) if reverse else (first_path, second_path)
+        )
+        try:
+            parsed.append(
+                PathMapRow(
+                    family_id=family_id,
+                    canonical_identifier=identifier,
+                    role=ContentRole(role_value),
+                    source_path=source_path,
+                    target_path=target_path,
+                    size=parsed_size,
+                    sha256=digest,
+                )
+            )
+        except (ValueError, ValidationError) as exc:
+            raise ArtifactReadError(
+                f"{label} path map row {row_number} violates its data contract."
+            ) from exc
+    return tuple(parsed)
 
 
 def write_verification_report(path: Path, report: VerificationReport) -> None:

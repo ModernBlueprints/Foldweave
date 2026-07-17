@@ -3,14 +3,28 @@
 from __future__ import annotations
 
 import shutil
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
 
+from name_atlas import workflow as workflow_module
 from name_atlas.app import create_app
 from name_atlas.config import RuntimeConfig
-from name_atlas.decisions import DecisionError
+from name_atlas.decision_cards import (
+    BudgetLedgerError,
+    DecisionCardCapExhaustedError,
+    RecordedDecisionCard,
+    RecordedReplayDecisionCardProvider,
+    ReplayRecordWriteError,
+    ReplayUsage,
+    UnknownEvidenceIdError,
+    evidence_fingerprint,
+    load_recorded_decision_card,
+)
+from name_atlas.decisions import DecisionError, HumanAction
 from name_atlas.domain import (
     CandidateExplanation,
     DecisionCard,
@@ -18,6 +32,7 @@ from name_atlas.domain import (
     LinkedObservation,
     RunMode,
 )
+from name_atlas.staging import StagingError
 from name_atlas.verification import BagItPackageValidator
 from name_atlas.workflow import WorkflowSession
 
@@ -57,6 +72,64 @@ class FakeDecisionCardProvider:
         )
 
 
+class FakeLiveDecisionCardProvider(FakeDecisionCardProvider):
+    """Live-labelled test double for cap accounting without network I/O."""
+
+    provider_kind = "live"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.last_record: RecordedDecisionCard | None = None
+
+    async def generate(self, packet: EvidencePacket) -> DecisionCard:
+        card = await super().generate(packet)
+        self.last_record = RecordedDecisionCard(
+            model="gpt-5.6",
+            schema_version="decision-card.v1",
+            evidence_fingerprint=evidence_fingerprint(packet),
+            generated_at=datetime.now(tz=ZoneInfo("Europe/Oslo")),
+            decision_card=card,
+            usage=ReplayUsage(
+                input_tokens=100,
+                cached_input_tokens=0,
+                output_tokens=50,
+                reasoning_tokens=10,
+                total_tokens=150,
+                latency_ms=25.0,
+                estimated_cost_usd=0.002,
+            ),
+        )
+        return card
+
+
+class RecordingLiveDecisionCardProvider(FakeLiveDecisionCardProvider):
+    """Live-labelled double that exposes the exact sanitized replay record."""
+
+
+class MismatchedRecordingLiveProvider(FakeLiveDecisionCardProvider):
+    """Expose a stale replay record despite returning a valid current card."""
+
+    async def generate(self, packet: EvidencePacket) -> DecisionCard:
+        card = await super().generate(packet)
+        assert self.last_record is not None
+        self.last_record = self.last_record.model_copy(
+            update={"evidence_fingerprint": "f" * 64}
+        )
+        return card
+
+
+class InvalidDecisionCardProvider(FakeDecisionCardProvider):
+    """Return a typed card that violates the submitted evidence boundary."""
+
+    async def generate(self, packet: EvidencePacket) -> DecisionCard:
+        card = await super().generate(packet)
+        invalid = LinkedObservation(
+            text="This observation cites invented evidence.",
+            evidence_ids=("metadata:invented",),
+        )
+        return card.model_copy(update={"possible_interpretations": (invalid,)})
+
+
 def _write_low_risk_package(root: Path) -> None:
     (root / "objects").mkdir(parents=True)
     (root / "metadata").mkdir()
@@ -66,6 +139,30 @@ def _write_low_risk_package(root: Path) -> None:
         "objects/poster.svg,LOW-0001,Ordinary poster\n",
         encoding="utf-8",
     )
+
+
+def _write_meaning_risk_package(root: Path) -> None:
+    (root / "objects").mkdir(parents=True)
+    (root / "metadata").mkdir()
+    (root / "objects" / "campaña.svg").write_text("campaign", encoding="utf-8")
+    (root / "metadata" / "metadata.csv").write_text(
+        "filename,dc.identifier,dc.title\nobjects/campaña.svg,MEAN-0001,Campaña\n",
+        encoding="utf-8",
+    )
+
+
+def _write_long_metadata_package(root: Path) -> tuple[str, str]:
+    (root / "objects").mkdir(parents=True)
+    (root / "metadata").mkdir()
+    (root / "objects" / "campaña.svg").write_text("campaign", encoding="utf-8")
+    long_value = "description-" + "x" * 4_100
+    long_header = "custom-" + "h" * 180
+    (root / "metadata" / "metadata.csv").write_text(
+        f"filename,dc.identifier,dc.title,dc.description,{long_header}\n"
+        f"objects/campaña.svg,MEAN-0001,Campaña,{long_value},\n",
+        encoding="utf-8",
+    )
+    return long_value, long_header
 
 
 @pytest.fixture
@@ -125,6 +222,8 @@ async def test_connected_walking_skeleton_requires_model_then_human_then_proof(
     assert initial.status_code == 200
     assert "Campaña poster" in initial.text
     assert "What GPT-5.6 will see" in initial.text
+    assert "Mechanical blocker" in initial.text
+    assert "Approve eligible low-risk families" in initial.text
     assert "Blocked by decisions" in premature_stage.text
     assert "GPT is advisory" in generated.text
     assert len(provider.packets) == 1
@@ -173,3 +272,432 @@ async def test_low_risk_batch_approval_makes_no_provider_call(
     assert len(decisions) == 1
     assert decisions[0].export_ready
     assert provider.packets == []
+
+
+def test_supported_long_and_empty_metadata_is_visibly_bounded_for_gpt(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "long-metadata"
+    long_value, long_header = _write_long_metadata_package(source)
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=FakeDecisionCardProvider(),
+        package_validator=BagItPackageValidator(),
+    )
+    family = workflow.package.families[0]
+
+    packet = workflow.evidence_packet(family.family_id)
+    rendered = workflow.view_model()
+    description = next(
+        item
+        for item in packet.metadata_evidence
+        if item.label.startswith("dc.description")
+    )
+    custom = next(
+        item
+        for item in packet.metadata_evidence
+        if item.label.startswith(long_header[:30])
+    )
+
+    assert family.metadata_row.value("dc.description") == long_value
+    assert len(description.value) == 4_000
+    assert "truncated by Name Atlas" in description.value
+    assert "visibly clipped" in description.label
+    assert len(custom.label) <= 128
+    assert custom.value == ""
+    assert rendered["families"]
+
+
+@pytest.mark.anyio
+async def test_identical_evidence_hits_cache_and_changed_evidence_does_not(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "meaning"
+    _write_meaning_risk_package(source)
+    provider = FakeDecisionCardProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+    )
+    family_id = workflow.package.families[0].family_id
+
+    first = await workflow.generate_card(family_id)
+    repeated = await workflow.generate_card(family_id)
+    decision = workflow.edit(family_id, "campana-reviewed")
+    before_refresh = workflow.view_model()["families"][0]  # type: ignore[index]
+    assert before_refresh["card_stale"] is True
+    with pytest.raises(DecisionError, match="validated decision card"):
+        workflow.approve(family_id)
+    changed = await workflow.generate_card(family_id)
+
+    assert first == repeated
+    assert changed != first
+    assert all(
+        proposal.transformation_steps[-1].after
+        == decision.resolved_targets[proposal.role]
+        for proposal in workflow.proposals
+    )
+    assert len(provider.packets) == 2
+    assert provider.packets[0] != provider.packets[1]
+    metrics = workflow.view_model()["decision_metrics"]
+    assert metrics["cards_requested"] == 3  # type: ignore[index]
+    assert metrics["cache_hits"] == 1  # type: ignore[index]
+
+
+@pytest.mark.anyio
+async def test_live_call_cap_cannot_overwrite_human_decision(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "meaning"
+    _write_meaning_risk_package(source)
+    provider = FakeLiveDecisionCardProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+        live_call_cap=1,
+    )
+    family_id = workflow.package.families[0].family_id
+
+    await workflow.generate_card(family_id)
+    workflow.edit(family_id, "campana-reviewed")
+    with pytest.raises(DecisionCardCapExhaustedError, match="cap is exhausted"):
+        await workflow.generate_card(family_id)
+
+    assert len(provider.packets) == 1
+    assert workflow.live_calls_made == 1
+    assert workflow.decisions[family_id].action is HumanAction.EDITED
+
+
+@pytest.mark.anyio
+async def test_cost_cap_exhaustion_stays_unresolved(tmp_path: Path) -> None:
+    source = tmp_path / "meaning-cost-cap"
+    _write_meaning_risk_package(source)
+    provider = FakeLiveDecisionCardProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+        cost_cap_usd=0.1,
+    )
+    family_id = workflow.package.families[0].family_id
+
+    with pytest.raises(DecisionCardCapExhaustedError, match="cost cap"):
+        await workflow.generate_card(family_id)
+
+    assert provider.packets == []
+    assert workflow.live_calls_made == 0
+    assert workflow.decisions[family_id].action is HumanAction.UNRESOLVED
+
+
+@pytest.mark.anyio
+async def test_workflow_revalidates_provider_output_before_authority(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "meaning-invalid-provider"
+    _write_meaning_risk_package(source)
+    provider = InvalidDecisionCardProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+    )
+    family_id = workflow.package.families[0].family_id
+
+    with pytest.raises(UnknownEvidenceIdError):
+        await workflow.generate_card(family_id)
+
+    assert family_id not in workflow.cards
+    assert workflow.decisions[family_id].action is HumanAction.UNRESOLVED
+
+
+@pytest.mark.anyio
+async def test_live_budget_reservation_survives_workflow_restart(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "meaning-restart"
+    ledger_path = tmp_path / "api_budget.json"
+    _write_meaning_risk_package(source)
+    first_provider = FakeLiveDecisionCardProvider()
+    first = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "first-output",
+        decision_card_provider=first_provider,
+        package_validator=BagItPackageValidator(),
+        budget_ledger_path=ledger_path,
+        live_call_cap=1,
+    )
+    family_id = first.package.families[0].family_id
+    await first.generate_card(family_id)
+
+    second_provider = FakeLiveDecisionCardProvider()
+    restarted = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "second-output",
+        decision_card_provider=second_provider,
+        package_validator=BagItPackageValidator(),
+        budget_ledger_path=ledger_path,
+        live_call_cap=1,
+    )
+
+    with pytest.raises(DecisionCardCapExhaustedError, match="cap is exhausted"):
+        await restarted.generate_card(family_id)
+
+    assert first_provider.packets
+    assert second_provider.packets == []
+    assert restarted.committed_live_cost_usd > 0
+
+
+@pytest.mark.anyio
+async def test_replay_record_is_atomic_immutable_and_not_blocked_by_stale_temp(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "meaning-record"
+    _write_meaning_risk_package(source)
+    record_path = tmp_path / "recordings" / "hero_decision_card.json"
+    record_path.parent.mkdir()
+    stale_legacy_temp = record_path.with_suffix(".json.tmp")
+    stale_legacy_temp.write_text("interrupted old temporary", encoding="utf-8")
+    provider = RecordingLiveDecisionCardProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+        replay_record_path=record_path,
+    )
+    family_id = workflow.package.families[0].family_id
+
+    await workflow.generate_card(family_id)
+    first_record_bytes = record_path.read_bytes()
+    first_record = load_recorded_decision_card(first_record_bytes)
+    await workflow.generate_card(family_id)
+
+    assert first_record.evidence_fingerprint == evidence_fingerprint(
+        provider.packets[0]
+    )
+    assert record_path.read_bytes() == first_record_bytes
+    assert workflow.replay_record_error is None
+
+    workflow.edit(family_id, "campana-reviewed")
+    await workflow.generate_card(family_id)
+
+    assert record_path.read_bytes() == first_record_bytes
+    assert workflow.replay_record_error is None
+    assert len(provider.packets) == 2
+
+
+@pytest.mark.anyio
+async def test_record_write_failure_retries_without_second_provider_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "meaning-record-retry"
+    _write_meaning_risk_package(source)
+    record_path = tmp_path / "recordings" / "hero_decision_card.json"
+    provider = RecordingLiveDecisionCardProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+        replay_record_path=record_path,
+    )
+    family_id = workflow.package.families[0].family_id
+    original_link = workflow_module.os.link
+
+    def fail_link(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise OSError("injected replay promotion failure")
+
+    monkeypatch.setattr(workflow_module.os, "link", fail_link)
+    with pytest.raises(ReplayRecordWriteError, match="retrying"):
+        await workflow.generate_card(family_id)
+
+    assert len(provider.packets) == 1
+    assert workflow.live_calls_made == 1
+    assert family_id not in workflow.cards
+    monkeypatch.setattr(workflow_module.os, "link", original_link)
+
+    await workflow.generate_card(family_id)
+
+    assert len(provider.packets) == 1
+    assert workflow.live_calls_made == 1
+    assert record_path.is_file()
+    assert family_id in workflow.cards
+
+
+@pytest.mark.anyio
+async def test_live_baseline_record_replays_in_a_fresh_session(tmp_path: Path) -> None:
+    source = tmp_path / "meaning-fresh-replay"
+    _write_meaning_risk_package(source)
+    record_path = tmp_path / "recordings" / "hero_decision_card.json"
+    live_provider = RecordingLiveDecisionCardProvider()
+    live = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "live-output",
+        decision_card_provider=live_provider,
+        package_validator=BagItPackageValidator(),
+        replay_record_path=record_path,
+    )
+    family_id = live.package.families[0].family_id
+    live_card = await live.generate_card(family_id)
+
+    replay_provider = RecordedReplayDecisionCardProvider(record_path.read_bytes())
+    replay = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "replay-output",
+        decision_card_provider=replay_provider,
+        package_validator=BagItPackageValidator(),
+        replay_record_path=record_path,
+    )
+    replay.require_replay_record_compatible()
+
+    assert await replay.generate_card(family_id) == live_card
+    assert replay.replay_cards_used == 1
+
+
+@pytest.mark.anyio
+async def test_incompatible_existing_record_blocks_before_live_request(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "meaning-incompatible-record"
+    _write_meaning_risk_package(source)
+    record_path = tmp_path / "recordings" / "hero_decision_card.json"
+    record_path.parent.mkdir()
+    packet_workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "temporary-output",
+        decision_card_provider=FakeDecisionCardProvider(),
+        package_validator=BagItPackageValidator(),
+    )
+    packet = packet_workflow.evidence_packet(
+        packet_workflow.package.families[0].family_id
+    )
+    packet_provider = FakeDecisionCardProvider()
+    card = await packet_provider.generate(packet)
+    mismatched = RecordedDecisionCard(
+        model="gpt-5.6",
+        schema_version="decision-card.v1",
+        evidence_fingerprint="f" * 64,
+        generated_at=datetime.now(tz=ZoneInfo("Europe/Oslo")),
+        decision_card=card,
+        usage=ReplayUsage(
+            input_tokens=100,
+            cached_input_tokens=0,
+            output_tokens=50,
+            reasoning_tokens=10,
+            total_tokens=150,
+            latency_ms=25.0,
+            estimated_cost_usd=0.002,
+        ),
+    )
+    record_path.write_text(mismatched.model_dump_json(), encoding="utf-8")
+    provider = RecordingLiveDecisionCardProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+        replay_record_path=record_path,
+    )
+    family_id = workflow.package.families[0].family_id
+
+    with pytest.raises(ReplayRecordWriteError, match="different evidence"):
+        await workflow.generate_card(family_id)
+
+    assert provider.packets == []
+    assert workflow.live_calls_made == 0
+
+
+@pytest.mark.anyio
+async def test_live_record_must_match_the_current_packet_and_card(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "meaning-stale-live-record"
+    _write_meaning_risk_package(source)
+    provider = MismatchedRecordingLiveProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+    )
+    family_id = workflow.package.families[0].family_id
+
+    with pytest.raises(ReplayRecordWriteError, match="does not match"):
+        await workflow.generate_card(family_id)
+
+    assert family_id not in workflow.cards
+    assert workflow.decisions[family_id].action is HumanAction.UNRESOLVED
+
+
+@pytest.mark.anyio
+async def test_reported_cost_failure_preserves_card_and_retries_without_api_call(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "meaning-usage-retry"
+    _write_meaning_risk_package(source)
+    provider = RecordingLiveDecisionCardProvider()
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=provider,
+        package_validator=BagItPackageValidator(),
+    )
+    family_id = workflow.package.families[0].family_id
+    original_record_cost = workflow.budget_ledger.record_reported_cost
+
+    def fail_reported_cost(value: float) -> object:
+        del value
+        raise BudgetLedgerError("injected usage ledger failure")
+
+    monkeypatch.setattr(
+        workflow.budget_ledger,
+        "record_reported_cost",
+        fail_reported_cost,
+    )
+    first = await workflow.generate_card(family_id)
+
+    assert family_id in workflow.cards
+    assert workflow.budget_reporting_error is not None
+    assert len(provider.packets) == 1
+    monkeypatch.setattr(
+        workflow.budget_ledger,
+        "record_reported_cost",
+        original_record_cost,
+    )
+
+    repeated = await workflow.generate_card(family_id)
+
+    assert repeated == first
+    assert len(provider.packets) == 1
+    assert workflow.budget_reporting_error is None
+
+
+def test_failed_restage_clears_previous_green_proof(tmp_path: Path) -> None:
+    source = tmp_path / "restage"
+    _write_low_risk_package(source)
+    workflow = WorkflowSession(
+        source_root=source,
+        output_root=tmp_path / "output",
+        decision_card_provider=FakeDecisionCardProvider(),
+        package_validator=BagItPackageValidator(),
+    )
+    workflow.approve_low_risk()
+    workflow.stage()
+    assert workflow.view_model()["proof"] is not None
+    (source / "objects" / "poster.svg").write_text("changed", encoding="utf-8")
+
+    with pytest.raises(StagingError, match="changed after the initial snapshot"):
+        workflow.stage()
+
+    assert workflow.stage_result is None
+    assert workflow.view_model()["proof"] is None

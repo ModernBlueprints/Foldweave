@@ -1,7 +1,15 @@
 """Bounded GPT-5.6 DecisionCard providers and replay contracts."""
 
+from .budget import (
+    BUDGET_SCHEMA_VERSION,
+    BudgetSnapshot,
+    PersistentBudgetLedger,
+    microusd_to_usd,
+)
 from .errors import (
     AuthorityClaimError,
+    BudgetLedgerError,
+    DecisionCardCapExhaustedError,
     DecisionCardOutputError,
     DecisionCardProviderError,
     InvalidEvidencePacketError,
@@ -16,6 +24,7 @@ from .errors import (
     ReplayModelMismatchError,
     ReplayProviderError,
     ReplayRecordInvalidError,
+    ReplayRecordWriteError,
     ReplaySchemaMismatchError,
     UnknownCandidatePathError,
     UnknownEvidenceIdError,
@@ -45,10 +54,14 @@ from .service import PROFILE_DESCRIPTION, build_evidence_packet
 
 __all__ = [
     "AuthorityClaimError",
+    "BUDGET_SCHEMA_VERSION",
+    "BudgetLedgerError",
+    "BudgetSnapshot",
     "CanonicalEvidenceEnvelope",
     "DECISION_CARD_INSTRUCTIONS",
     "DECISION_CARD_SCHEMA_VERSION",
     "DEFAULT_LIVE_POLICY",
+    "DecisionCardCapExhaustedError",
     "DecisionCardOutputError",
     "DecisionCardProviderError",
     "InvalidEvidencePacketError",
@@ -62,12 +75,14 @@ __all__ = [
     "LiveTransportError",
     "MODEL_ALIAS",
     "MalformedDecisionCardError",
+    "PersistentBudgetLedger",
     "RecordedDecisionCard",
     "RecordedReplayDecisionCardProvider",
     "ReplayFingerprintMismatchError",
     "ReplayModelMismatchError",
     "ReplayProviderError",
     "ReplayRecordInvalidError",
+    "ReplayRecordWriteError",
     "ReplaySchemaMismatchError",
     "ReplayUsage",
     "UnknownCandidatePathError",
@@ -76,6 +91,7 @@ __all__ = [
     "build_evidence_packet",
     "evidence_fingerprint",
     "load_recorded_decision_card",
+    "microusd_to_usd",
     "validate_decision_card",
     "validate_evidence_packet",
     "PROFILE_DESCRIPTION",

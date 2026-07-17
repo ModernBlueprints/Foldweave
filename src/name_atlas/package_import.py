@@ -271,6 +271,12 @@ def _reconcile(
         ContentRole.ACCESS: set(),
         ContentRole.PRESERVATION: set(),
     }
+    if not normalization_present and any(
+        actual_by_role[role] for role in seen_derivatives
+    ):
+        raise PackageImportError(
+            "normalization.csv is required when derivative roots contain files."
+        )
     for row in normalization_rows:
         if row.original_path not in metadata_by_original:
             raise PackageImportError(
@@ -316,13 +322,6 @@ def _reconcile(
                 f"{role.value.title()} derivative accounting mismatch; "
                 f"unreferenced={orphaned}, unresolved={missing}."
             )
-    if not normalization_present and any(
-        actual_by_role[role] for role in seen_derivatives
-    ):
-        raise PackageImportError(
-            "normalization.csv is required when derivative roots contain files."
-        )
-
     families: list[ObjectFamily] = []
     for original_path, row in metadata_by_original.items():
         identifier = row.value("dc.identifier")

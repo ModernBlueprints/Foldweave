@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from name_atlas.domain import EvidencePacket, EvidenceRef
 from name_atlas.package_import import ObjectFamily, SourcePackage
 from name_atlas.proposals import PathProposal
@@ -13,6 +15,8 @@ PROFILE_DESCRIPTION = (
     "role directories and lowercase retained final extensions. GPT is advisory "
     "and cannot approve, verify, choose, or set a target."
 )
+MAX_METADATA_VALUE_CHARS = 4_000
+MAX_METADATA_LABEL_CHARS = 128
 
 
 def build_evidence_packet(
@@ -45,9 +49,12 @@ def build_evidence_packet(
     )
     metadata_evidence = tuple(
         EvidenceRef(
-            evidence_id=f"metadata:row:{family.metadata_row.row_number}:{column}",
-            label=column,
-            value=family.metadata_row.value(column),
+            evidence_id=_metadata_evidence_id(
+                family.metadata_row.row_number,
+                column,
+            ),
+            label=_metadata_label(column, family.metadata_row.value(column)),
+            value=_bounded_metadata_value(family.metadata_row.value(column)),
         )
         for column in package.metadata_header
     )
@@ -93,3 +100,26 @@ def build_evidence_packet(
         risk_signals=risk_signals,
         profile_description=PROFILE_DESCRIPTION,
     )
+
+
+def _metadata_evidence_id(row_number: int, column: str) -> str:
+    digest = hashlib.sha256(column.encode("utf-8")).hexdigest()[:20]
+    return f"metadata:row:{row_number}:column:{digest}"
+
+
+def _metadata_label(column: str, value: str) -> str:
+    clipped = len(value) > MAX_METADATA_VALUE_CHARS
+    suffix = " · outbound value visibly clipped" if clipped else ""
+    available = MAX_METADATA_LABEL_CHARS - len(suffix)
+    if len(column) <= available:
+        return f"{column}{suffix}"
+    marker = "…"
+    return f"{column[: available - len(marker)]}{marker}{suffix}"
+
+
+def _bounded_metadata_value(value: str) -> str:
+    if len(value) <= MAX_METADATA_VALUE_CHARS:
+        return value
+    marker = f"\n[truncated by Name Atlas: original value has {len(value)} characters]"
+    prefix_length = MAX_METADATA_VALUE_CHARS - len(marker)
+    return f"{value[:prefix_length]}{marker}"

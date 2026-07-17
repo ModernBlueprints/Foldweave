@@ -30,7 +30,7 @@ async def test_replay_shell_exposes_safe_runtime_status() -> None:
     assert "Replay provider configured" in response.text
     assert "loopback only" in response.text
     assert health.json() == {
-        "status": "ready",
+        "status": "blocked",
         "mode": "replay",
         "model": "gpt-5.6",
         "api_key_configured": False,

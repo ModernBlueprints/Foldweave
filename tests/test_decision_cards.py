@@ -275,12 +275,13 @@ def test_live_provider_uses_exact_responses_parse_shape_without_network() -> Non
         "store": False,
         "timeout": 45.0,
     }
-    assert provider.policy.sdk_max_retries == 1
+    assert provider.policy.sdk_max_retries == 0
     assert provider.last_record is not None
     assert provider.last_record.model == "gpt-5.6"
     assert provider.last_record.evidence_fingerprint == evidence_fingerprint(packet)
     assert provider.last_record.generated_at.utcoffset().total_seconds() == 7_200
     assert provider.last_record.usage.cached_input_tokens == 5
+    assert provider.last_record.usage.estimated_cost_usd == pytest.approx(0.0028775)
 
 
 def test_live_provider_factory_applies_bounded_sdk_retry_policy(
@@ -300,7 +301,7 @@ def test_live_provider_factory_applies_bounded_sdk_retry_policy(
     assert captured == {
         "api_key": "test-only-placeholder",
         "timeout": 45.0,
-        "max_retries": 1,
+        "max_retries": 0,
     }
     assert provider.policy.max_output_tokens == 1_800
 

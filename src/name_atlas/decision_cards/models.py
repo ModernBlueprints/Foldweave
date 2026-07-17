@@ -37,7 +37,7 @@ class LiveProviderPolicy(_StrictFrozenProviderModel):
 
 DEFAULT_LIVE_POLICY = LiveProviderPolicy(
     timeout_seconds=45.0,
-    sdk_max_retries=1,
+    sdk_max_retries=0,
     max_output_tokens=1_800,
 )
 

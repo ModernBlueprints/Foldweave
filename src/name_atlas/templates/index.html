@@ -80,7 +80,7 @@
                   <h3>{{ item.family.metadata_row.value('dc.title') }}</h3>
                   <p class="mono subtle">Family {{ item.family.family_id[:16] }}…</p>
                 </div>
-                {% if item.ready %}<span class="state state--green">Human resolved</span>{% else %}<span class="state state--amber">Judgment required</span>{% endif %}
+                {% if item.ready %}<span class="state state--green">Human resolved</span>{% elif item.mechanically_blocked %}<span class="state state--red">Mechanical blocker</span>{% else %}<span class="state state--amber">Judgment required</span>{% endif %}
               </header>
 
               <div class="relationship-strip" aria-label="Declared family roles">
@@ -99,7 +99,13 @@
                     <code>{{ proposal.original_relative_path }}</code>
                     <code>{{ proposal.proposed_relative_path }}</code>
                     <span>
-                      {% if proposal.meaning_risks %}<b class="risk risk--amber">Meaning</b>{% else %}<b class="risk risk--neutral">Review</b>{% endif %}
+                      {% if proposal.mechanical_blockers %}
+                        {% for risk in proposal.mechanical_blockers %}<b class="risk risk--red">{{ risk.category.value }}</b>{% endfor %}
+                      {% elif proposal.meaning_risks %}
+                        <b class="risk risk--amber">Meaning</b>
+                      {% else %}
+                        <b class="risk risk--neutral">No flagged risk</b>
+                      {% endif %}
                     </span>
                   </div>
                 {% endfor %}
@@ -133,6 +139,27 @@
             <p>Explicitly approve every currently unblocked family that has no Meaning risk. This action never calls GPT-5.6.</p>
             <button class="button" type="submit">Approve eligible low-risk families</button>
           </form>
+
+          <details class="decision-metrics">
+            <summary>GPT-5.6 calls, cache, usage, and cap</summary>
+            <dl>
+              <div><dt>Model</dt><dd>{{ view.decision_metrics.model }}</dd></div>
+              <div><dt>Cards requested</dt><dd>{{ view.decision_metrics.cards_requested }}</dd></div>
+              <div><dt>Live requests reserved</dt><dd>{{ view.decision_metrics.live_calls_made }} / {{ view.decision_metrics.configured_live_call_cap }}</dd></div>
+              <div><dt>Provider attempts reserved</dt><dd>{{ view.decision_metrics.provider_attempts_reserved }}</dd></div>
+              <div><dt>Replay cards</dt><dd>{{ view.decision_metrics.replay_cards_used }}</dd></div>
+              <div><dt>Cache hits</dt><dd>{{ view.decision_metrics.cache_hits }}</dd></div>
+              <div><dt>Calls avoided</dt><dd>{{ view.decision_metrics.calls_avoided_by_deterministic_triage }}</dd></div>
+              <div><dt>Committed budget exposure</dt><dd>${{ "%.4f"|format(view.decision_metrics.committed_live_cost_usd) }} / ${{ "%.2f"|format(view.decision_metrics.configured_cost_cap_usd) }}</dd></div>
+              <div><dt>Reported estimated cost</dt><dd>${{ "%.4f"|format(view.decision_metrics.estimated_live_cost_usd) }}</dd></div>
+              <div><dt>Replay artifact</dt><dd>{% if view.decision_metrics.replay_record_error %}needs attention{% elif diagnostics.replay_record_configured %}validated record loaded{% elif diagnostics.mode == 'live' and view.decision_metrics.live_calls_made %}record saved{% else %}not recorded yet{% endif %}</dd></div>
+              <div><dt>Usage ledger</dt><dd>{% if view.decision_metrics.budget_reporting_error %}conservative reservation only{% else %}current{% endif %}</dd></div>
+              {% if view.decision_metrics.last_usage %}
+                <div><dt>{% if diagnostics.mode == 'replay' %}Recorded generation tokens{% else %}Last live tokens{% endif %}</dt><dd>{{ view.decision_metrics.last_usage.total_tokens if view.decision_metrics.last_usage.total_tokens is not none else 'not reported' }}</dd></div>
+                <div><dt>{% if diagnostics.mode == 'replay' %}Recorded generation latency{% else %}Last live latency{% endif %}</dt><dd>{{ "%.0f"|format(view.decision_metrics.last_usage.latency_ms) }} ms</dd></div>
+              {% endif %}
+            </dl>
+          </details>
 
           {% for item in view.families %}
             <article class="decision-layout">
@@ -175,6 +202,8 @@
                   </ul>
                   <p><strong>Uncertainty</strong><br>{{ item.card.uncertainty }}</p>
                   <blockquote>{{ item.card.discriminating_question }}</blockquote>
+                {% elif item.card_stale %}
+                  <p class="empty-state">The proposal evidence changed after this card was generated. Request a new evidence-bound card before another Meaning-risk decision.</p>
                 {% elif item.card_error %}
                   <p class="empty-state empty-state--error">{{ item.card_error }}</p>
                 {% else %}
@@ -189,11 +218,11 @@
                   <p class="decision-state">Stored state: <strong>{{ item.decision.action.value }}</strong></p>
                 {% endif %}
                 <form method="post" action="/families/{{ item.family.family_id }}/approve">
-                  <button class="button" type="submit" {% if item.requires_card and not item.card %}disabled{% endif %}>Approve proposed family map</button>
+                  <button class="button" type="submit" {% if not item.approve_enabled %}disabled{% endif %}>Approve proposed family map</button>
                 </form>
                 <form class="edit-form" method="post" action="/families/{{ item.family.family_id }}/edit">
                   <label for="descriptor-{{ loop.index }}">Or enter one exact family descriptor</label>
-                  <div><input id="descriptor-{{ loop.index }}" name="descriptor" placeholder="e.g. revised-descriptor" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required><button class="button" type="submit" {% if item.requires_card and not item.card %}disabled{% endif %}>Apply to all roles</button></div>
+                  <div><input id="descriptor-{{ loop.index }}" name="descriptor" placeholder="e.g. revised-descriptor" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required><button class="button" type="submit" {% if not item.edit_enabled %}disabled{% endif %}>Apply to all roles</button></div>
                 </form>
                 <form method="post" action="/families/{{ item.family.family_id }}/refuse">
                   <button class="button button--quiet" type="submit">Refuse and block export</button>

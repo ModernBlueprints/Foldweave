@@ -39,7 +39,7 @@ class EvidenceRef(StrictFrozenModel):
 
     evidence_id: str = Field(min_length=1, max_length=128)
     label: str = Field(min_length=1, max_length=128)
-    value: str = Field(min_length=1, max_length=4_000)
+    value: str = Field(max_length=4_000)
 
 
 class TransformationStep(StrictFrozenModel):

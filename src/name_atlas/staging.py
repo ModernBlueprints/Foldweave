@@ -5,9 +5,9 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import logging
 import os
 import stat
-import unicodedata
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Protocol
@@ -29,10 +29,15 @@ from name_atlas.artifacts import (
     write_summary,
     write_verification_report,
 )
-from name_atlas.decisions import HumanDecision
+from name_atlas.decisions import HumanAction, HumanDecision
 from name_atlas.domain import ContentRole, PackageValidationResult
 from name_atlas.package_import import ObjectFamily, SourcePackage, import_package
-from name_atlas.proposals import DESCRIPTOR_PATTERN, EXTENSION_PATTERN
+from name_atlas.proposals import (
+    DESCRIPTOR_PATTERN,
+    EXTENSION_PATTERN,
+    build_proposals,
+    edited_targets,
+)
 from name_atlas.source import (
     HASH_CHUNK_SIZE,
     SourceMember,
@@ -40,9 +45,16 @@ from name_atlas.source import (
     validate_relative_path,
 )
 from name_atlas.verification.bag_writer import BagItWriter
+from name_atlas.verification.promotion import promote_directory_no_replace
+from name_atlas.verification.staged_proof import (
+    StagedProofError,
+    targets_are_unique,
+    verify_staged_artifacts,
+)
 
 oslo_tz = ZoneInfo("Europe/Oslo")
 VERIFIED_CLAIM = "Verified round-trip integrity within the supported package contract"
+LOGGER = logging.getLogger(__name__)
 
 
 class _PackageValidator(Protocol):
@@ -91,7 +103,21 @@ def stage_package(
     (pending_root / "name-atlas").mkdir()
 
     map_rows: list[PathMapRow] = []
+    report_path = pending_root / "name-atlas" / "verification_report.json"
+    current_stage = "pending_allocation"
+    write_verification_report(
+        report_path,
+        _failure_report(
+            generated_at=generated_at,
+            final_root=final_root,
+            package=package,
+            map_rows=(),
+            stage=current_stage,
+            reason="Staging transaction has not completed.",
+        ),
+    )
     try:
+        current_stage = "copy_content_objects"
         for family in package.families:
             decision = decision_by_family[family.family_id]
             for member in family.members:
@@ -113,11 +139,13 @@ def stage_package(
                     )
                 )
 
-        control_proofs = _write_control_files(
+        current_stage = "write_declared_control_files"
+        _write_control_files(
             package,
             decision_by_family,
             pending_root=pending_root,
         )
+        current_stage = "postcopy_source_snapshot"
         postcopy = snapshot_tree(package.root)
         if postcopy != package.snapshot:
             raise StagingError("Source package changed during copy-only staging.")
@@ -125,15 +153,6 @@ def stage_package(
         ordered_maps = tuple(
             sorted(map_rows, key=lambda row: (row.family_id, row.role.value))
         )
-        checks = _deterministic_checks(
-            package,
-            ordered_maps,
-            decision_by_family,
-            pending_root=pending_root,
-        )
-        if not all(check.passed for check in checks):
-            raise StagingError("One or more deterministic proof checks failed.")
-
         proof_root = pending_root / "name-atlas"
         artifact_paths = (
             "name-atlas/source_snapshot.json",
@@ -147,6 +166,7 @@ def stage_package(
             "manifest-sha256.txt",
             "tagmanifest-sha256.txt",
         )
+        current_stage = "write_proof_artifacts"
         write_source_snapshot(proof_root / "source_snapshot.json", package.snapshot)
         ordered_decisions = tuple(
             decision_by_family[family.family_id] for family in package.families
@@ -159,6 +179,20 @@ def stage_package(
             content_objects=len(ordered_maps),
             content_bytes=sum(row.size for row in ordered_maps),
         )
+        current_stage = "deterministic_verification"
+        try:
+            deterministic_proof = verify_staged_artifacts(
+                package,
+                ordered_maps,
+                decision_by_family,
+                pending_root=pending_root,
+            )
+        except StagedProofError as exc:
+            raise StagingError(str(exc)) from exc
+        checks = deterministic_proof.checks
+        control_proofs = deterministic_proof.control_files
+        if not all(check.passed for check in checks):
+            raise StagingError("One or more deterministic proof checks failed.")
         provisional_validation = PackageValidationResult(
             validator="bagit",
             valid=False,
@@ -178,18 +212,38 @@ def stage_package(
             artifact_paths=artifact_paths,
             blockers=("BagIt validation has not run yet.",),
         )
-        report_path = proof_root / "verification_report.json"
-        write_verification_report(report_path, report)
+        current_stage = "write_provisional_report"
+        replace_verification_report(report_path, report)
 
+        current_stage = "bagit_creation"
         writer = BagItWriter()
         writer.write(pending_root, bagging_date=generated_at.date())
+        current_stage = "bagit_validation"
         first_validation = package_validator.validate(pending_root)
+        current_stage = "post_bagit_deterministic_verification"
+        try:
+            final_deterministic_proof = verify_staged_artifacts(
+                package,
+                ordered_maps,
+                decision_by_family,
+                pending_root=pending_root,
+            )
+        except StagedProofError as exc:
+            raise StagingError(str(exc)) from exc
+        checks = final_deterministic_proof.checks
+        control_proofs = final_deterministic_proof.control_files
+        deterministic_valid = all(check.passed for check in checks)
         final_status = (
-            ProofStatus.VERIFIED if first_validation.valid else ProofStatus.BLOCKED
+            ProofStatus.VERIFIED
+            if first_validation.valid and deterministic_valid
+            else ProofStatus.BLOCKED
+        )
+        blockers = tuple(check.label for check in checks if not check.passed) + (
+            () if first_validation.valid else first_validation.messages
         )
         report = _report(
             status=final_status,
-            claim=VERIFIED_CLAIM if first_validation.valid else None,
+            claim=VERIFIED_CLAIM if final_status is ProofStatus.VERIFIED else None,
             generated_at=generated_at,
             final_root=final_root,
             package=package,
@@ -199,12 +253,12 @@ def stage_package(
             checks=checks,
             bagit_validation=first_validation,
             artifact_paths=artifact_paths,
-            blockers=() if first_validation.valid else first_validation.messages,
+            blockers=blockers,
         )
         replace_verification_report(report_path, report)
         writer.refresh_tagmanifest(pending_root)
         final_validation = package_validator.validate(pending_root)
-        if first_validation.valid and not final_validation.valid:
+        if final_status is ProofStatus.VERIFIED and not final_validation.valid:
             report = _report(
                 status=ProofStatus.BLOCKED,
                 claim=None,
@@ -221,16 +275,35 @@ def stage_package(
             )
             replace_verification_report(report_path, report)
             writer.refresh_tagmanifest(pending_root)
-        if not first_validation.valid or not final_validation.valid:
+        if (
+            not deterministic_valid
+            or not first_validation.valid
+            or not final_validation.valid
+        ):
             raise StagingError(
-                f"BagIt validation failed; preserved pending stage at {pending_root}."
+                "Final deterministic or BagIt verification failed; preserved "
+                f"pending stage at {pending_root}."
             )
+        current_stage = "final_source_snapshot"
         if snapshot_tree(package.root) != package.snapshot:
             raise StagingError("Source package changed before final promotion.")
-        if final_root.exists():
-            raise StagingError("Final stage path appeared before promotion.")
-        os.rename(pending_root, final_root)
-    except Exception:
+        current_stage = "final_promotion"
+        try:
+            promote_directory_no_replace(pending_root, final_root)
+        except FileExistsError as exc:
+            raise StagingError("Final stage path appeared before promotion.") from exc
+        except OSError as exc:
+            raise StagingError("Atomic final-stage promotion failed.") from exc
+    except Exception as exc:
+        _preserve_failure_report(
+            report_path=report_path,
+            generated_at=generated_at,
+            final_root=final_root,
+            package=package,
+            map_rows=tuple(map_rows),
+            stage=current_stage,
+            error=exc,
+        )
         raise
 
     artifacts = StageArtifacts(
@@ -251,6 +324,7 @@ def _validate_decisions(
     expected_ids = {family.family_id for family in package.families}
     if set(decision_by_family) != expected_ids:
         raise StagingError("Every family must have exactly one decision record.")
+    profile_proposals = build_proposals(package.families)
     for family in package.families:
         decision = decision_by_family[family.family_id]
         expected_roles = {member.role for member in family.members}
@@ -260,6 +334,27 @@ def _validate_decisions(
         ):
             raise StagingError(
                 f"Family {family.family_id} has no complete resolved target map."
+            )
+        if decision.action is HumanAction.APPROVED:
+            expected_targets = {
+                proposal.role: proposal.proposed_relative_path
+                for proposal in profile_proposals
+                if proposal.family_id == family.family_id
+            }
+        elif decision.action is HumanAction.EDITED:
+            assert decision.human_input is not None
+            try:
+                expected_targets = dict(edited_targets(family, decision.human_input))
+            except ValueError as exc:
+                raise StagingError(
+                    f"Family {family.family_id} has an invalid edited decision."
+                ) from exc
+        else:
+            raise StagingError(f"Family {family.family_id} is not approved or edited.")
+        if dict(decision.resolved_targets) != expected_targets:
+            raise StagingError(
+                f"Family {family.family_id} decision targets do not match its "
+                f"{decision.action.value} authority record."
             )
         for member in family.members:
             _validate_resolved_target(
@@ -381,7 +476,9 @@ def _write_control_files(
     decision_by_family: dict[str, HumanDecision],
     *,
     pending_root: Path,
-) -> tuple[ControlFileProof, ...]:
+) -> None:
+    """Write declared control files from stored family target maps."""
+
     family_by_row = {
         family.metadata_row.row_number: family for family in package.families
     }
@@ -396,18 +493,6 @@ def _write_control_files(
     metadata_bytes = _render_csv((package.metadata_header, *metadata_rows))
     metadata_target = pending_root / "data" / "metadata" / "metadata.csv"
     _write_new_bytes(metadata_target, metadata_bytes)
-    metadata_source = _member_by_path(package, "metadata/metadata.csv")
-    proofs = [
-        ControlFileProof(
-            logical_path="metadata/metadata.csv",
-            source_sha256=metadata_source.sha256,
-            staged_sha256=hashlib.sha256(metadata_bytes).hexdigest(),
-            rewritten_fields=tuple(
-                f"row:{row.row_number}:filename" for row in package.metadata_rows
-            ),
-            non_path_fields_unchanged=True,
-        )
-    ]
 
     if package.normalization_present:
         family_by_normalization_row = {
@@ -416,7 +501,6 @@ def _write_control_files(
             if family.normalization_row_number is not None
         }
         normalization_values = []
-        rewritten_fields = []
         for row in package.normalization_rows:
             family = family_by_normalization_row[row.row_number]
             targets = decision_by_family[family.family_id].resolved_targets
@@ -427,28 +511,10 @@ def _write_control_files(
                     targets.get(ContentRole.PRESERVATION, ""),
                 )
             )
-            rewritten_fields.extend(
-                (
-                    f"row:{row.row_number}:original",
-                    f"row:{row.row_number}:access",
-                    f"row:{row.row_number}:preservation",
-                )
-            )
         normalization_bytes = _render_csv(tuple(normalization_values))
         _write_new_bytes(
             pending_root / "data" / "normalization.csv", normalization_bytes
         )
-        normalization_source = _member_by_path(package, "normalization.csv")
-        proofs.append(
-            ControlFileProof(
-                logical_path="normalization.csv",
-                source_sha256=normalization_source.sha256,
-                staged_sha256=hashlib.sha256(normalization_bytes).hexdigest(),
-                rewritten_fields=tuple(rewritten_fields),
-                non_path_fields_unchanged=True,
-            )
-        )
-    return tuple(proofs)
 
 
 def _render_csv(rows: tuple[tuple[str, ...], ...]) -> bytes:
@@ -466,119 +532,84 @@ def _write_new_bytes(path: Path, data: bytes) -> None:
         os.fsync(stream.fileno())
 
 
-def _member_by_path(package: SourcePackage, path: str) -> SourceMember:
-    return next(
-        member for member in package.snapshot.members if member.relative_path == path
-    )
-
-
-def _deterministic_checks(
-    package: SourcePackage,
-    maps: tuple[PathMapRow, ...],
-    decisions: dict[str, HumanDecision],
-    *,
-    pending_root: Path,
-) -> tuple[VerificationCheck, ...]:
-    staged_hashes_match = all(
-        _stream_sha256(pending_root / "data" / row.target_path) == row.sha256
-        for row in maps
-    )
-    target_paths = tuple(row.target_path for row in maps)
-    reverse_round_trip = (
-        len(maps) == len(package.content_members)
-        and len({row.source_path for row in maps}) == len(maps)
-        and len(set(target_paths)) == len(maps)
-    )
-    references_resolve = all(
-        target in set(target_paths)
-        for decision in decisions.values()
-        for target in decision.resolved_targets.values()
-    )
-    profile_valid = all(_target_profile_valid(row) for row in maps)
-    return (
-        VerificationCheck(
-            check_id="source_snapshot_equal",
-            label="Source snapshot unchanged before staging",
-            passed=True,
-            detail=package.snapshot.commitment,
-        ),
-        VerificationCheck(
-            check_id="payload_hashes_equal",
-            label="Every staged content-object hash equals its source",
-            passed=staged_hashes_match,
-            detail=f"{len(maps)} content objects compared by SHA-256.",
-        ),
-        VerificationCheck(
-            check_id="declared_references_resolve",
-            label="Every rewritten declared reference resolves",
-            passed=references_resolve,
-            detail="Metadata and normalization targets use one stored family map.",
-        ),
-        VerificationCheck(
-            check_id="target_profile_valid",
-            label="Every target satisfies the repository-ready profile",
-            passed=profile_valid,
-            detail="Identifier, descriptor, role, directory, and extension checked.",
-        ),
-        VerificationCheck(
-            check_id="forward_reverse_inverse",
-            label="Forward and reverse logical maps are complete inverses",
-            passed=reverse_round_trip,
-            detail=f"{len(maps)} source and target logical paths round-trip.",
-        ),
-        VerificationCheck(
-            check_id="target_uniqueness",
-            label="Targets are unique under exact, NFC, and casefold comparison",
-            passed=_targets_are_unique(target_paths),
-            detail="Three independent target comparison sets evaluated.",
-        ),
-    )
-
-
-def _target_profile_valid(row: PathMapRow) -> bool:
-    expected_directory = {
-        ContentRole.ORIGINAL: "objects",
-        ContentRole.ACCESS: "manualNormalization/access",
-        ContentRole.PRESERVATION: "manualNormalization/preservation",
-    }[row.role]
-    path = Path(row.target_path)
-    if path.parent.as_posix() != expected_directory:
-        return False
-    extension = path.suffix
-    if EXTENSION_PATTERN.fullmatch(extension) is None:
-        return False
-    stem = path.name[: -len(extension)]
-    try:
-        identifier, descriptor, role = stem.split("__")
-    except ValueError:
-        return False
-    return (
-        identifier == row.canonical_identifier
-        and DESCRIPTOR_PATTERN.fullmatch(descriptor) is not None
-        and role == row.role.value
-    )
-
-
-def _targets_are_unique(targets: tuple[str, ...]) -> bool:
-    comparisons = (
-        targets,
-        tuple(unicodedata.normalize("NFC", target) for target in targets),
-        tuple(unicodedata.normalize("NFC", target).casefold() for target in targets),
-    )
-    return all(len(values) == len(set(values)) for values in comparisons)
-
-
 def _require_globally_unique_targets(targets: tuple[str, ...]) -> None:
-    if not _targets_are_unique(targets):
+    if not targets_are_unique(targets):
         raise StagingError("Resolved targets collide under exact, NFC, or casefold.")
 
 
-def _stream_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(HASH_CHUNK_SIZE), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def _preserve_failure_report(
+    *,
+    report_path: Path,
+    generated_at: datetime,
+    final_root: Path,
+    package: SourcePackage,
+    map_rows: tuple[PathMapRow, ...],
+    stage: str,
+    error: Exception,
+) -> None:
+    reason = (
+        str(error).strip()
+        if isinstance(error, StagingError)
+        else f"Unexpected {type(error).__name__} during {stage}."
+    )
+    if not reason:
+        reason = f"Staging failed during {stage}."
+    report = _failure_report(
+        generated_at=generated_at,
+        final_root=final_root,
+        package=package,
+        map_rows=map_rows,
+        stage=stage,
+        reason=reason[:800],
+    )
+    try:
+        if report_path.exists():
+            replace_verification_report(report_path, report)
+        else:
+            write_verification_report(report_path, report)
+    except (OSError, ValueError):
+        LOGGER.error("Could not preserve staging failure report at %s", report_path)
+
+
+def _failure_report(
+    *,
+    generated_at: datetime,
+    final_root: Path,
+    package: SourcePackage,
+    map_rows: tuple[PathMapRow, ...],
+    stage: str,
+    reason: str,
+) -> VerificationReport:
+    blocker = f"{stage}: {reason}"
+    return VerificationReport(
+        status=ProofStatus.BLOCKED,
+        claim=None,
+        generated_at=generated_at,
+        staged_location=str(final_root),
+        source_snapshot_commitment=package.snapshot.commitment,
+        prestaging_snapshot_commitment=package.snapshot.commitment,
+        postcopy_snapshot_commitment=None,
+        source_unchanged=None,
+        content_object_count=len(map_rows),
+        content_bytes=sum(row.size for row in map_rows),
+        control_files=(),
+        map_row_count=len(map_rows),
+        checks=(
+            VerificationCheck(
+                check_id="transaction_incomplete",
+                label="Staging transaction did not complete",
+                passed=False,
+                detail=blocker,
+            ),
+        ),
+        bagit_validation=PackageValidationResult(
+            validator="bagit",
+            valid=False,
+            messages=("BagIt validation did not complete.",),
+        ),
+        artifact_paths=("name-atlas/verification_report.json",),
+        blockers=(blocker,),
+    )
 
 
 def _report(
