@@ -13,7 +13,7 @@ only in `docs/build/GOAL.md`. Current observed state lives only in
 `docs/build/STATE.md`.
 
 H+0 is **Friday 17 July 2026 at 17:16:25 CEST**, the active-goal creation
-timestamp in this primary Codex task. M0 through M6 are complete and M7 is in
+timestamp in this primary Codex task. M0 through M7 are complete and M8 is in
 progress.
 
 ## Operating rules
@@ -267,8 +267,8 @@ Pre-authorized optional cuts, in order:
 | Downstream consumer | M8 recording package and M9 public submission |
 | Owner | Primary integrator; independent release-candidate review may be delegated |
 | Allowed scope cut | No feature cuts remain; fix blockers or simplify implementation behind the same contract |
-| Actual status | **IN_PROGRESS** |
-| Actual verification | **M6 release commit selected as `d71b0b903a8259b158e1d674c5735edb88a6c665`. Clean-clone install, keyless replay transaction, judge commands, live-startup-only smoke, final secret/Git checks, and public-repository readiness remain to be reproduced outside the working tree.** |
+| Actual status | **COMPLETE** |
+| Actual verification | **PASSED in fresh clone `/private/tmp/name-atlas-m7.jBLU0S/repo` at commit `b4a2dd0f7c1c0142901ab1218c06925a4e7d95e3`: Python 3.11.9; `uv lock --check`; new `uv sync --frozen`; 116 keyless tests; Ruff lint/format; source and wheel builds; local-link and secret scans; clean Git state. The keyless browser transaction displayed `Recorded GPT-5.6 response`, resolved 12/12 families, staged 28 content objects and 30 data members, produced 28 inverse map rows, passed every serialized check and a fresh Library of Congress `bagit` validation, and left the source unchanged. A separate clean-clone live startup recognized the restricted local key, exact `gpt-5.6`, loopback binding, and Generate control without making a provider request. The temporary key was then revoked in OpenAI Platform, ignored local `.env` was removed, both servers stopped, and the primary and clean-clone Git states remained clean.** |
 
 ### M8 — Recording readiness
 
@@ -285,8 +285,8 @@ Pre-authorized optional cuts, in order:
 | Downstream consumer | M9 protected submission reserve |
 | Owner | Primary integrator; user handles no recording yet unless they elect to start early |
 | Allowed scope cut | Only nonessential copy polish; recording readiness itself is not cut |
-| Actual status | **PENDING** |
-| Actual verification | **NOT RUN** |
+| Actual status | **IN_PROGRESS** |
+| Actual verification | **M7 release candidate passed. Public repository creation, public-URL verification, timed narration and shot list, Devpost copy, final proof-artifact selection, and the recording-ready rules/claims audit remain. No product code, feature, or design work remains planned.** |
 
 ### M9 — Protected submission reserve
 

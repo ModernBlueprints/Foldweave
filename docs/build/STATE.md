@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **Friday 17 July 2026 at 21:15:30 CEST**
+Checkpoint: **Friday 17 July 2026 at 21:21:22 CEST**
 
-Phase: **M7 — RELEASE CANDIDATE**
+Phase: **M8 — RECORDING READINESS**
 
 Production goal: **ACTIVE**
 
@@ -12,8 +12,8 @@ H+0: **Friday 17 July 2026 at 17:16:25 CEST**
 
 - Recording-ready boundary: Tuesday 21 July 2026 at 02:00 CEST
 - Submission boundary: Wednesday 22 July 2026 at 02:00 CEST
-- Product time remaining: 76 hours 44 minutes 29 seconds
-- Total time to submission: 100 hours 44 minutes 29 seconds
+- Product time remaining: 76 hours 38 minutes 37 seconds
+- Total time to submission: 100 hours 38 minutes 37 seconds
 - Protected submission reserve: 24 hours
 - Compression: not required; ordinary H+ targets remain in force
 
@@ -29,13 +29,15 @@ Targets force integration and scope control. They are not cancellation timers.
   `819e674ba74fb86d981f390d52214de5b4e4f7a7`
 - M6 live/replay release commit:
   `d71b0b903a8259b158e1d674c5735edb88a6c665`
+- M7 release candidate was reproduced from:
+  `b4a2dd0f7c1c0142901ab1218c06925a4e7d95e3`
 - No Git remote or public repository exists yet.
-- The working tree was clean immediately after the M6 release commit. This
-  synchronized plan/state checkpoint is the only current change.
+- The working tree was clean immediately before this synchronized M7 plan/state
+  checkpoint; these two documentation files are the only current changes.
 
 ## Verified release evidence
 
-- M0 through M6: **COMPLETE**. Feature freeze remains active.
+- M0 through M7: **COMPLETE**. Feature freeze remains active.
 - Hero: 12 stable families, 28 content objects, 30 source-package members, one
   Meaning-risk family, and one casefold collision pair.
 - One explicit live request used the exact `gpt-5.6` alias and the complete
@@ -68,38 +70,50 @@ Targets force integration and scope control. They are not cancellation timers.
   describe only visible evidence; the Atlas capture exposes no personal path.
 - Two bounded M6 audits found no remaining product, record, claim, secret, or
   documented source-checkout judge-path blocker after one correction pass.
+- Fresh clone `/private/tmp/name-atlas-m7.jBLU0S/repo` installed from the lock,
+  passed 116 keyless tests, Ruff lint/format, source and wheel builds, local-link
+  and secret scans, and remained Git-clean.
+- Its complete keyless browser transaction resolved 12/12 families, staged 28
+  content objects and 30 data members, produced 28 inverse map rows, passed all
+  ten serialized proof checks and a fresh `bagit` validation, and left the
+  source unchanged. Startup and server logs show replay mode and no provider
+  request.
+- A separate clean-clone live startup displayed exact `gpt-5.6`, loopback-only
+  binding, credential readiness, and the explicit Generate control. It was
+  stopped without generating a card or making a provider request.
 
 ## Credential and release readiness
 
-- A replacement restricted project API key is configured only in ignored local
-  `.env`, whose mode is 600. Its value has never been committed or included in
-  a release artifact.
-- The first accidentally exposed one-time key was revoked before use. It is not
-  the active replacement key and no request was made with it.
-- Exactly one provider request has been made with the replacement key. M7 may
-  use it only for a startup smoke that does not generate another card.
-- After the clean-clone live-startup smoke, revoke the replacement key and
-  remove local `.env`, then verify both facts without exposing the key.
-- M7: **IN_PROGRESS**.
+- Both temporary restricted project keys are revoked. The first was revoked
+  before any call; the replacement completed the one live call and M7
+  no-request startup smoke before revocation in OpenAI Platform.
+- Exactly one provider request was made for this project. No M7 provider request
+  was made.
+- Ignored local `.env` was removed after revocation. The key value was never
+  committed or included in a release artifact.
+- M7: **COMPLETE**.
+- M8: **IN_PROGRESS**.
 - Live GPT-5.6 implementation and recorded replay: **COMPLETE**.
 - Public repository: **PENDING**.
 - Recording package, public video, and Devpost submission: **PENDING**.
-- Current M7 blocker: **NONE**.
+- Current M8 blocker: **NONE**.
 
 ## Compact recovery capsule
 
-- Phase: M7 release candidate; M0–M6 complete; feature freeze active.
+- Phase: M8 recording readiness; M0–M7 complete; feature freeze active.
 - Release commit: `d71b0b903a8259b158e1d674c5735edb88a6c665`.
 - Product evidence: one real `gpt-5.6` call, one sanitized exact-fingerprint
-  record, one verified live transaction, two verified keyless replay
-  transactions, 116 tests, clean lint/format/build/link/secret checks.
+  record, one verified live transaction, three verified keyless replay
+  transactions including a fresh-clone run, 116 tests, clean
+  lint/format/build/link/secret checks.
 - Budget: one request; USD 0.0382 estimated model cost; USD 0.6790 conservative
   reservation; USD 10 cap.
 - Prohibitions: no discovery/tournament/harness loop; no new features; no second
   provider request; no secret exposure; no unsupported claim; no silent model
   substitution; no consumption of the final 24-hour reserve for product work.
-- Credential cleanup: perform one no-request clean-clone live-startup smoke,
-  then revoke the replacement key and remove ignored `.env`.
-- Next operation: **Commit this synchronized M6 checkpoint, create a fresh clone
-  outside the working tree at the release commit, and execute every M7 clean-
-  environment check including a complete keyless replay transaction.**
+- Credential cleanup: both temporary keys revoked; ignored `.env` absent; no
+  further live request is planned or authorized without new user direction.
+- Next operation: **Commit this synchronized M7 checkpoint, create and push the
+  public MIT-licensed GitHub repository without force-push, verify the public
+  commit and clean-clone judge path, then prepare the timed recording and
+  submission package.**
