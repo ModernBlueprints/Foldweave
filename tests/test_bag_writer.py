@@ -174,3 +174,34 @@ def test_refresh_rejects_changes_outside_verification_report(tmp_path: Path) -> 
         writer.refresh_tagmanifest(root)
 
     assert manifest.read_bytes() == before
+
+
+def test_finalize_tagmanifest_binds_added_receipt_files(tmp_path: Path) -> None:
+    root = _make_pending_stage(tmp_path)
+    writer = BagItWriter()
+    writer.write(root, bagging_date=date(2026, 7, 17))
+    (root / "name-atlas" / "change_receipt.json").write_text(
+        '{"receipt_fingerprint":"abc"}\n',
+        encoding="utf-8",
+    )
+    (root / "name-atlas" / "change_receipt.html").write_text(
+        "<!doctype html><title>Receipt</title>\n",
+        encoding="utf-8",
+    )
+
+    result = writer.finalize_tagmanifest(root)
+
+    assert result.tag_file_count == 7
+    tag_paths = [
+        "bag-info.txt",
+        "bagit.txt",
+        "manifest-sha256.txt",
+        "name-atlas/change_receipt.html",
+        "name-atlas/change_receipt.json",
+        "name-atlas/verification_report.json",
+        "name-atlas/verification_summary.md",
+    ]
+    assert (root / "tagmanifest-sha256.txt").read_text(
+        encoding="utf-8"
+    ) == _expected_manifest(root, tag_paths)
+    assert BagItPackageValidator().validate(root).valid is True

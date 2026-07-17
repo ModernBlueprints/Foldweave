@@ -5,10 +5,29 @@ from __future__ import annotations
 import os
 import tempfile
 from contextlib import suppress
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
+from zoneinfo import ZoneInfo
+
+from pydantic import ValidationError
 
 from name_atlas.artifacts import StageArtifacts
+from name_atlas.cases import (
+    CardDisplayOrigin,
+    CaseDecisionBinding,
+    CaseDecisionCardRecord,
+    CaseDecisionMethod,
+    CaseEvidenceRecord,
+    CaseLifecycle,
+    CaseSourceSnapshot,
+    MigrationCase,
+    MigrationCaseError,
+    MigrationCaseStore,
+    MigrationCaseWriter,
+    card_fingerprint,
+    new_migration_case,
+)
 from name_atlas.decision_cards import (
     MODEL_ALIAS,
     BudgetLedgerError,
@@ -49,6 +68,7 @@ MAX_OUTPUT_TOKENS = 1_800
 MAX_BILLABLE_INPUT_TOKENS = 100_000
 MAX_INPUT_RESERVATION_USD_PER_MILLION = 6.25
 OUTPUT_USD_PER_MILLION = 30.0
+oslo_tz = ZoneInfo("Europe/Oslo")
 
 
 class _DecisionCardProvider(Protocol):
@@ -85,6 +105,8 @@ class WorkflowSession:
         package_validator: _PackageValidator,
         replay_record_path: Path | None = None,
         budget_ledger_path: Path | None = None,
+        case_path: Path | None = None,
+        case_name: str | None = None,
         live_call_cap: int = DEFAULT_LIVE_CALL_CAP,
         cost_cap_usd: float = PROJECT_COST_CAP_USD,
     ) -> None:
@@ -96,7 +118,8 @@ class WorkflowSession:
         self.proposals: tuple[PathProposal, ...] = build_proposals(
             self.package.families
         )
-        self.output_root = output_root
+        self.initial_proposals = self.proposals
+        self.output_root = output_root.resolve(strict=False)
         self.decision_card_provider = decision_card_provider
         self.package_validator = package_validator
         self.replay_record_path = replay_record_path
@@ -104,6 +127,10 @@ class WorkflowSession:
         self.card_fingerprints: dict[str, str] = {}
         self.card_errors: dict[str, str] = {}
         self.decisions: dict[str, HumanDecision] = {}
+        self.decision_timestamps: dict[str, datetime] = {}
+        self.decision_methods: dict[str, CaseDecisionMethod] = {}
+        self.case_evidence_records: dict[str, CaseEvidenceRecord] = {}
+        self.case_card_records: dict[str, CaseDecisionCardRecord] = {}
         self.stage_result: StageResult | None = None
         self.cards_requested = 0
         self.replay_cards_used = 0
@@ -125,6 +152,9 @@ class WorkflowSession:
         self.last_usage: dict[str, int | float | None] | None = None
         self.replay_record_error: str | None = None
         self.budget_reporting_error: str | None = None
+        self.case_store: MigrationCaseStore | None = None
+        self.case_writer: MigrationCaseWriter | None = None
+        self.case: MigrationCase | None = None
         self._card_cache: dict[str, DecisionCard] = {}
         self._pending_live_records: dict[
             str,
@@ -146,6 +176,249 @@ class WorkflowSession:
             if self._recordable_packet is not None
             else None
         )
+        if case_path is not None:
+            self._initialize_case(
+                case_path,
+                case_name=case_name or f"{self.package.root.name} migration",
+            )
+
+    def _initialize_case(self, case_path: Path, *, case_name: str) -> None:
+        """Create or strictly rehydrate the sole durable workflow authority."""
+
+        store = MigrationCaseStore(case_path)
+        writer = store.writer()
+        writer.__enter__()
+        try:
+            if store.path.exists():
+                case = writer.load()
+                self._require_case_matches_current_source(case)
+            else:
+                candidate = new_migration_case(
+                    self.package,
+                    self.proposals,
+                    case_path=store.path,
+                    output_root=self.output_root,
+                    case_name=case_name,
+                )
+                case = writer.save(candidate, expected_revision=None)
+        except Exception:
+            writer.__exit__(None, None, None)
+            raise
+        self.case_store = store
+        self.case_writer = writer
+        self.case = case
+        self._rehydrate_from_case(case)
+
+    def close(self) -> None:
+        """Release process-held case mutation authority on application shutdown."""
+
+        writer = self.case_writer
+        self.case_writer = None
+        if writer is not None:
+            writer.__exit__(None, None, None)
+
+    def _require_case_matches_current_source(self, case: MigrationCase) -> None:
+        """Fail closed when durable authority no longer matches deterministic input."""
+
+        if case.source_root != self.package.root:
+            raise MigrationCaseError(
+                "Migration Case source root does not match the selected package."
+            )
+        if case.local_paths.output_root != self.output_root:
+            raise MigrationCaseError(
+                "Migration Case output root does not match the selected output."
+            )
+        if case.source_snapshot != CaseSourceSnapshot.from_source_snapshot(
+            self.package.snapshot
+        ):
+            raise MigrationCaseError(
+                "Migration Case source snapshot is stale; create a new case path."
+            )
+        if case.families != self.package.families:
+            raise MigrationCaseError(
+                "Migration Case object-family graph differs from the current source."
+            )
+        if case.proposals != build_proposals(self.package.families):
+            raise MigrationCaseError(
+                "Migration Case proposals do not match deterministic rehydration."
+            )
+
+    def _rehydrate_from_case(self, case: MigrationCase) -> None:
+        """Project durable case state into the thin runtime coordinator."""
+
+        self.initial_proposals = case.proposals
+        self.proposals = self.initial_proposals
+        self.case_evidence_records = {
+            record.family_id: record for record in case.evidence_records
+        }
+        self.case_card_records = {
+            record.family_id: record for record in case.card_records
+        }
+        self.cards = {record.family_id: record.card for record in case.card_records}
+        self.card_fingerprints = {
+            record.family_id: record.evidence_fingerprint
+            for record in case.card_records
+        }
+        self._card_cache.update(
+            {record.evidence_fingerprint: record.card for record in case.card_records}
+        )
+        self.decisions = {
+            binding.family_id: binding.decision for binding in case.decisions
+        }
+        for binding in case.decisions:
+            self.proposals = proposals_after_decision(
+                self.proposals,
+                binding.decision,
+            )
+        self.decision_timestamps = {
+            binding.family_id: binding.decision_timestamp
+            for binding in case.decisions
+            if binding.decision_timestamp is not None
+        }
+        self.decision_methods = {
+            binding.family_id: binding.decision_method
+            for binding in case.decisions
+            if binding.decision_method is not None
+        }
+
+    def _persist_generated_card(self, family_id: str, provider_kind: str) -> None:
+        """Persist exact provider evidence and card provenance before human action."""
+
+        if self.case is None:
+            return
+        if provider_kind not in {"live", "replay"}:
+            raise MigrationCaseError(
+                "Persistent cases require a truthful live or recorded-replay card."
+            )
+        provider_record = getattr(self.decision_card_provider, "last_record", None)
+        if provider_record is None and provider_kind == "replay":
+            provider_record = getattr(self.decision_card_provider, "record", None)
+        if not isinstance(provider_record, RecordedDecisionCard):
+            raise MigrationCaseError(
+                "Persistent case card provenance is unavailable from the provider."
+            )
+        packet = self.evidence_packet(family_id)
+        fingerprint = evidence_fingerprint(packet)
+        if provider_record.evidence_fingerprint != fingerprint:
+            raise MigrationCaseError(
+                "Provider record does not match the current evidence fingerprint."
+            )
+        card = self.cards[family_id]
+        evidence_record = CaseEvidenceRecord(
+            family_id=family_id,
+            packet=packet,
+            evidence_fingerprint=fingerprint,
+        )
+        card_record = CaseDecisionCardRecord(
+            family_id=family_id,
+            evidence_fingerprint=fingerprint,
+            card=card,
+            card_fingerprint=card_fingerprint(card),
+            display_origin=(
+                CardDisplayOrigin.LIVE
+                if provider_kind == "live"
+                else CardDisplayOrigin.RECORDED_REPLAY
+            ),
+            generated_at=provider_record.generated_at,
+            usage=provider_record.usage,
+        )
+        self.case_evidence_records[family_id] = evidence_record
+        self.case_card_records[family_id] = card_record
+        self._persist_case_state()
+
+    def _persist_case_state(self) -> None:
+        """Validate and atomically save the complete current durable authority."""
+
+        if self.case is None or self.case_writer is None:
+            return
+        durable_case = self.case
+        try:
+            ordered_family_ids = tuple(
+                family.family_id for family in self.package.families
+            )
+            decision_bindings = tuple(
+                self._case_decision_binding(family_id)
+                for family_id in ordered_family_ids
+                if family_id in self.decisions
+            )
+            lifecycle = self._current_case_lifecycle(decision_bindings)
+            candidate = MigrationCase.model_validate(
+                {
+                    **self.case.model_dump(mode="python"),
+                    "proposals": self.initial_proposals,
+                    "evidence_records": tuple(
+                        self.case_evidence_records[family_id]
+                        for family_id in ordered_family_ids
+                        if family_id in self.case_evidence_records
+                    ),
+                    "card_records": tuple(
+                        self.case_card_records[family_id]
+                        for family_id in ordered_family_ids
+                        if family_id in self.case_card_records
+                    ),
+                    "decisions": decision_bindings,
+                    "lifecycle": lifecycle,
+                },
+                strict=True,
+            )
+            self.case = self.case_writer.save(
+                candidate,
+                expected_revision=self.case.revision,
+            )
+        except (MigrationCaseError, ValidationError):
+            self.case = durable_case
+            self._rehydrate_from_case(durable_case)
+            raise
+
+    def _case_decision_binding(self, family_id: str) -> CaseDecisionBinding:
+        decision = self.decisions[family_id]
+        evidence_record = self.case_evidence_records.get(family_id)
+        card_record = self.case_card_records.get(family_id)
+        requires_card = self.family_requires_card(family_id)
+        explicit = decision.action in {
+            HumanAction.APPROVED,
+            HumanAction.EDITED,
+            HumanAction.REFUSED,
+        }
+        if (
+            requires_card
+            and explicit
+            and (evidence_record is None or card_record is None)
+        ):
+            raise MigrationCaseError(
+                "Meaning-risk human action lacks exact evidence/card provenance."
+            )
+        return CaseDecisionBinding(
+            family_id=family_id,
+            decision=decision,
+            decision_method=self.decision_methods.get(family_id),
+            decision_timestamp=self.decision_timestamps.get(family_id),
+            evidence_fingerprint=(
+                evidence_record.evidence_fingerprint
+                if requires_card and explicit and evidence_record is not None
+                else None
+            ),
+            card_fingerprint=(
+                card_record.card_fingerprint
+                if requires_card and explicit and card_record is not None
+                else None
+            ),
+        )
+
+    def _current_case_lifecycle(
+        self,
+        bindings: tuple[CaseDecisionBinding, ...],
+    ) -> CaseLifecycle:
+        if len(bindings) == len(self.package.families) and all(
+            binding.decision.export_ready for binding in bindings
+        ):
+            return CaseLifecycle.READY_TO_STAGE
+        if any(
+            binding.decision.action in {HumanAction.REFUSED, HumanAction.UNRESOLVED}
+            for binding in bindings
+        ):
+            return CaseLifecycle.BLOCKED
+        return CaseLifecycle.REVIEW
 
     def family(self, family_id: str) -> ObjectFamily:
         """Return one known stable family or raise a bounded user error."""
@@ -203,14 +476,16 @@ class WorkflowSession:
             )
             self._store_card_failure(family_id, error)
             raise error
+        provider_kind = getattr(self.decision_card_provider, "provider_kind", "test")
         cached = self._card_cache.get(fingerprint)
         if cached is not None:
             self.cache_hits += 1
             self._bind_card(family_id, fingerprint, cached)
             self._record_provider_usage(
-                getattr(self.decision_card_provider, "provider_kind", "test"),
+                provider_kind,
                 fingerprint=fingerprint,
             )
+            self._persist_generated_card(family_id, provider_kind)
             return cached
 
         pending_live = self._pending_live_records.get(fingerprint)
@@ -230,9 +505,9 @@ class WorkflowSession:
             self._card_cache[fingerprint] = pending_card
             self._bind_card(family_id, fingerprint, pending_card)
             self._record_provider_usage("live", fingerprint=fingerprint)
+            self._persist_generated_card(family_id, "live")
             return pending_card
 
-        provider_kind = getattr(self.decision_card_provider, "provider_kind", "test")
         if provider_kind == "live":
             try:
                 self._preflight_replay_target(fingerprint)
@@ -271,6 +546,7 @@ class WorkflowSession:
         self._card_cache[fingerprint] = card
         self._bind_card(family_id, fingerprint, card)
         self._record_provider_usage(provider_kind, fingerprint=fingerprint)
+        self._persist_generated_card(family_id, provider_kind)
         return card
 
     def require_replay_record_compatible(self) -> None:
@@ -301,6 +577,8 @@ class WorkflowSession:
             semantic_card_available=self._card_is_current(family_id),
         )
         self._store_decision(decision)
+        self.decision_methods[family_id] = CaseDecisionMethod.INDIVIDUAL_APPROVAL
+        self._persist_case_state()
         return decision
 
     def edit(self, family_id: str, descriptor: str) -> HumanDecision:
@@ -320,6 +598,8 @@ class WorkflowSession:
             other_resolved_targets=other_targets,
         )
         self._store_decision(decision)
+        self.decision_methods[family_id] = CaseDecisionMethod.HUMAN_EDIT
+        self._persist_case_state()
         return decision
 
     def approve_low_risk(self) -> tuple[HumanDecision, ...]:
@@ -340,6 +620,10 @@ class WorkflowSession:
             raise DecisionError("No unresolved low-risk families are eligible.")
         for decision in decisions:
             self._store_decision(decision)
+            self.decision_methods[decision.family_id] = (
+                CaseDecisionMethod.BATCH_APPROVAL
+            )
+        self._persist_case_state()
         return tuple(decisions)
 
     def _low_risk_batch_eligible(self, family_id: str) -> bool:
@@ -357,8 +641,17 @@ class WorkflowSession:
         """Record an explicit refusal and block complete export."""
 
         self.family(family_id)
+        if self.family_requires_card(family_id) and not self._card_is_current(
+            family_id
+        ):
+            raise DecisionError(
+                "Meaning-risk refusal requires the validated decision card presented "
+                "to the human."
+            )
         decision = refuse_family(family_id)
         self._store_decision(decision)
+        self.decision_methods[family_id] = CaseDecisionMethod.INDIVIDUAL_REFUSAL
+        self._persist_case_state()
         return decision
 
     def stage(self) -> StageResult:
@@ -372,13 +665,49 @@ class WorkflowSession:
             )
             for family in self.package.families
         )
-        self.stage_result = stage_package(
+        result = stage_package(
             self.package,
             ordered_decisions,
             output_root=self.output_root,
             package_validator=self.package_validator,
+            migration_case=self.case,
         )
-        return self.stage_result
+        if self.case is not None:
+            self._finalize_case_handoff(result)
+        self.stage_result = result
+        return result
+
+    def _finalize_case_handoff(self, result: StageResult) -> None:
+        """Persist receipt identity and promoted handoff as immutable case state."""
+
+        if (
+            self.case is None
+            or self.case_writer is None
+            or result.receipt_fingerprint is None
+            or result.receiver_verification is None
+        ):
+            raise MigrationCaseError(
+                "Persistent staging completed without full receipt verification."
+            )
+        local_paths = self.case.local_paths.model_copy(
+            update={
+                "stage_path": result.stage_root,
+                "handoff_path": result.stage_root,
+            }
+        )
+        candidate = MigrationCase.model_validate(
+            {
+                **self.case.model_dump(mode="python"),
+                "local_paths": local_paths,
+                "receipt_fingerprint": result.receipt_fingerprint,
+                "lifecycle": CaseLifecycle.HANDOFF_READY,
+            },
+            strict=True,
+        )
+        self.case = self.case_writer.save(
+            candidate,
+            expected_revision=self.case.revision,
+        )
 
     def view_model(self) -> dict[str, object]:
         """Build the exact connected view from current domain and proof objects."""
@@ -480,6 +809,21 @@ class WorkflowSession:
             self.stage_result.artifacts if self.stage_result is not None else None
         )
         return {
+            "case_id": self.case.case_id if self.case is not None else None,
+            "case_name": self.case.case_name if self.case is not None else None,
+            "case_revision": self.case.revision if self.case is not None else None,
+            "case_lifecycle": (
+                self.case.lifecycle.value if self.case is not None else None
+            ),
+            "receipt_fingerprint": (
+                self.case.receipt_fingerprint if self.case is not None else None
+            ),
+            "handoff_path": (
+                str(self.case.local_paths.handoff_path)
+                if self.case is not None
+                and self.case.local_paths.handoff_path is not None
+                else None
+            ),
             "source_root": str(self.package.root),
             "snapshot": self.package.snapshot,
             "family_count": len(self.package.families),
@@ -524,6 +868,15 @@ class WorkflowSession:
 
     def _store_decision(self, decision: HumanDecision) -> None:
         self.decisions[decision.family_id] = decision
+        if decision.action in {
+            HumanAction.APPROVED,
+            HumanAction.EDITED,
+            HumanAction.REFUSED,
+        }:
+            self.decision_timestamps[decision.family_id] = datetime.now(tz=oslo_tz)
+        else:
+            self.decision_timestamps.pop(decision.family_id, None)
+            self.decision_methods.pop(decision.family_id, None)
         self.proposals = proposals_after_decision(self.proposals, decision)
         self.stage_result = None
 
@@ -551,8 +904,11 @@ class WorkflowSession:
         self.card_fingerprints.pop(family_id, None)
         existing = self.decisions.get(family_id)
         if existing is None or not existing.export_ready:
+            self.case_evidence_records.pop(family_id, None)
+            self.case_card_records.pop(family_id, None)
             self._store_decision(unresolved_family(family_id))
         self.card_errors[family_id] = str(error)
+        self._persist_case_state()
 
     def _clear_provider_failure(self, family_id: str) -> None:
         existing = self.decisions.get(family_id)

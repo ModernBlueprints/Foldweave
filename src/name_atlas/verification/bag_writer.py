@@ -128,6 +128,36 @@ class BagItWriter:
             tag_file_count=len(tag_files),
         )
 
+    def finalize_tagmanifest(self, pending_root: Path) -> BagItWriteResult:
+        """Bind the complete final tag-file set after receipt finalization.
+
+        The staging transaction calls this exactly once after every immutable
+        receipt-bound artifact and the derived offline receipt exist. Payload
+        metadata must still match the writer's initial BagIt output.
+        """
+
+        root = _require_pending_directory(pending_root)
+        _require_root_entries(root, _COMPLETED_ROOT_ENTRIES)
+        payload_files = _regular_files_under(root, _PAYLOAD_DIRECTORY)
+        proof_files = _regular_files_under(root, _PROOF_DIRECTORY)
+        if not payload_files or not proof_files:
+            raise BagItWriterError(
+                "Completed pending bag is missing payload or proof files."
+            )
+
+        _require_writer_owned_metadata(root, payload_files)
+        _require_current_payload_manifest(root, payload_files)
+        tag_files = _tag_files(root)
+        replacement = _render_manifest(root, tag_files)
+        _atomic_replace_utf8(root / _TAG_MANIFEST, replacement)
+        payload_bytes = sum(path.stat().st_size for path in payload_files)
+        return BagItWriteResult(
+            bag_root=root,
+            payload_file_count=len(payload_files),
+            payload_bytes=payload_bytes,
+            tag_file_count=len(tag_files),
+        )
+
 
 def _require_pending_directory(pending_root: Path) -> Path:
     if not isinstance(pending_root, Path):

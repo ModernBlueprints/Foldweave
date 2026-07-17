@@ -10,6 +10,7 @@ from pathlib import Path
 import uvicorn
 
 from name_atlas.app import create_app
+from name_atlas.cases import CardDisplayOrigin, MigrationCaseError, default_case_path
 from name_atlas.config import DEFAULT_PORT, LOOPBACK_HOST, RuntimeConfig
 from name_atlas.decision_cards import (
     BudgetLedgerError,
@@ -20,6 +21,11 @@ from name_atlas.decision_cards import (
 )
 from name_atlas.domain import RunMode
 from name_atlas.package_import import PackageImportError
+from name_atlas.receiver_verifier import (
+    ReceiptCandidateError,
+    ReceiptVerificationStatus,
+    verify_receipt,
+)
 from name_atlas.verification import BagItPackageValidator
 from name_atlas.workflow import UnavailableReplayDecisionCardProvider, WorkflowSession
 
@@ -31,6 +37,7 @@ REPLAY_RECORD_PATH = (
 )
 OUTPUT_ROOT = PROJECT_ROOT / ".name-atlas" / "stages"
 BUDGET_LEDGER_PATH = PROJECT_ROOT / ".name-atlas" / "api_budget.json"
+CASE_DIRECTORY = PROJECT_ROOT / ".name-atlas" / "cases"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -67,6 +74,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=OUTPUT_ROOT,
         help="Copy-only staging parent (default: .name-atlas/stages).",
     )
+    demo.add_argument(
+        "--case",
+        type=Path,
+        default=None,
+        help="Migration Case file (default: deterministic .name-atlas/cases path).",
+    )
+
+    verify = subparsers.add_parser(
+        "verify-receipt",
+        help="Independently verify one received portable handoff.",
+    )
+    verify.add_argument("received_bag", type=Path)
+    verify.add_argument(
+        "--source",
+        type=Path,
+        default=None,
+        help="Optionally compare the committed source description to this root.",
+    )
     return parser
 
 
@@ -78,10 +103,41 @@ def run(
     """Run the CLI and return a process exit code."""
 
     args = build_parser().parse_args(argv)
+    if args.command == "verify-receipt":
+        try:
+            result = verify_receipt(
+                args.received_bag.expanduser().resolve(strict=False),
+                source_root=(
+                    args.source.expanduser().resolve(strict=False)
+                    if args.source is not None
+                    else None
+                ),
+            )
+        except ReceiptCandidateError as exc:
+            print(f"Receipt input error: {exc}", file=sys.stderr)
+            return 2
+        if result.status is ReceiptVerificationStatus.VERIFIED:
+            print(f"VERIFIED {result.receipt_fingerprint}")
+            return 0
+        print(f"BLOCKED {' '.join(result.failed_check_ids)}")
+        return 1
+
     mode = RunMode(args.mode)
     selected_environment = os.environ if environ is None else environ
-    source_root = args.source.expanduser().resolve()
-    output_root = args.output.expanduser().resolve()
+    try:
+        source_root = args.source.expanduser().resolve(strict=True)
+        output_root = args.output.expanduser().resolve(strict=False)
+        case_path = (
+            args.case.expanduser().resolve(strict=False)
+            if args.case is not None
+            else default_case_path(source_root, case_directory=CASE_DIRECTORY)
+        )
+    except OSError as exc:
+        print(
+            f"Startup blocked: source package cannot be opened: {exc}",
+            file=sys.stderr,
+        )
+        return 2
     uses_hero_source = source_root == HERO_SOURCE_ROOT.resolve()
     replay_record_path = REPLAY_RECORD_PATH if uses_hero_source else None
 
@@ -126,40 +182,50 @@ def run(
             package_validator=BagItPackageValidator(),
             replay_record_path=replay_record_path,
             budget_ledger_path=BUDGET_LEDGER_PATH,
+            case_path=case_path,
         )
-    except (BudgetLedgerError, PackageImportError) as exc:
+    except (BudgetLedgerError, MigrationCaseError, PackageImportError) as exc:
         print(f"Startup blocked: {exc}", file=sys.stderr)
         return 2
-    if (
-        mode is RunMode.REPLAY
-        and replay_record_path is not None
-        and replay_record_path.is_file()
-    ):
-        try:
-            workflow.require_replay_record_compatible()
-        except DecisionCardProviderError as exc:
-            print(f"Replay startup blocked: {exc}", file=sys.stderr)
-            return 2
-        replay_record_configured = True
+    try:
+        if (
+            mode is RunMode.REPLAY
+            and replay_record_path is not None
+            and replay_record_path.is_file()
+        ):
+            try:
+                workflow.require_replay_record_compatible()
+            except DecisionCardProviderError as exc:
+                print(f"Replay startup blocked: {exc}", file=sys.stderr)
+                return 2
+            replay_record_configured = True
+        elif mode is RunMode.REPLAY and workflow.case is not None:
+            replay_record_configured = any(
+                record.display_origin is CardDisplayOrigin.RECORDED_REPLAY
+                for record in workflow.case.card_records
+            )
 
-    config = RuntimeConfig.from_environment(
-        mode=mode,
-        port=args.port,
-        environ=selected_environment,
-        replay_record_configured=replay_record_configured,
-    )
+        config = RuntimeConfig.from_environment(
+            mode=mode,
+            port=args.port,
+            environ=selected_environment,
+            replay_record_configured=replay_record_configured,
+        )
 
-    logging.basicConfig(level=logging.INFO)
-    LOGGER.info("Starting Reversible Name Atlas: %s", config.safe_diagnostics())
-    print(f"Reversible Name Atlas: http://{LOOPBACK_HOST}:{config.port}")
-    print(config.provider_status)
-    uvicorn.run(
-        create_app(config, workflow),
-        host=LOOPBACK_HOST,
-        port=config.port,
-        log_level="info",
-    )
-    return 0
+        logging.basicConfig(level=logging.INFO)
+        LOGGER.info("Starting Reversible Name Atlas: %s", config.safe_diagnostics())
+        print(f"Reversible Name Atlas: http://{LOOPBACK_HOST}:{config.port}")
+        print(config.provider_status)
+        print(f"Migration Case: {case_path}")
+        uvicorn.run(
+            create_app(config, workflow),
+            host=LOOPBACK_HOST,
+            port=config.port,
+            log_level="info",
+        )
+        return 0
+    finally:
+        workflow.close()
 
 
 def main() -> None:

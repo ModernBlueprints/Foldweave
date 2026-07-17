@@ -55,6 +55,8 @@ def verify_staged_artifacts(
     decisions: dict[str, HumanDecision],
     *,
     pending_root: Path,
+    expected_source_snapshot: bytes | None = None,
+    expected_decision_ledger: bytes | None = None,
 ) -> DeterministicProof:
     """Read staged artifacts back and derive every deterministic proof check."""
 
@@ -92,15 +94,27 @@ def verify_staged_artifacts(
             decision.model_dump(mode="json") for decision in ordered_decisions
         ],
     }
+    source_snapshot_bytes = expected_source_snapshot or canonical_json_bytes(
+        package.snapshot
+    )
+    decision_ledger_bytes = expected_decision_ledger or canonical_json_bytes(
+        expected_ledger
+    )
     try:
-        source_snapshot_exact = _read_regular_bytes(
-            pending_root / "name-atlas" / "source_snapshot.json",
-            label="Staged source snapshot artifact",
-        ) == canonical_json_bytes(package.snapshot)
-        decision_ledger_exact = _read_regular_bytes(
-            pending_root / "name-atlas" / "decision_ledger.json",
-            label="Staged decision ledger artifact",
-        ) == canonical_json_bytes(expected_ledger)
+        source_snapshot_exact = (
+            _read_regular_bytes(
+                pending_root / "name-atlas" / "source_snapshot.json",
+                label="Staged source snapshot artifact",
+            )
+            == source_snapshot_bytes
+        )
+        decision_ledger_exact = (
+            _read_regular_bytes(
+                pending_root / "name-atlas" / "decision_ledger.json",
+                label="Staged decision ledger artifact",
+            )
+            == decision_ledger_bytes
+        )
         state_artifacts_exact = source_snapshot_exact and decision_ledger_exact
         state_artifacts_detail = (
             "Canonical source snapshot and ordered decision ledger match the "

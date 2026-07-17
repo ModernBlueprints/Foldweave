@@ -1,0 +1,64 @@
+<section class="product-section" aria-labelledby="verify-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">04 · Verify · {{ page_status }}</p>
+      <h2 id="verify-title">The handoff must earn its verdict.</h2>
+    </div>
+    <p>Source · Payloads · References · Paths · Decisions · Package · Receipt</p>
+  </div>
+
+  {% if view and view.proof %}
+    <article class="proof-card{% if shell.handoff_ready %} proof-card--verified{% endif %}">
+      <header><span class="state {% if shell.handoff_ready %}state--green{% else %}state--amber{% endif %}">{% if shell.handoff_ready %}VERIFIED{% else %}INCOMPLETE{% endif %}</span><h3>{{ view.proof.report.claim }}</h3></header>
+      <p class="mono subtle">{{ view.stage_root }}</p>
+      <div class="proof-grid" aria-label="Verification groups">
+        <div><span class="checkmark" aria-hidden="true">✓</span><p><strong>Source</strong><small>Initial, pre-stage, and post-copy commitments agree; the source remains unchanged.</small></p></div>
+        <div><span class="checkmark" aria-hidden="true">✓</span><p><strong>Payloads</strong><small>{{ view.proof.report.content_object_count }} content objects · {{ view.proof.report.content_bytes }} bytes verified.</small></p></div>
+        <div><span class="checkmark" aria-hidden="true">✓</span><p><strong>References</strong><small>Declared staged metadata and derivative references resolve.</small></p></div>
+        <div><span class="checkmark" aria-hidden="true">✓</span><p><strong>Paths</strong><small>{{ view.proof.report.map_row_count }} complete forward/reverse map rows round-trip.</small></p></div>
+        <div><span class="checkmark" aria-hidden="true">✓</span><p><strong>Decisions</strong><small>Every required family has an explicit export-ready human action.</small></p></div>
+        <div><span class="checkmark" aria-hidden="true">✓</span><p><strong>Package</strong><small>{{ view.proof.report.bagit_validation.messages[0] }}</small></p></div>
+        <div>{% if shell.handoff_ready %}<span class="checkmark" aria-hidden="true">✓</span>{% endif %}<p><strong>Receipt</strong><small>{% if shell.handoff_ready %}Bound to {{ shell.receipt_fingerprint[:16] }}… and admitted by the receiver-verification transaction.{% else %}INCOMPLETE · staged proof exists, but no receipt-bound receiver-verification result is available.{% endif %}</small></p></div>
+      </div>
+
+      <details>
+        <summary>Technical verification evidence</summary>
+        <div class="proof-grid">
+          {% for check in view.proof.report.checks %}<div><span class="checkmark" aria-hidden="true">✓</span><p><strong>{{ check.label }}</strong><small>{{ check.detail }}</small></p></div>{% endfor %}
+        </div>
+      </details>
+
+      <section class="artifact-shelf" aria-labelledby="artifact-title">
+        <div><p class="eyebrow">Proof artifacts</p><h4 id="artifact-title">Inspect the durable evidence.</h4></div>
+        <ul>
+          {% for artifact_path in view.proof.report.artifact_paths %}
+            <li><code>{{ artifact_path }}</code><span><a href="/proof-artifacts/{{ artifact_path }}" target="_blank" rel="noopener">Open</a><a href="/proof-artifacts/{{ artifact_path }}" download>Download</a></span></li>
+          {% endfor %}
+        </ul>
+      </section>
+      <footer>{% if shell.handoff_ready %}<a href="/handoff">Continue to receiver handoff</a>{% else %}Handoff remains blocked until receipt finalization and receiver verification succeed.{% endif %}</footer>
+    </article>
+  {% elif view and shell.handoff_ready %}
+    <article class="proof-card proof-card--verified">
+      <header><span class="state state--green">VERIFIED</span><h3>The persistent case records a receiver-verified handoff.</h3></header>
+      <p>The detailed producer report is not loaded in this restarted browser process. The immutable receipt and verification evidence remain in the handoff package.</p>
+      <dl>
+        <div><dt>Handoff</dt><dd class="mono">{{ shell.stage_root }}</dd></div>
+        <div><dt>Receipt fingerprint</dt><dd class="mono">{{ shell.receipt_fingerprint }}</dd></div>
+        <div><dt>Source commitment</dt><dd class="mono">{{ shell.source_commitment }}</dd></div>
+        <div><dt>Case lifecycle</dt><dd>{{ shell.lifecycle }}</dd></div>
+      </dl>
+      <details><summary>Why the detailed groups are not repeated here</summary><p>The Migration Case is local workflow authority, not a duplicate proof report. A receiver should run the keyless verifier against the immutable handoff to recompute the complete Source, Payloads, References, Paths, Decisions, Package, and Receipt findings.</p></details>
+      <footer><a href="/handoff">Open receiver handoff</a></footer>
+    </article>
+  {% else %}
+    <article class="proof-card">
+      <header><span class="state {% if view and view.hard_blocker_count %}state--red{% else %}state--amber{% endif %}">{% if view and view.hard_blocker_count %}BLOCKED{% else %}INCOMPLETE{% endif %}</span><h3>No verified staged handoff exists.</h3></header>
+      <p>Verify does not infer success from proposals or decisions. Stage the complete package before deterministic proof can be shown.</p>
+      <div class="proof-grid" aria-label="Incomplete verification groups">
+        {% for group in ['Source', 'Payloads', 'References', 'Paths', 'Decisions', 'Package', 'Receipt'] %}<div><p><strong>{{ group }}</strong><small>INCOMPLETE · no finalized handoff evidence</small></p></div>{% endfor %}
+      </div>
+      {% if view and view.export_ready %}<p><a class="button" href="/stage">Continue to Stage</a></p>{% elif view %}<p><a class="button" href="/decide">Resolve decisions</a></p>{% else %}<p><a class="button" href="/atlas">Inspect Atlas blocker</a></p>{% endif %}
+    </article>
+  {% endif %}
+</section>

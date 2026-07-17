@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import html
 import io
+import json
 import logging
 import os
 import stat
@@ -29,8 +31,9 @@ from name_atlas.artifacts import (
     write_summary,
     write_verification_report,
 )
+from name_atlas.cases import CaseLifecycle, MigrationCase
 from name_atlas.decisions import HumanAction, HumanDecision
-from name_atlas.domain import ContentRole, PackageValidationResult
+from name_atlas.domain import ContentRole, MemberKind, PackageValidationResult
 from name_atlas.package_import import ObjectFamily, SourcePackage, import_package
 from name_atlas.proposals import (
     DESCRIPTOR_PATTERN,
@@ -38,9 +41,38 @@ from name_atlas.proposals import (
     build_proposals,
     edited_targets,
 )
+from name_atlas.receipts import (
+    CHANGE_RECEIPT_HTML_PATH,
+    CHANGE_RECEIPT_PATH,
+    DECISION_LEDGER_PATH,
+    FORWARD_PATH_MAP_PATH,
+    ORIGINAL_METADATA_PATH,
+    ORIGINAL_NORMALIZATION_PATH,
+    PORTABLE_SOURCE_SNAPSHOT_PATH,
+    REVERSE_PATH_MAP_PATH,
+    VERIFICATION_REPORT_PATH,
+    VERIFICATION_SUMMARY_PATH,
+    DecisionLedgerV2,
+    PortableSourceSnapshot,
+    ReceiptCore,
+    ReceiptEnvelope,
+    VerificationReportV2,
+    artifact_commitment,
+    build_receipt_envelope,
+    canonical_artifact_json_bytes,
+    portable_snapshot_from_source,
+    staged_data_commitment,
+    staged_data_members,
+)
+from name_atlas.receiver_verifier import (
+    ReceiptVerificationResult,
+    ReceiptVerificationStatus,
+    verify_receipt,
+)
 from name_atlas.source import (
     HASH_CHUNK_SIZE,
     SourceMember,
+    read_member_bytes,
     snapshot_tree,
     validate_relative_path,
 )
@@ -73,6 +105,8 @@ class StageResult(BaseModel):
 
     stage_root: Path
     artifacts: StageArtifacts
+    receipt_fingerprint: str | None = None
+    receiver_verification: ReceiptVerificationResult | None = None
 
 
 def stage_package(
@@ -81,10 +115,26 @@ def stage_package(
     *,
     output_root: Path,
     package_validator: _PackageValidator,
+    migration_case: MigrationCase | None = None,
 ) -> StageResult:
     """Create, verify, and promote one new copy-only BagIt stage."""
 
     decision_by_family = _validate_decisions(package, decisions)
+    portable_snapshot = None
+    decision_ledger = None
+    portable_snapshot_bytes = None
+    decision_ledger_bytes = None
+    if migration_case is not None:
+        _validate_migration_case_for_stage(
+            migration_case,
+            package=package,
+            decisions=decision_by_family,
+            output_root=output_root,
+        )
+        portable_snapshot = portable_snapshot_from_source(package.snapshot)
+        decision_ledger = DecisionLedgerV2.from_case(migration_case)
+        portable_snapshot_bytes = canonical_artifact_json_bytes(portable_snapshot)
+        decision_ledger_bytes = canonical_artifact_json_bytes(decision_ledger)
     prestaging = import_package(package.root)
     if prestaging.snapshot != package.snapshot:
         raise StagingError("Source package changed after the initial snapshot.")
@@ -105,6 +155,9 @@ def stage_package(
     map_rows: list[PathMapRow] = []
     report_path = pending_root / "name-atlas" / "verification_report.json"
     current_stage = "pending_allocation"
+    receipt_finalized = False
+    receipt_fingerprint_value: str | None = None
+    receiver_result: ReceiptVerificationResult | None = None
     write_verification_report(
         report_path,
         _failure_report(
@@ -161,17 +214,47 @@ def stage_package(
             "name-atlas/reverse_path_map.csv",
             "name-atlas/verification_report.json",
             "name-atlas/verification_summary.md",
+            "name-atlas/original-control/metadata/metadata.csv",
+            *(
+                ("name-atlas/original-control/normalization.csv",)
+                if package.normalization_present
+                else ()
+            ),
+            *(
+                (
+                    "name-atlas/change_receipt.json",
+                    "name-atlas/change_receipt.html",
+                )
+                if migration_case is not None
+                else ()
+            ),
             "bagit.txt",
             "bag-info.txt",
             "manifest-sha256.txt",
             "tagmanifest-sha256.txt",
         )
         current_stage = "write_proof_artifacts"
-        write_source_snapshot(proof_root / "source_snapshot.json", package.snapshot)
+        if portable_snapshot_bytes is None:
+            write_source_snapshot(proof_root / "source_snapshot.json", package.snapshot)
+        else:
+            _write_new_bytes(
+                proof_root / "source_snapshot.json",
+                portable_snapshot_bytes,
+            )
+        _write_original_controls(package, proof_root=proof_root)
         ordered_decisions = tuple(
             decision_by_family[family.family_id] for family in package.families
         )
-        write_decision_ledger(proof_root / "decision_ledger.json", ordered_decisions)
+        if decision_ledger_bytes is None:
+            write_decision_ledger(
+                proof_root / "decision_ledger.json",
+                ordered_decisions,
+            )
+        else:
+            _write_new_bytes(
+                proof_root / "decision_ledger.json",
+                decision_ledger_bytes,
+            )
         write_path_map(proof_root / "forward_path_map.csv", ordered_maps, reverse=False)
         write_path_map(proof_root / "reverse_path_map.csv", ordered_maps, reverse=True)
         write_summary(
@@ -186,6 +269,8 @@ def stage_package(
                 ordered_maps,
                 decision_by_family,
                 pending_root=pending_root,
+                expected_source_snapshot=portable_snapshot_bytes,
+                expected_decision_ledger=decision_ledger_bytes,
             )
         except StagedProofError as exc:
             raise StagingError(str(exc)) from exc
@@ -227,6 +312,8 @@ def stage_package(
                 ordered_maps,
                 decision_by_family,
                 pending_root=pending_root,
+                expected_source_snapshot=portable_snapshot_bytes,
+                expected_decision_ledger=decision_ledger_bytes,
             )
         except StagedProofError as exc:
             raise StagingError(str(exc)) from exc
@@ -255,7 +342,11 @@ def stage_package(
             artifact_paths=artifact_paths,
             blockers=blockers,
         )
-        replace_verification_report(report_path, report)
+        _replace_final_report(
+            report_path,
+            report,
+            portable=migration_case is not None,
+        )
         writer.refresh_tagmanifest(pending_root)
         final_validation = package_validator.validate(pending_root)
         if final_status is ProofStatus.VERIFIED and not final_validation.valid:
@@ -273,7 +364,11 @@ def stage_package(
                 artifact_paths=artifact_paths,
                 blockers=final_validation.messages,
             )
-            replace_verification_report(report_path, report)
+            _replace_final_report(
+                report_path,
+                report,
+                portable=migration_case is not None,
+            )
             writer.refresh_tagmanifest(pending_root)
         if (
             not deterministic_valid
@@ -284,6 +379,48 @@ def stage_package(
                 "Final deterministic or BagIt verification failed; preserved "
                 f"pending stage at {pending_root}."
             )
+        if migration_case is not None:
+            assert portable_snapshot is not None
+            assert decision_ledger is not None
+            current_stage = "receipt_finalization"
+            receipt_core = _build_receipt_core(
+                pending_root=pending_root,
+                migration_case=migration_case,
+                portable_snapshot=portable_snapshot,
+                decision_ledger=decision_ledger,
+                maps=ordered_maps,
+                package_validation=final_validation,
+                normalization_present=package.normalization_present,
+            )
+            receipt_envelope = build_receipt_envelope(receipt_core)
+            receipt_fingerprint_value = receipt_envelope.receipt_fingerprint
+            _write_new_bytes(
+                pending_root / CHANGE_RECEIPT_PATH,
+                canonical_artifact_json_bytes(receipt_envelope),
+            )
+            receipt_finalized = True
+            _write_new_bytes(
+                pending_root / CHANGE_RECEIPT_HTML_PATH,
+                _render_offline_receipt(receipt_envelope),
+            )
+            current_stage = "final_tag_manifest"
+            writer.finalize_tagmanifest(pending_root)
+            current_stage = "final_bagit_validation"
+            final_validation = package_validator.validate(pending_root)
+            if not final_validation.valid:
+                raise StagingError(
+                    "Final BagIt validation failed after receipt finalization."
+                )
+            current_stage = "receiver_verification"
+            receiver_result = verify_receipt(
+                pending_root,
+                package_validator=package_validator,
+            )
+            if receiver_result.status is not ReceiptVerificationStatus.VERIFIED:
+                failed = ", ".join(receiver_result.failed_check_ids)
+                raise StagingError(
+                    f"Independent receiver verification blocked the handoff: {failed}."
+                )
         current_stage = "final_source_snapshot"
         if snapshot_tree(package.root) != package.snapshot:
             raise StagingError("Source package changed before final promotion.")
@@ -295,15 +432,23 @@ def stage_package(
         except OSError as exc:
             raise StagingError("Atomic final-stage promotion failed.") from exc
     except Exception as exc:
-        _preserve_failure_report(
-            report_path=report_path,
-            generated_at=generated_at,
-            final_root=final_root,
-            package=package,
-            map_rows=tuple(map_rows),
-            stage=current_stage,
-            error=exc,
-        )
+        if receipt_finalized:
+            _preserve_post_receipt_failure(
+                pending_root=pending_root,
+                output_root=output_root,
+                stage=current_stage,
+                error=exc,
+            )
+        else:
+            _preserve_failure_report(
+                report_path=report_path,
+                generated_at=generated_at,
+                final_root=final_root,
+                package=package,
+                map_rows=tuple(map_rows),
+                stage=current_stage,
+                error=exc,
+            )
         raise
 
     artifacts = StageArtifacts(
@@ -311,7 +456,234 @@ def stage_package(
         reverse_map=ordered_maps,
         report=report,
     )
-    return StageResult(stage_root=final_root, artifacts=artifacts)
+    return StageResult(
+        stage_root=final_root,
+        artifacts=artifacts,
+        receipt_fingerprint=receipt_fingerprint_value,
+        receiver_verification=receiver_result,
+    )
+
+
+def _validate_migration_case_for_stage(
+    migration_case: MigrationCase,
+    *,
+    package: SourcePackage,
+    decisions: dict[str, HumanDecision],
+    output_root: Path,
+) -> None:
+    """Require exact ready-to-stage durable authority before portable export."""
+
+    if migration_case.lifecycle is not CaseLifecycle.READY_TO_STAGE:
+        raise StagingError("Migration Case is not ready to stage.")
+    if migration_case.receipt_fingerprint is not None:
+        raise StagingError("Migration Case already has a finalized receipt.")
+    if migration_case.source_root != package.root:
+        raise StagingError("Migration Case source root differs from the package.")
+    if migration_case.local_paths.output_root != output_root.resolve(strict=False):
+        raise StagingError("Migration Case output root differs from staging output.")
+    if (
+        migration_case.source_snapshot.commitment != package.snapshot.commitment
+        or migration_case.source_snapshot.members != package.snapshot.members
+        or migration_case.families != package.families
+        or migration_case.proposals != build_proposals(package.families)
+    ):
+        raise StagingError(
+            "Migration Case deterministic state differs from the selected package."
+        )
+    case_decisions = {
+        binding.family_id: binding.decision for binding in migration_case.decisions
+    }
+    if case_decisions != decisions:
+        raise StagingError(
+            "Migration Case human decisions differ from staging authority."
+        )
+
+
+def _replace_final_report(
+    path: Path,
+    report: VerificationReport,
+    *,
+    portable: bool,
+) -> None:
+    """Replace the provisional report with the final local or portable schema."""
+
+    if not portable:
+        replace_verification_report(path, report)
+        return
+    payload = report.model_dump(mode="python")
+    payload.pop("schema_version", None)
+    payload.pop("staged_location", None)
+    portable_report = VerificationReportV2.model_validate(payload, strict=True)
+    _replace_artifact_bytes(path, canonical_artifact_json_bytes(portable_report))
+
+
+def _replace_artifact_bytes(path: Path, content: bytes) -> None:
+    """Atomically replace one product-owned pending artifact."""
+
+    temporary = path.with_name(f".{path.name}.tmp")
+    try:
+        _write_new_bytes(temporary, content)
+        os.replace(temporary, path)
+    except OSError as exc:
+        raise StagingError(f"Could not replace proof artifact: {path.name}") from exc
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _build_receipt_core(
+    *,
+    pending_root: Path,
+    migration_case: MigrationCase,
+    portable_snapshot: PortableSourceSnapshot,
+    decision_ledger: DecisionLedgerV2,
+    maps: tuple[PathMapRow, ...],
+    package_validation: PackageValidationResult,
+    normalization_present: bool,
+) -> ReceiptCore:
+    """Commit the complete acyclic path-neutral transaction artifact set."""
+
+    committed_paths = {
+        PORTABLE_SOURCE_SNAPSHOT_PATH,
+        ORIGINAL_METADATA_PATH,
+        DECISION_LEDGER_PATH,
+        FORWARD_PATH_MAP_PATH,
+        REVERSE_PATH_MAP_PATH,
+        VERIFICATION_REPORT_PATH,
+        VERIFICATION_SUMMARY_PATH,
+        "bagit.txt",
+        "bag-info.txt",
+        "manifest-sha256.txt",
+    }
+    if normalization_present:
+        committed_paths.add(ORIGINAL_NORMALIZATION_PATH)
+    data_members = staged_data_members(pending_root)
+    gpt_assisted = sum(
+        entry.meaning_review is not None for entry in decision_ledger.decisions
+    )
+    return ReceiptCore(
+        case_id=migration_case.case_id,
+        source_snapshot_commitment=portable_snapshot.commitment,
+        source_member_count=len(portable_snapshot.members),
+        source_bytes=sum(member.size for member in portable_snapshot.members),
+        staged_data_commitment=staged_data_commitment(data_members),
+        staged_data_file_count=len(data_members),
+        staged_data_bytes=sum(member.size for member in data_members),
+        artifact_commitments=tuple(
+            artifact_commitment(pending_root, path) for path in sorted(committed_paths)
+        ),
+        map_row_count=len(maps),
+        decision_count=len(decision_ledger.decisions),
+        gpt_assisted_decision_count=gpt_assisted,
+        human_decision_count=len(decision_ledger.decisions),
+        producer_bagit_validation=package_validation,
+        claim_boundaries=(
+            "Internal transaction consistency within the supported Name Atlas "
+            "package contract.",
+            "No sender identity, semantic correctness, compliance, or historical "
+            "source authenticity is asserted.",
+        ),
+    )
+
+
+def _render_offline_receipt(envelope: ReceiptEnvelope) -> bytes:
+    """Render a deterministic non-authoritative offline handoff view."""
+
+    core = envelope.receipt
+    claims = "".join(
+        f"<li>{html.escape(boundary)}</li>" for boundary in core.claim_boundaries
+    )
+    document = (
+        "<!doctype html>\n"
+        '<html lang="en"><head><meta charset="utf-8">'
+        "<title>Reversible Name Atlas Change Receipt</title>"
+        "<style>body{font:16px system-ui;background:#111;color:#eee;"
+        "max-width:820px;margin:3rem auto;padding:0 1rem}code{word-break:break-all;"
+        "color:#8abbff}.verified{color:#72ca9b}</style></head><body>"
+        '<p class="verified">VERIFIED PORTABLE CHANGE RECEIPT</p>'
+        "<h1>Reversible Name Atlas</h1>"
+        "<p>This offline view is derived from the authoritative machine receipt.</p>"
+        f"<h2>Receipt fingerprint</h2><code>{envelope.receipt_fingerprint}</code>"
+        f"<h2>Case</h2><code>{core.case_id}</code>"
+        "<dl>"
+        f"<dt>Schema</dt><dd>{core.schema_version}</dd>"
+        f"<dt>Source members</dt><dd>{core.source_member_count}</dd>"
+        f"<dt>Staged data members</dt><dd>{core.staged_data_file_count}</dd>"
+        f"<dt>Human decisions</dt><dd>{core.human_decision_count}</dd>"
+        f"<dt>GPT-assisted decisions</dt><dd>"
+        f"{core.gpt_assisted_decision_count}</dd></dl>"
+        f"<h2>Claim boundaries</h2><ul>{claims}</ul>"
+        "<p>Verify with: <code>uv run name-atlas verify-receipt "
+        "RECEIVED_BAG</code></p>"
+        "</body></html>\n"
+    )
+    return document.encode("utf-8")
+
+
+def _preserve_post_receipt_failure(
+    *,
+    pending_root: Path,
+    output_root: Path,
+    stage: str,
+    error: Exception,
+) -> None:
+    """Record a later failure beside, never inside, the immutable pending bag."""
+
+    reason = str(error).strip() or f"Unexpected {type(error).__name__}."
+    payload = json.dumps(
+        {
+            "schema_version": "staging-failure.v1",
+            "pending_name": pending_root.name,
+            "stage": stage,
+            "reason": reason[:800],
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        indent=2,
+        allow_nan=False,
+    )
+    failure_path = output_root / f"{pending_root.name}.failure.json"
+    try:
+        _write_new_bytes(failure_path, f"{payload}\n".encode())
+    except StagingError:
+        LOGGER.error("Could not preserve post-receipt failure at %s", failure_path)
+
+
+def _write_original_controls(package: SourcePackage, *, proof_root: Path) -> None:
+    """Retain byte-exact declared source controls as receipt-bound tag files."""
+
+    control_members = tuple(
+        member
+        for member in package.snapshot.members
+        if member.kind is MemberKind.DECLARED_CONTROL_FILE
+    )
+    expected_count = 2 if package.normalization_present else 1
+    if len(control_members) != expected_count:
+        raise StagingError(
+            "Source snapshot does not contain the expected declared controls."
+        )
+    for member in control_members:
+        target = proof_root / "original-control" / member.relative_path
+        _write_new_bytes(target, read_member_bytes(package.root, member))
+
+
+def _write_new_bytes(path: Path, content: bytes) -> None:
+    """Create one product-owned artifact without overwrite and durably flush it."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except OSError as exc:
+        raise StagingError(f"Could not create proof artifact: {path.name}") from exc
+    try:
+        view = memoryview(content)
+        while view:
+            written = os.write(descriptor, view)
+            view = view[written:]
+        os.fsync(descriptor)
+    except OSError as exc:
+        raise StagingError(f"Could not write proof artifact: {path.name}") from exc
+    finally:
+        os.close(descriptor)
 
 
 def _validate_decisions(
@@ -522,14 +894,6 @@ def _render_csv(rows: tuple[tuple[str, ...], ...]) -> bytes:
     writer = csv.writer(stream, lineterminator="\n")
     writer.writerows(rows)
     return stream.getvalue().encode()
-
-
-def _write_new_bytes(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("xb") as stream:
-        stream.write(data)
-        stream.flush()
-        os.fsync(stream.fileno())
 
 
 def _require_globally_unique_targets(targets: tuple[str, ...]) -> None:

@@ -1,0 +1,35 @@
+<section class="product-section" aria-labelledby="handoff-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">05 · Handoff · {{ page_status }}</p>
+      <h2 id="handoff-title">Give the receiver the package and the proof.</h2>
+    </div>
+    <p>Portable receipt · keyless verification · no browser authority</p>
+  </div>
+
+  {% if view and shell.handoff_ready %}
+    <article class="proof-card proof-card--verified">
+      <header><span class="state state--green">VERIFIED</span><h3>The staged handoff is ready for receiver inspection.</h3></header>
+      <dl>
+        <div><dt>Local handoff</dt><dd class="mono">{{ shell.stage_root }}</dd></div>
+        <div><dt>Receipt fingerprint</dt><dd class="mono">{% if shell.receipt_fingerprint %}{{ shell.receipt_fingerprint }}{% else %}not exposed by current workflow result{% endif %}</dd></div>
+        <div><dt>Source commitment</dt><dd class="mono">{{ shell.source_commitment }}</dd></div>
+        <div><dt>Receiver dependencies</dt><dd>No API key, GPT call, network, browser, or local case</dd></div>
+      </dl>
+      <section class="artifact-shelf" aria-labelledby="handoff-actions-title">
+        <div><p class="eyebrow">Receiver actions</p><h4 id="handoff-actions-title">Inspect, copy, and verify.</h4></div>
+        <ul>
+          {% if view.proof and 'name-atlas/change_receipt.html' in view.proof.report.artifact_paths %}<li><code>name-atlas/change_receipt.html</code><span><a href="/proof-artifacts/name-atlas/change_receipt.html" target="_blank" rel="noopener">Open offline receipt</a></span></li>{% endif %}
+          <li><code>uv run name-atlas verify-receipt "{{ shell.stage_root }}"</code><span><a href="/verify">Inspect proof</a></span></li>
+        </ul>
+      </section>
+      <details><summary>Independent verification boundary</summary><p>The receiver verifier must inspect the copied bag without this browser session or the local Migration Case. Internal consistency does not authenticate sender identity or prove that the committed description is an authentic historical source.</p></details>
+    </article>
+  {% else %}
+    <article class="proof-card">
+      <header><span class="state state--amber">INCOMPLETE</span><h3>No receiver-ready handoff exists.</h3></header>
+      <p>Handoff remains directly inspectable, but it cannot expose a receipt, fingerprint, verifier command, or restore action until staging and verification succeed.</p>
+      {% if view and view.export_ready %}<p><a class="button" href="/stage">Continue to Stage</a></p>{% elif view %}<p><a class="button" href="/decide">Resolve decisions</a></p>{% else %}<p><a class="button" href="/atlas">Inspect Atlas blocker</a></p>{% endif %}
+    </article>
+  {% endif %}
+</section>

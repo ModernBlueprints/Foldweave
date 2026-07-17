@@ -1,5 +1,7 @@
 """Loopback-only FastAPI application factory."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qs
 
@@ -8,6 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from name_atlas.cases import MigrationCaseError
 from name_atlas.config import RuntimeConfig
 from name_atlas.decision_cards import DecisionCardProviderError
 from name_atlas.decisions import DecisionError
@@ -17,20 +20,36 @@ from name_atlas.workflow import WorkflowSession
 PACKAGE_ROOT = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=PACKAGE_ROOT / "templates")
 MAX_FORM_BODY_BYTES = 4_096
+WORKBENCH_STEPS = (
+    {"number": "01", "key": "atlas", "label": "Atlas", "path": "/atlas"},
+    {"number": "02", "key": "decide", "label": "Decide", "path": "/decide"},
+    {"number": "03", "key": "stage", "label": "Stage", "path": "/stage"},
+    {"number": "04", "key": "verify", "label": "Verify", "path": "/verify"},
+    {"number": "05", "key": "handoff", "label": "Handoff", "path": "/handoff"},
+)
 
 
 def create_app(
     config: RuntimeConfig,
     workflow: WorkflowSession | None = None,
 ) -> FastAPI:
-    """Create the local application with safe startup diagnostics."""
+    """Create the local application with server-owned workflow transitions."""
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            if workflow is not None:
+                workflow.close()
 
     app = FastAPI(
         title="Reversible Name Atlas",
-        description="Refactor the collection. Preserve every identity.",
+        description="Refactor the collection. Hand over the proof.",
         version="0.1.0",
         docs_url=None,
         redoc_url=None,
+        lifespan=lifespan,
     )
     app.state.runtime_config = config
     app.state.workflow = workflow
@@ -42,18 +61,61 @@ def create_app(
         name="static",
     )
 
-    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-    async def index(request: Request) -> HTMLResponse:
-        return TEMPLATES.TemplateResponse(
+    @app.get("/", include_in_schema=False)
+    async def root() -> RedirectResponse:
+        return RedirectResponse(
+            url=_next_workbench_path(config=config, workflow=workflow),
+            status_code=303,
+        )
+
+    @app.get("/atlas", response_class=HTMLResponse, include_in_schema=False)
+    async def atlas(request: Request) -> HTMLResponse:
+        return _render_workbench_page(
             request=request,
-            name="index.html",
-            context={
-                "config": config,
-                "diagnostics": config.safe_diagnostics(),
-                "view": workflow.view_model() if workflow is not None else None,
-                "notice": app.state.notice,
-                "action_error": app.state.action_error,
-            },
+            app=app,
+            config=config,
+            workflow=workflow,
+            active_page="atlas",
+        )
+
+    @app.get("/decide", response_class=HTMLResponse, include_in_schema=False)
+    async def decide(request: Request) -> HTMLResponse:
+        return _render_workbench_page(
+            request=request,
+            app=app,
+            config=config,
+            workflow=workflow,
+            active_page="decide",
+        )
+
+    @app.get("/stage", response_class=HTMLResponse, include_in_schema=False)
+    async def stage_page(request: Request) -> HTMLResponse:
+        return _render_workbench_page(
+            request=request,
+            app=app,
+            config=config,
+            workflow=workflow,
+            active_page="stage",
+        )
+
+    @app.get("/verify", response_class=HTMLResponse, include_in_schema=False)
+    async def verify(request: Request) -> HTMLResponse:
+        return _render_workbench_page(
+            request=request,
+            app=app,
+            config=config,
+            workflow=workflow,
+            active_page="verify",
+        )
+
+    @app.get("/handoff", response_class=HTMLResponse, include_in_schema=False)
+    async def handoff(request: Request) -> HTMLResponse:
+        return _render_workbench_page(
+            request=request,
+            app=app,
+            config=config,
+            workflow=workflow,
+            active_page="handoff",
         )
 
     @app.get("/healthz")
@@ -79,121 +141,400 @@ def create_app(
             )
         return response
 
-    if workflow is not None:
-
-        @app.post("/families/{family_id}/generate", include_in_schema=False)
-        async def generate_card(family_id: str) -> RedirectResponse:
-            _clear_action_state(app)
-            try:
-                cache_hits_before = workflow.cache_hits
-                await workflow.generate_card(family_id)
-                if workflow.cache_hits > cache_hits_before:
-                    app.state.notice = (
-                        "Validated cached card reused for identical evidence."
-                    )
-                elif config.mode.value == "replay":
-                    app.state.notice = (
-                        "Recorded GPT-5.6 response loaded for the exact visible packet."
-                    )
-                else:
-                    app.state.notice = (
-                        "Neutral GPT-5.6 decision card generated from the visible "
-                        "packet."
-                    )
-                if workflow.replay_record_error is not None:
-                    app.state.action_error = workflow.replay_record_error
-                elif workflow.budget_reporting_error is not None:
-                    app.state.action_error = workflow.budget_reporting_error
-            except (DecisionCardProviderError, DecisionError) as exc:
-                app.state.action_error = str(exc)
-            return RedirectResponse(url="/#decisions", status_code=303)
-
-        @app.post("/approve-low-risk", include_in_schema=False)
-        async def approve_low_risk() -> RedirectResponse:
-            _clear_action_state(app)
-            try:
-                decisions = workflow.approve_low_risk()
+    @app.post("/families/{family_id}/generate", include_in_schema=False)
+    async def generate_card(family_id: str) -> RedirectResponse:
+        _clear_action_state(app)
+        if workflow is None:
+            app.state.action_error = _missing_case_message()
+            return _redirect_to("/decide")
+        try:
+            cache_hits_before = workflow.cache_hits
+            await workflow.generate_card(family_id)
+            if workflow.cache_hits > cache_hits_before:
                 app.state.notice = (
-                    f"Human batch approval stored for {len(decisions)} "
-                    "low-risk families."
+                    "Validated cached card reused for identical evidence."
                 )
-            except DecisionError as exc:
-                app.state.action_error = str(exc)
-            return RedirectResponse(url="/#decisions", status_code=303)
+            elif config.mode.value == "replay":
+                app.state.notice = (
+                    "Recorded GPT-5.6 response loaded for the exact visible packet."
+                )
+            else:
+                app.state.notice = (
+                    "Neutral GPT-5.6 decision card generated from the visible packet."
+                )
+            if workflow.replay_record_error is not None:
+                app.state.action_error = workflow.replay_record_error
+            elif workflow.budget_reporting_error is not None:
+                app.state.action_error = workflow.budget_reporting_error
+        except (DecisionCardProviderError, DecisionError, MigrationCaseError) as exc:
+            app.state.action_error = str(exc)
+        return _redirect_to("/decide")
 
-        @app.post("/families/{family_id}/approve", include_in_schema=False)
-        async def approve(family_id: str) -> RedirectResponse:
-            _clear_action_state(app)
-            try:
-                workflow.approve(family_id)
-                app.state.notice = "Human approval stored for the complete family."
-            except DecisionError as exc:
-                app.state.action_error = str(exc)
-            return RedirectResponse(url="/#decisions", status_code=303)
+    @app.post("/approve-low-risk", include_in_schema=False)
+    async def approve_low_risk() -> RedirectResponse:
+        _clear_action_state(app)
+        if workflow is None:
+            app.state.action_error = _missing_case_message()
+            return _redirect_to("/decide")
+        try:
+            decisions = workflow.approve_low_risk()
+            app.state.notice = (
+                f"Human batch approval stored for {len(decisions)} low-risk families."
+            )
+        except (DecisionError, MigrationCaseError) as exc:
+            app.state.action_error = str(exc)
+        return _redirect_to("/decide")
 
-        @app.post("/families/{family_id}/edit", include_in_schema=False)
-        async def edit(family_id: str, request: Request) -> RedirectResponse:
-            _clear_action_state(app)
-            body = await request.body()
-            try:
-                if len(body) > MAX_FORM_BODY_BYTES:
-                    raise DecisionError("Edited descriptor form is too large.")
-                decoded = body.decode("utf-8", errors="strict")
-                fields = parse_qs(decoded, strict_parsing=True, max_num_fields=4)
-                descriptor_values = fields.get("descriptor", [])
-                if len(descriptor_values) != 1:
-                    raise DecisionError("Exactly one edited descriptor is required.")
-                workflow.edit(family_id, descriptor_values[0])
-                app.state.notice = "Human descriptor stored across the complete family."
-            except (UnicodeDecodeError, ValueError, DecisionError) as exc:
-                app.state.action_error = str(exc)
-            return RedirectResponse(url="/#decisions", status_code=303)
+    @app.post("/families/{family_id}/approve", include_in_schema=False)
+    async def approve(family_id: str) -> RedirectResponse:
+        _clear_action_state(app)
+        if workflow is None:
+            app.state.action_error = _missing_case_message()
+            return _redirect_to("/decide")
+        try:
+            workflow.approve(family_id)
+            app.state.notice = "Human approval stored for the complete family."
+        except (DecisionError, MigrationCaseError) as exc:
+            app.state.action_error = str(exc)
+        return _redirect_to("/decide")
 
-        @app.post("/families/{family_id}/refuse", include_in_schema=False)
-        async def refuse(family_id: str) -> RedirectResponse:
-            _clear_action_state(app)
-            try:
-                workflow.refuse(family_id)
-                app.state.notice = "Human refusal stored; complete export is blocked."
-            except DecisionError as exc:
-                app.state.action_error = str(exc)
-            return RedirectResponse(url="/#decisions", status_code=303)
+    @app.post("/families/{family_id}/edit", include_in_schema=False)
+    async def edit(family_id: str, request: Request) -> RedirectResponse:
+        _clear_action_state(app)
+        if workflow is None:
+            app.state.action_error = _missing_case_message()
+            return _redirect_to("/decide")
+        body = await request.body()
+        try:
+            if len(body) > MAX_FORM_BODY_BYTES:
+                raise DecisionError("Edited descriptor form is too large.")
+            decoded = body.decode("utf-8", errors="strict")
+            fields = parse_qs(decoded, strict_parsing=True, max_num_fields=4)
+            descriptor_values = fields.get("descriptor", [])
+            if len(descriptor_values) != 1:
+                raise DecisionError("Exactly one edited descriptor is required.")
+            workflow.edit(family_id, descriptor_values[0])
+            app.state.notice = "Human descriptor stored across the complete family."
+        except (
+            UnicodeDecodeError,
+            ValueError,
+            DecisionError,
+            MigrationCaseError,
+        ) as exc:
+            app.state.action_error = str(exc)
+        return _redirect_to("/decide")
 
-        @app.post("/stage", include_in_schema=False)
-        async def stage() -> RedirectResponse:
-            _clear_action_state(app)
-            try:
-                workflow.stage()
-                app.state.notice = "Copy-only staged package verified and promoted."
-            except StagingError as exc:
-                app.state.action_error = str(exc)
-            return RedirectResponse(url="/#proof", status_code=303)
+    @app.post("/families/{family_id}/refuse", include_in_schema=False)
+    async def refuse(family_id: str) -> RedirectResponse:
+        _clear_action_state(app)
+        if workflow is None:
+            app.state.action_error = _missing_case_message()
+            return _redirect_to("/decide")
+        try:
+            workflow.refuse(family_id)
+            app.state.notice = "Human refusal stored; complete export is blocked."
+        except (DecisionError, MigrationCaseError) as exc:
+            app.state.action_error = str(exc)
+        return _redirect_to("/decide")
 
-        @app.get(
-            "/proof-artifacts/{artifact_path:path}",
-            response_class=FileResponse,
-            include_in_schema=False,
-        )
-        async def proof_artifact(artifact_path: str) -> FileResponse:
-            stage_result = workflow.stage_result
-            if stage_result is None:
-                raise HTTPException(status_code=404, detail="No verified proof exists.")
-            if artifact_path not in stage_result.artifacts.report.artifact_paths:
-                raise HTTPException(status_code=404, detail="Unknown proof artifact.")
-            stage_root = stage_result.stage_root.resolve()
-            candidate = (stage_root / artifact_path).resolve()
-            try:
-                candidate.relative_to(stage_root)
-            except ValueError as exc:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Unknown proof artifact.",
-                ) from exc
-            if not candidate.is_file():
-                raise HTTPException(status_code=404, detail="Proof artifact is absent.")
-            return FileResponse(candidate)
+    @app.post("/stage", include_in_schema=False)
+    async def stage() -> RedirectResponse:
+        _clear_action_state(app)
+        if workflow is None:
+            app.state.action_error = _missing_case_message()
+            return _redirect_to("/stage")
+        view = workflow.view_model()
+        case_lifecycle = _enum_text(view.get("case_lifecycle"))
+        if case_lifecycle == "stale":
+            app.state.action_error = (
+                "The Migration Case is stale; staging is blocked until a fresh "
+                "case is created."
+            )
+            return _redirect_to("/stage")
+        if case_lifecycle == "handoff_ready":
+            app.state.action_error = (
+                "A verified handoff already exists; this finalized case is read-only."
+            )
+            return _redirect_to("/stage")
+        if not bool(view["export_ready"]):
+            app.state.action_error = (
+                "Staging is blocked until every required human decision is resolved."
+            )
+            return _redirect_to("/stage")
+        if workflow.stage_result is not None:
+            app.state.action_error = (
+                "A verified handoff already exists; this workflow cannot "
+                "stage it again."
+            )
+            return _redirect_to("/stage")
+        try:
+            workflow.stage()
+            app.state.notice = (
+                "Copy-only staged package verified and promoted for receiver review."
+            )
+        except (StagingError, MigrationCaseError) as exc:
+            app.state.action_error = str(exc)
+            return _redirect_to("/stage")
+        return _redirect_to("/verify")
+
+    @app.get(
+        "/proof-artifacts/{artifact_path:path}",
+        response_class=FileResponse,
+        include_in_schema=False,
+    )
+    async def proof_artifact(artifact_path: str) -> FileResponse:
+        if workflow is None:
+            raise HTTPException(status_code=404, detail="No verified proof exists.")
+        stage_result = workflow.stage_result
+        if stage_result is None:
+            raise HTTPException(status_code=404, detail="No verified proof exists.")
+        if artifact_path not in stage_result.artifacts.report.artifact_paths:
+            raise HTTPException(status_code=404, detail="Unknown proof artifact.")
+        stage_root = stage_result.stage_root.resolve()
+        candidate = (stage_root / artifact_path).resolve()
+        try:
+            candidate.relative_to(stage_root)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail="Unknown proof artifact.",
+            ) from exc
+        if not candidate.is_file():
+            raise HTTPException(status_code=404, detail="Proof artifact is absent.")
+        return FileResponse(candidate)
 
     return app
+
+
+def _render_workbench_page(
+    *,
+    request: Request,
+    app: FastAPI,
+    config: RuntimeConfig,
+    workflow: WorkflowSession | None,
+    active_page: str,
+) -> HTMLResponse:
+    view = workflow.view_model() if workflow is not None else None
+    shell = _shell_context(config=config, workflow=workflow, view=view)
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "config": config,
+            "diagnostics": config.safe_diagnostics(),
+            "view": view,
+            "shell": shell,
+            "steps": WORKBENCH_STEPS,
+            "active_page": active_page,
+            "page_status": _page_status(active_page=active_page, shell=shell),
+            "notice": app.state.notice,
+            "action_error": app.state.action_error,
+        },
+    )
+
+
+def _shell_context(
+    *,
+    config: RuntimeConfig,
+    workflow: WorkflowSession | None,
+    view: dict[str, object] | None,
+) -> dict[str, object]:
+    case = getattr(workflow, "case", None) if workflow is not None else None
+    source_root = str(view["source_root"]) if view is not None else None
+    case_name = _first_text(
+        view.get("case_name") if view is not None else None,
+        getattr(case, "case_name", None),
+        getattr(workflow, "case_name", None) if workflow is not None else None,
+        Path(source_root).name if source_root is not None else None,
+        "No Migration Case loaded",
+    )
+    case_id = _first_text(
+        view.get("case_id") if view is not None else None,
+        getattr(case, "case_id", None),
+        getattr(workflow, "case_id", None) if workflow is not None else None,
+    )
+    lifecycle_value = view.get("case_lifecycle") if view is not None else None
+    if workflow is not None and lifecycle_value is None:
+        lifecycle_value = (
+            getattr(case, "lifecycle_state", None)
+            or getattr(case, "lifecycle", None)
+            or getattr(workflow, "lifecycle_state", None)
+        )
+    lifecycle = _enum_text(lifecycle_value)
+    family_count = int(view["family_count"]) if view is not None else 0
+    resolved_count = int(view["ready_count"]) if view is not None else 0
+    unresolved_count = max(0, family_count - resolved_count)
+    export_ready = bool(view["export_ready"]) if view is not None else False
+    hard_blocker_count = int(view["hard_blocker_count"]) if view is not None else 0
+    proof_ready = workflow is not None and workflow.stage_result is not None
+    receipt_fingerprint = _receipt_fingerprint(workflow=workflow, view=view)
+    handoff_ready = lifecycle == "handoff_ready" or (
+        receipt_fingerprint is not None
+        and view is not None
+        and bool(view.get("handoff_path"))
+    )
+    stale_or_import_blocked = view is None or lifecycle == "stale"
+    case_blocked = lifecycle == "blocked"
+    if stale_or_import_blocked or case_blocked:
+        deterministic_status = "BLOCKED"
+    elif handoff_ready:
+        deterministic_status = "VERIFIED"
+    elif proof_ready:
+        deterministic_status = "INCOMPLETE"
+    elif hard_blocker_count:
+        deterministic_status = "BLOCKED"
+    elif export_ready:
+        deterministic_status = "READY TO STAGE"
+    else:
+        deterministic_status = "INCOMPLETE"
+    snapshot = view["snapshot"] if view is not None else None
+    commitment = getattr(snapshot, "commitment", None)
+    stage_root = _first_text(
+        (
+            workflow.stage_result.stage_root
+            if workflow is not None and workflow.stage_result is not None
+            else None
+        ),
+        view.get("handoff_path") if view is not None else None,
+    )
+    output_root = str(workflow.output_root) if workflow is not None else None
+    return {
+        "case_name": case_name,
+        "case_id": case_id,
+        "case_id_short": f"{case_id[:12]}…" if case_id else "not persisted yet",
+        "source_commitment": commitment,
+        "source_commitment_short": (
+            f"{commitment[:12]}…" if isinstance(commitment, str) else "unavailable"
+        ),
+        "mode_label": (
+            "Recorded GPT-5.6 response"
+            if config.mode.value == "replay" and config.replay_record_configured
+            else f"{config.mode.value.title()} mode"
+        ),
+        "resolved_count": resolved_count,
+        "unresolved_count": unresolved_count,
+        "hard_blocker_count": hard_blocker_count,
+        "export_ready": export_ready,
+        "proof_ready": proof_ready,
+        "handoff_ready": handoff_ready,
+        "stale_or_import_blocked": stale_or_import_blocked,
+        "case_blocked": case_blocked,
+        "lifecycle": lifecycle,
+        "deterministic_status": deterministic_status,
+        "stage_root": stage_root,
+        "output_root": output_root,
+        "receipt_fingerprint": receipt_fingerprint,
+    }
+
+
+def _next_workbench_path(
+    *,
+    config: RuntimeConfig,
+    workflow: WorkflowSession | None,
+) -> str:
+    if workflow is None:
+        return "/atlas"
+    view = workflow.view_model()
+    shell = _shell_context(
+        config=config,
+        workflow=workflow,
+        view=view,
+    )
+    if bool(shell["stale_or_import_blocked"]):
+        return "/atlas"
+    if bool(shell["handoff_ready"]):
+        return "/handoff"
+    if bool(shell["proof_ready"]):
+        return "/verify"
+    if not bool(view["export_ready"]):
+        return "/decide"
+    return "/stage"
+
+
+def _page_status(*, active_page: str, shell: dict[str, object]) -> str:
+    if bool(shell["stale_or_import_blocked"]):
+        return "BLOCKED"
+    if active_page == "atlas":
+        return "INDEXED" if shell["source_commitment"] else "BLOCKED"
+    if active_page == "decide":
+        if not shell["source_commitment"]:
+            return "BLOCKED"
+        if int(shell["unresolved_count"]) == 0:
+            return "COMPLETE"
+        return (
+            "BLOCKED"
+            if bool(shell["case_blocked"]) or int(shell["hard_blocker_count"])
+            else "INCOMPLETE"
+        )
+    if active_page == "stage":
+        if bool(shell["handoff_ready"]):
+            return "COMPLETE"
+        if bool(shell["proof_ready"]):
+            return "COMPLETE"
+        if bool(shell["export_ready"]):
+            return "READY"
+        return (
+            "BLOCKED"
+            if bool(shell["case_blocked"]) or int(shell["hard_blocker_count"])
+            else "INCOMPLETE"
+        )
+    if active_page in {"verify", "handoff"}:
+        if bool(shell["handoff_ready"]):
+            return "VERIFIED"
+        if active_page == "verify" and bool(shell["proof_ready"]):
+            return "INCOMPLETE"
+        return (
+            "BLOCKED"
+            if bool(shell["case_blocked"]) or int(shell["hard_blocker_count"])
+            else "INCOMPLETE"
+        )
+    return "INCOMPLETE"
+
+
+def _receipt_fingerprint(
+    *,
+    workflow: WorkflowSession | None,
+    view: dict[str, object] | None,
+) -> str | None:
+    if workflow is None:
+        return None
+    case = getattr(workflow, "case", None)
+    candidates = [
+        view.get("receipt_fingerprint") if view is not None else None,
+        getattr(case, "receipt_fingerprint", None),
+    ]
+    if case is None:
+        stage_result = workflow.stage_result
+        candidates.extend(
+            (
+                getattr(workflow, "receipt_fingerprint", None),
+                getattr(stage_result, "receipt_fingerprint", None),
+            )
+        )
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate:
+            return candidate
+    return None
+
+
+def _enum_text(value: object | None) -> str | None:
+    enum_value = getattr(value, "value", value)
+    return str(enum_value).lower() if enum_value is not None else None
+
+
+def _first_text(*values: object | None) -> str | None:
+    for value in values:
+        if value is not None and str(value):
+            return str(value)
+    return None
+
+
+def _redirect_to(path: str) -> RedirectResponse:
+    return RedirectResponse(url=path, status_code=303)
+
+
+def _missing_case_message() -> str:
+    return "No Migration Case is loaded; this server-side action is blocked."
 
 
 def _clear_action_state(app: FastAPI) -> None:

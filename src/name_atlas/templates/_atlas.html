@@ -1,0 +1,70 @@
+<section class="product-section" aria-labelledby="atlas-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">01 · Atlas · {{ page_status }}</p>
+      <h2 id="atlas-title">One identity, every declared relationship</h2>
+      {% if view %}<p class="atlas-context"><strong>Repository-ready identity profile</strong><span class="mono">{{ view.source_root }}</span></p>{% endif %}
+    </div>
+    {% if view %}<p>{{ view.family_count }} families · {{ view.content_count }} content objects · {{ view.proposal_count }} visible proposals</p>{% endif %}
+  </div>
+
+  {% if not view %}
+    <article class="proof-card">
+      <header><span class="state state--red">BLOCKED</span><h3>No Migration Case is loaded.</h3></header>
+      <p>The source package could not be inspected. Start the application with a supported package before decisions, staging, verification, or handoff can proceed.</p>
+      <details><summary>Why later steps are unavailable</summary><p>Server-side guards require a successfully imported source graph and immutable snapshot. No transition is inferred from an empty browser session.</p></details>
+    </article>
+  {% else %}
+    {% if shell.lifecycle == 'stale' %}
+      <article class="proof-card">
+        <header><span class="state state--red">BLOCKED</span><h3>The Migration Case is stale.</h3></header>
+        <p>The current source no longer matches the case snapshot. Decisions, staging, and receipt generation remain blocked; preserve this case and create a fresh case at a different path.</p>
+      </article>
+    {% endif %}
+    <div class="metric-grid" aria-label="Risk counts">
+      <article><span>Families</span><strong>{{ view.family_count }}</strong><small>stable identities</small></article>
+      <article><span>Policy</span><strong>{{ view.risk_counts.Policy }}</strong><small>profile blockers</small></article>
+      <article><span>Collision</span><strong>{{ view.risk_counts.Collision }}</strong><small>target conflicts</small></article>
+      <article><span>Links</span><strong>{{ view.risk_counts.Links }}</strong><small>broken references</small></article>
+      <article class="metric--amber"><span>Meaning</span><strong>{{ view.risk_counts.Meaning }}</strong><small>human judgment</small></article>
+    </div>
+
+    {% for item in view.families %}
+      <details class="family-card" {% if item.requires_card or item.mechanically_blocked %}open{% endif %}>
+        <summary class="family-card__header">
+          <span class="family-card__identity">
+            <span class="id-chip">{{ item.family.canonical_identifier }}</span>
+            <strong class="family-card__title">{{ item.family.metadata_row.value('dc.title') }}</strong>
+            <span class="mono subtle">Family {{ item.family.family_id[:16] }}…</span>
+          </span>
+          {% if item.ready %}<span class="state state--green">Human resolved</span>{% elif item.mechanically_blocked %}<span class="state state--red">Mechanical blocker</span>{% elif item.requires_card %}<span class="state state--amber">Meaning review</span>{% else %}<span class="state state--amber">Awaiting batch approval</span>{% endif %}
+        </summary>
+
+        <div class="relationship-strip" aria-label="Declared family roles">
+          <span>Original</span><i aria-hidden="true">→</i>
+          <span>{% if item.family.access %}Access{% else %}No access{% endif %}</span><i aria-hidden="true">→</i>
+          <span>{% if item.family.preservation %}Preservation{% else %}No preservation{% endif %}</span>
+        </div>
+        <div class="proposal-table" role="table" aria-label="Path proposals">
+          <div class="proposal-row proposal-row--header" role="row"><span>Role</span><span>Source</span><span>Proposed target</span><span>Risk</span></div>
+          {% for proposal in item.proposals %}
+            <div class="proposal-row" role="row">
+              <strong>{{ proposal.role.value }}</strong>
+              <code>{{ proposal.original_relative_path }}</code>
+              <code>{{ proposal.proposed_relative_path }}</code>
+              <span>{% if proposal.mechanical_blockers %}{% for risk in proposal.mechanical_blockers %}<b class="risk risk--red">{{ risk.category.value }}</b>{% endfor %}{% elif proposal.meaning_risks %}<b class="risk risk--amber">Meaning</b>{% else %}<b class="risk risk--neutral">No flagged risk</b>{% endif %}</span>
+            </div>
+          {% endfor %}
+        </div>
+        <details class="trace">
+          <summary>Inspect deterministic transformation trace and affected links</summary>
+          {% for proposal in item.proposals %}
+            <h4>{{ proposal.role.value }} · {{ proposal.affected_references|length }} affected reference(s)</h4>
+            <ol>{% for step in proposal.transformation_steps %}<li><span>{{ step.operation }}</span><code>{{ step.before }} → {{ step.after }}</code></li>{% endfor %}</ol>
+            <ul class="reference-list">{% for reference in proposal.affected_references %}<li><code>{{ reference }}</code></li>{% endfor %}</ul>
+          {% endfor %}
+        </details>
+      </details>
+    {% endfor %}
+  {% endif %}
+</section>

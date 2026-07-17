@@ -1,0 +1,53 @@
+<section class="product-section" aria-labelledby="stage-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">03 · Stage · {{ page_status }}</p>
+      <h2 id="stage-title">Create the copy. Leave the source untouched.</h2>
+    </div>
+    <p>One complete package · no partial export</p>
+  </div>
+
+  {% if not view %}
+    <article class="proof-card">
+      <header><span class="state state--red">BLOCKED</span><h3>No Migration Case can be staged.</h3></header>
+      <p>Import a supported package before requesting any copy operation.</p>
+    </article>
+  {% elif shell.handoff_ready %}
+    <article class="proof-card proof-card--verified">
+      <header><span class="state state--green">COMPLETE</span><h3>A verified staged handoff already exists.</h3></header>
+      <p class="mono subtle">{{ shell.stage_root }}</p>
+      <p>The source was not renamed, edited, or deleted. Re-staging is blocked for this completed workflow.</p>
+      <p><a class="button" href="/verify">Inspect verification</a> <a class="button button--quiet" href="/handoff">Open handoff</a></p>
+    </article>
+  {% elif shell.proof_ready %}
+    <article class="proof-card">
+      <header><span class="state state--amber">INCOMPLETE</span><h3>The copy-only stage exists, but no receiver-ready receipt is bound yet.</h3></header>
+      <p class="mono subtle">{{ shell.stage_root }}</p>
+      <p>The source-aware proof is available. Re-staging is blocked; receipt finalization and independent receiver verification must complete before Handoff can turn green.</p>
+      <p><a class="button" href="/verify">Inspect current verification</a></p>
+    </article>
+  {% elif view.export_ready %}
+    <article class="proof-card">
+      <header><span class="state state--green">READY</span><h3>Every required family decision is complete.</h3></header>
+      <dl>
+        <div><dt>Source</dt><dd class="mono">{{ view.source_root }}</dd></div>
+        <div><dt>Destination parent</dt><dd class="mono">{{ shell.output_root }}</dd></div>
+        <div><dt>Resolved families</dt><dd>{{ view.ready_count }} / {{ view.family_count }}</dd></div>
+        <div><dt>Source mutation</dt><dd>Never permitted</dd></div>
+      </dl>
+      <details><summary>What this transaction will do</summary><p>Re-scan the immutable source, copy every declared content object, rewrite only declared staged references, generate the proof artifacts, run deterministic and BagIt checks, and promote only after all checks pass.</p></details>
+      <form method="post" action="/stage"><button class="button button--primary" type="submit">Stage copies and run complete proof</button></form>
+    </article>
+  {% else %}
+    <article class="proof-card">
+      <header><span class="state {% if view.hard_blocker_count %}state--red{% else %}state--amber{% endif %}">{% if view.hard_blocker_count %}Blocked · action required{% else %}INCOMPLETE · decisions required{% endif %}</span><h3>Staging is unavailable.</h3></header>
+      <p>The source remains untouched. Complete every required family decision before the server will call the staging transaction.</p>
+      <ul class="blocker-list" aria-label="Items preventing staging">
+        {% for item in view.families if not item.ready %}
+          <li><strong>{{ item.family.canonical_identifier }}</strong> {% if item.decision and item.decision.action.value == 'refused' %}Human refusal blocks the complete package.{% elif item.mechanically_blocked %}A deterministic target collision requires an edited descriptor.{% elif item.card_error %}Decision-card generation failed; the Meaning decision remains unresolved.{% elif item.requires_card %}Meaning review requires a card and explicit human decision.{% else %}An explicit human decision is still required.{% endif %}</li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="/stage"><button class="button button--primary" type="submit" disabled>Stage copies and run complete proof</button></form>
+    </article>
+  {% endif %}
+</section>
