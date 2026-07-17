@@ -1,186 +1,175 @@
 /goal
 
-# Build, verify, publish, and submit Reversible Name Atlas
+# Complete and submit the revised Reversible Name Atlas release
 
-This production goal is **INACTIVE** merely by existing, being committed, or
-being displayed. It becomes binding only when the user explicitly activates this
-complete `/goal` in the current primary Codex task. That activation timestamp,
-recorded in Europe/Oslo, is H+0.
+This amended goal is **INACTIVE** merely by existing, being committed, being
+displayed, or by implementation of the meta-plan that authored it. It becomes
+binding only when the user explicitly activates this complete text in the
+current primary Codex task. Record that Europe/Oslo timestamp as R+0.
 
-## Objective and terminal condition
+Historical first-cycle H+0 remains **Friday 17 July 2026 at 17:16:25 CEST**. Do
+not reset or conflate it with R+0.
 
-Implement the complete Reversible Name Atlas product specified in
-`/Users/nikolai/Desktop/Repos/reversible-name-atlas/docs/build/BUILD_SPEC.md`,
-execute the single vertical plan at
-`/Users/nikolai/Desktop/Repos/reversible-name-atlas/docs/build/IMPLEMENTATION_PLAN.md`,
-verify the product and all submission claims, publish the authorized release,
-and continue until the OpenAI Build Week Devpost submission is confirmed.
+## Objective, boundaries, and authority
 
-The protected boundaries are:
+Build, verify, release, and—only after the submission hold is explicitly
+released—submit the revised Reversible Name Atlas defined by:
 
-- recording-ready: **Tuesday 21 July 2026 at 02:00 CEST**;
-- submission confirmed: **Wednesday 22 July 2026 at 02:00 CEST**.
+- `/Users/nikolai/Desktop/Repos/reversible-name-atlas/docs/build/BUILD_SPEC.md`
+- `/Users/nikolai/Desktop/Repos/reversible-name-atlas/docs/build/IMPLEMENTATION_PLAN.md`
 
-Milestone targets force integration, simplification, and scope control. They are
-not cancellation timers. Missing a target never cancels a required outcome.
-Preserve the final 24-hour submission reserve and use the plan's compressed
-targets if fewer than 80 product hours remain at H+0.
+Recording-ready is **Tuesday 21 July 2026 at 02:00 CEST**. Submission is due
+**Wednesday 22 July 2026 at 02:00 CEST**. Targets force integration and scope
+control; they are not cancellation timers. Preserve the four-hour pre-recording
+contingency and final 24-hour submission reserve.
 
-## Controlling artifacts and baseline
+The public known-good predecessor is
+`827b0f6f93174d3c34aedfd98d8467a299ab2669` on `main`. The revised governance
+baseline is the unique commit on `revision/portable-change-receipt` whose subject
+is `docs: establish revised product operating scaffold`, whose parent is exactly
+that predecessor, and whose SHA is reported in the scaffold handoff. Resolve it
+from fresh Git state; this goal does not contain its own commit hash.
 
-Repository:
-`/Users/nikolai/Desktop/Repos/reversible-name-atlas`
+Authority is separated:
 
-The immutable scaffold baseline is the unique root commit on branch `main` with
-subject `chore: establish build operating scaffold`. Its exact commit ID is
-reported in the scaffold handoff and must be resolved from fresh Git history at
-activation. This locator avoids the impossible requirement for a commit to
-contain its own hash.
+1. the user's current instruction;
+2. this activated goal for execution authority, persistence, prohibitions,
+   recovery, and terminal conditions;
+3. frozen `BUILD_SPEC.md` for product truth, contracts, acceptance, exclusions,
+   and claims;
+4. current official Build Week rules and FAQ for submission requirements;
+5. `IMPLEMENTATION_PLAN.md` for sequence, targets, cuts, status, and evidence;
+6. fresh repository and product-native evidence over stale `STATE.md` text; and
+7. `DECISIONS.md` and `docs/PREEXISTING_WORK.md` for rationale and provenance.
 
-Apply authority by responsibility:
-
-1. The user's current instruction has highest authority.
-2. This activated goal controls execution authority, persistence, prohibitions,
-   recovery, and terminal conditions.
-3. `BUILD_SPEC.md` controls product truth, interfaces, acceptance, exclusions,
-   and claims.
-4. Current official Build Week rules and FAQ control submission requirements.
-5. `IMPLEMENTATION_PLAN.md` controls dependency order, targets, scope cuts,
-   evidence, and actual milestone status.
-6. `STATE.md` is a short checkpoint, not proof. Fresh repository state and
-   product-native verification override stale checkpoint text.
-7. `DECISIONS.md` and `docs/PREEXISTING_WORK.md` record rationale and provenance;
-   they do not redefine the product.
-
-Keep `BUILD_SPEC.md` frozen except for a user instruction, an official-rule
-change, or a demonstrated material contradiction or defect. Record the reason
-for any such change. Keep this goal frozen after activation. Update the one plan
-and short state checkpoint as verified implementation evidence changes.
+Freeze this goal after activation and keep the specification frozen except for
+a user instruction, official-rule change, or demonstrated material defect.
 
 ## Primary integrator and execution loop
 
-This current primary Codex task is the sole primary development task and
-integrator. It owns architecture, shared contracts, repository state,
-integration, verification, claims, release, and submission closure. Subagents
-may receive bounded, non-overlapping work; their outputs remain unverified claims
-until this task inspects, integrates, and tests them.
+This current primary Codex task is the sole primary integrator. It owns shared
+contracts, architecture, integration, repository state, verification, claims,
+release, and submission closure. Use subagents only for bounded,
+non-overlapping work; independently inspect and verify every material result.
 
-Repeat:
+On activation:
 
-1. On activation, verify the scaffold baseline and current state; record H+0;
-   calculate the product window; set M0 to `IN_PROGRESS`; and update `STATE.md`.
-2. Select the next dependency-ready vertical outcome from the one plan.
-3. Implement the smallest integrated route to that user-visible outcome.
-4. Run the required automated checks and inspect actual UI/artifact content.
-5. Keep the product runnable; update plan, state, decisions, and provenance only
-   where their designated responsibilities require it.
-6. Make ordinary local commits at coherent verified boundaries.
-7. If blocked or late, measure the gap, diagnose the root cause, simplify behind
-   the same contract, apply the next authorized optional cut, restore a runnable
-   state, and continue. After two serious failed corrections of the same issue,
-   reassess the abstraction instead of applying a third symptom patch.
-8. At M5 completion, freeze features. Thereafter make only fixes and work needed
-   for proof, replay/live reliability, accessibility, judge setup, claims,
-   release, recording, and submission.
-9. Continue through M9 and do not stop at “mostly complete,” recording-ready,
-   repository publication, or Devpost draft.
+1. verify the governance baseline, branch, and current state; record R+0;
+   calculate the plan's actual targets; set R1 `IN_PROGRESS`; update `STATE.md`;
+2. select the next dependency-ready vertical outcome from the sole plan;
+3. implement the smallest complete route through the integrated product;
+4. run required automated, artifact, subprocess, and visual checks;
+5. keep the product runnable and update only the controlling artifacts whose
+   responsibilities genuinely changed;
+6. commit coherent verified boundaries on the revision branch;
+7. when blocked or late, measure the gap, diagnose the cause, simplify behind
+   the same contract, apply the next authorized cut, restore the runnable
+   product, and continue; after two serious failed corrections of one defect,
+   reassess the abstraction instead of applying a third symptom patch;
+8. admit restore only through the objective plan gate; a correct
+   `CUT_BY_PREAUTHORIZED_GATE` does not block completion;
+9. freeze optional features immediately after R4 when restore is cut or after R5
+   when admitted, and no later than 12 hours before recording readiness; and
+10. continue through release, recording readiness, the protected reserve, and
+    confirmed submission—but perform final submission only after explicit user
+    release of the hold below.
 
-Do not reopen project discovery, product tournaments, broad market research, the
-earlier candidate search, or the old semantic/evaluator spike. Do not build a
-documentation validator, evidence ledger, benchmark harness, validation of
-validation, or parallel operating scaffold. Product-native tests and the
-specified integrity proof remain required.
+Do not reopen project discovery, market research, a candidate tournament,
+adapters, or product repositioning. Do not create parallel specifications,
+plans, goals, scaffolds, generic benchmarks, evidence ledgers, or validation-of-
+validation machinery. Use product-native tests and the specified receipt proof.
 
-## Explicit authorization on activation
+## Authorization that begins only at R+0
 
-Activation authorizes, only for this project and only as needed to complete the
-objective:
+Within this project, activation authorizes:
 
-- create, edit, and inspect files below the repository root;
-- install and use project dependencies;
-- run local tests, formatters, build commands, loopback servers, browsers, and
-  visual checks;
-- create ordinary local Git commits;
-- use the official OpenAI API after user-owned credential configuration, with
-  cumulative project spend capped at **USD 10**, while measuring and reporting
-  actual use;
-- create and publish one MIT-licensed GitHub repository for this project and make
-  ordinary non-force pushes;
-- prepare, capture, edit, and upload one public English YouTube demonstration;
-- use authenticated browser/computer sessions narrowly for this GitHub
-  repository, YouTube video, and OpenAI Build Week Devpost workflow;
-- create, edit, review, and finally submit the Devpost entry; and
-- capture and verify public URLs, playback, the submitted revision, and receipt.
+- edit repository files; install and locally package required dependencies and
+  Blueprint assets; run tests, builds, loopback servers, browsers, and visual QA;
+- create ordinary commits and normal non-force pushes on
+  `revision/portable-change-receipt`;
+- after the renewed release candidate passes, fast-forward-promote it to `main`,
+  update the public MIT repository, and make ordinary non-force pushes;
+- create local Migration Cases, pending/final handoffs, controlled scratch
+  counterfactuals, restore outputs when admitted, and other regenerable test or
+  release artifacts inside the project scope;
+- use the official OpenAI API under the existing cumulative **USD 10** project
+  cap and existing budget ledger;
+- prepare and update public-repository content, screenshots, video materials,
+  public English YouTube upload, and the Devpost draft; and
+- use authenticated browser/computer sessions narrowly for the authorized
+  OpenAI Platform, GitHub repository, YouTube video, and Build Week Devpost work.
 
-These enumerated actions may proceed without redundant confirmation after
-activation. Authorization does not extend beyond this project or Build Week
-submission.
+The inherited GPT-5.6 record is sufficient while its evidence/card contract
+remains exact. Do not make a second provider call merely for case persistence,
+receipt binding, replay, or release testing. If a materially changed contract
+justifies a new call, a narrowly scoped restricted project key may be created,
+used, and revoked through the previously authorized OpenAI Platform access.
+Never expose or commit its value; measure use against the same USD 10 ledger.
 
-## Prohibitions and user-owned actions
+## Submission hold and user-owned actions
+
+**SUBMISSION HOLD: ACTIVE.** Final Devpost submission is prohibited until the
+revised product, video, due diligence, and submission package are complete and
+the user explicitly releases this hold. Draft edits, repository updates, and
+video preparation do not release it. When all independent work is complete but
+the hold remains active, set `STATE.md` to
+`WAITING_FOR_SUBMISSION_HOLD_RELEASE`, request only the release, and wait without
+changing the accepted release.
+
+The user owns login recovery, MFA, CAPTCHA, payment/account changes, personal
+attestations and eligibility fields, `/feedback`, and voice recording. Request
+only the narrow action needed and continue independent work in parallel. Never
+ask the user to paste a secret into chat or impersonate the user.
+
+## Prohibitions
 
 Do not:
 
-- expose or store secrets in chat, source control, logs, screenshots, fixtures,
-  proof artifacts, video, or submission materials;
-- spend more than USD 10 on OpenAI API usage;
-- buy or modify paid cloud infrastructure, subscriptions, or account plans;
-- force-push, rewrite public history, or destructively alter unrelated or
-  non-regenerable data;
-- access unrelated personal files, repositories, messages, or accounts;
-- make a claim forbidden by `CLAIM-002` or any claim not supported by current
-  evidence;
-- supply personal attestations or pretend to be the user;
-- accept unrelated legal or financial commitments; or
-- publish the project or user material outside the authorized Build Week
-  repository, video, and submission.
-
-The user owns API-key configuration, login recovery, MFA, CAPTCHA, payment or
-account changes, personal attestations, and the user's voice recording. Request
-only the narrow action that is actually required. Never ask the user to paste an
-API key into chat. Continue independent deterministic, documentation, testing,
-or release work while a user-only step is pending.
-
-Missing GPT-5.6 access does not authorize a substitute model. It leaves the live
-surface unresolved and blocks completion of M1, live integration verification,
-recording readiness, and the overall goal, while independent work continues.
+- expose secrets in chat, Git, logs, screenshots, artifacts, video, or
+  submission material; spend above USD 10; buy paid infrastructure; or change
+  accounts, subscriptions, or payment settings;
+- force-push, rebase or rewrite public history, destructively alter unrelated or
+  non-regenerable data, or access unrelated personal files, repositories,
+  messages, or accounts;
+- make forbidden or unsupported claims, personal attestations, unrelated legal
+  or financial commitments, or publish outside the authorized repository,
+  video, and Build Week submission;
+- build `apply-case`, source reconciliation/rebasing, NER, ReFinED, training-data
+  adapters, generic adapters/policy builders, React/Vite, signatures,
+  collaboration/accounts, or direct repository/Archivematica integration; or
+- silently substitute a model, fabricate GPT provenance, weaken human authority,
+  or declare completion from time elapsed or code volume.
 
 ## Compaction recovery
 
-After any context compaction, recover in this order:
+After compaction read, in order:
 
-1. this activated `GOAL.md`;
+1. this activated sole goal;
 2. frozen `BUILD_SPEC.md`;
-3. current `IMPLEMENTATION_PLAN.md`;
-4. latest `STATE.md`;
+3. current sole `IMPLEMENTATION_PLAN.md`;
+4. short `STATE.md` and its compact recovery capsule;
 5. `DECISIONS.md` and `docs/PREEXISTING_WORK.md`;
-6. fresh Git status, log, and diff;
-7. current product-native test and proof output; and
-8. the compact recovery capsule in `STATE.md`.
+6. fresh Git status, log, diff, branch, and remote relation; and
+7. current case, receipt, receiver-verifier, test, artifact, and visual evidence.
 
-The controlling attachment read certificate may substitute for rereading only
-while its SHA-256 remains
-`1e0cc189e75a95d7f5e504799b4bbc14cc03696880ceb96db3201decc518f8b9`.
-Reread a source through EOF when its hash changes, no valid certificate exists,
-an earlier read was incomplete, its exact wording controls the immediate
-decision, or repository state conflicts with it. Never claim evidence was read
-when it was not, qualify a gate from truncated output, or use a summary where the
-underlying source is required.
+The revised attachment read certificates may substitute only while their hashes
+remain `5515c49cbdd316b3e0f36b822272602de721141e636a052178bb306edb94de1f`
+and `985cbeadb98a0ef7c6b45a1128b033819669abd9065cdf2d5a154789c8d9bd73`.
+Reread through EOF when a hash changes, a certificate is absent, an earlier read
+was incomplete, exact language controls the immediate decision, or repository
+state conflicts. Never qualify a gate from truncated evidence or a summary where
+the source is required.
 
-## Completion surfaces
+## Terminal condition
 
-Maintain separate evidence-backed verdicts for:
+Maintain separate evidence-backed verdicts for inherited behavior, persistent
+case, receipt, independent verification, five-state UX, conditional restore,
+GPT-5.6 truthfulness, judge/clean-clone path, recording readiness, submission
+materials, submission hold, and Devpost submission.
 
-- product implementation;
-- deterministic integrity proof;
-- GPT-5.6 integration;
-- judge execution path;
-- recording-ready package;
-- submission materials;
-- Devpost submission; and
-- overall Build Week delivery.
-
-The overall goal is `COMPLETE` only when every required surface is complete, the
-public repository and video resolve to the submitted release, `/feedback` from
-this primary build task is included, and Devpost submission is confirmed. If an
-external or user-owned action prevents that outcome, report the exact blocker
-without fabricating completion and continue all independent work.
+This goal is `COMPLETE` only after every required surface is complete, any
+gate-cut restore is correctly absent, the user has explicitly released the
+submission hold, the public repository and video resolve to the submitted
+release, `/feedback` is included, and Devpost submission and receipt are
+confirmed. A user-owned or external blocker must be reported precisely; it never
+authorizes fabricated completion or abandonment of independent work.
