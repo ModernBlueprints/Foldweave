@@ -13,7 +13,8 @@ only in `docs/build/GOAL.md`. Current observed state lives only in
 `docs/build/STATE.md`.
 
 H+0 is **Friday 17 July 2026 at 17:16:25 CEST**, the active-goal creation
-timestamp in this primary Codex task. M0 is complete and M1 is in progress.
+timestamp in this primary Codex task. M0 through M6 are complete and M7 is in
+progress.
 
 ## Operating rules
 
@@ -156,8 +157,8 @@ Pre-authorized optional cuts, in order:
 | Downstream consumer | M2–M5; proves the architecture before hardening |
 | Owner | Primary integrator; one bounded UI or GPT-schema task may be delegated without owning integration |
 | Allowed scope cut | Use the minimum hero subset and plain styling; do not cut the real GPT call or complete transaction |
-| Actual status | **IN_PROGRESS — DETERMINISTIC SLICE COMPLETE; LIVE EVIDENCE BLOCKED** |
-| Actual verification | **Commits `83d64fe361747faef4e340c76a2958736d754e5a` and `1cce39d8c46c62eef96b9baa64b83d16765d5c03`: the connected 12-family/28-object hero transaction passes package import, Meaning-card test-double flow, explicit low-risk no-GPT batch approval, collision edit and recomputation, complete human resolution, copy-only staging, exact maps/read-back proof, BagIt creation/validation, and source equality. Browser walkthrough at 1440×1000 reached 12/12 resolved and the verified Proof state with no console errors. Repository suite: 111 passed; Ruff lint/format, frozen sync, and `git diff --check` passed. The required real GPT-5.6 call, sanitized recording, and replay proof remain incomplete because `OPENAI_API_KEY` is not configured.** |
+| Actual status | **COMPLETE** |
+| Actual verification | **PASSED through release commit `d71b0b903a8259b158e1d674c5735edb88a6c665`: the connected 12-family/28-object hero transaction completed with the exact live `gpt-5.6` provider, one visible bounded evidence packet, one schema-valid advisory card, an explicit human edit to `campaign-poster`, family-wide propagation, copy-only staging, inverse maps, reverse dry run, unchanged source, and valid BagIt proof. The sanitized canonical response has SHA-256 `2fe0da43fe57e72043effcf13dc3a3084b8a262295e132b00109bf767f06ae00`; two subsequent complete keyless replay transactions independently reached the same proof without another provider request.** |
 
 ### M2 — Contract and graph hardening
 
@@ -192,8 +193,8 @@ Pre-authorized optional cuts, in order:
 | Downstream consumer | M4 export gate and M5 final Decisions experience |
 | Owner | Primary integrator; bounded prompt/schema adversarial review may be delegated |
 | Allowed scope cut | Extra card layouts, extra semantic-risk variants, and nonessential metrics |
-| Actual status | **IN_PROGRESS — DETERMINISTIC TRANSACTION COMPLETE; LIVE/REPLAY EVIDENCE BLOCKED** |
-| Actual verification | **Commit `1cce39d8c46c62eef96b9baa64b83d16765d5c03` implements complete evidence fingerprints, bounded live/replay/test providers, coordinator-side output revalidation, stale-card invalidation, exact cache behavior, explicit human states, identity-level propagation, write-once atomic replay capture with retry-without-second-call, pristine-evidence replay startup validation, and persistent conservative project budget accounting. Metrics distinguish reservations, reported cost, replay, cache, and deterministic calls avoided. Focused lifecycle regressions and the full 111-test suite pass. The first real `gpt-5.6` response, sanitized canonical record, exact replay label, and measured live usage remain blocked by the locally absent credential.** |
+| Actual status | **COMPLETE** |
+| Actual verification | **PASSED through release commit `d71b0b903a8259b158e1d674c5735edb88a6c665`: complete evidence fingerprints, bounded live/replay/test providers, coordinator-side output revalidation, stale-card invalidation, exact cache behavior, explicit human states, identity-level propagation, write-once atomic replay capture, retry-without-second-call, pristine-evidence replay validation, and persistent conservative budget accounting are integrated. The real `gpt-5.6` card used the exact hero fingerprint, 14 supplied evidence references, and only mechanically supplied candidate paths; it remained advisory. Provider usage was 1,676 input and 994 output tokens. The application measured 14.645 seconds end-to-end latency, estimated USD 0.0382 cost, and retained a USD 0.6790 conservative reservation. Two keyless replay runs displayed the exact `Recorded GPT-5.6 response` label and made no live request.** |
 
 ### M4 — Staging and complete proof
 
@@ -228,8 +229,8 @@ Pre-authorized optional cuts, in order:
 | Downstream consumer | M6 hardening and M8 demonstration |
 | Owner | Primary integrator; bounded visual/accessibility critique may be delegated |
 | Allowed scope cut | Cuts 1–6 from the frozen optional list as necessary |
-| Actual status | **IN_PROGRESS — DETERMINISTIC PRODUCT EXPERIENCE COMPLETE AND FEATURE-FROZEN; LIVE/REPLAY EVIDENCE BLOCKED** |
-| Actual verification | **PASSED for the independent deterministic surface at commit `819e674ba74fb86d981f390d52214de5b4e4f7a7`: the selected-root CLI, compact Atlas disclosures, three-item exception queue, exact before/after traces and affected links, full evidence-linked Decision Card presentation, refusal-safe batch action, authority-correct colors, blocker-specific Proof state, allowlisted proof-artifact controls, and single tiny unresolved-Meaning fixture are integrated. `uv sync --frozen`, 116 tests, Ruff lint/format, and `git diff --check` passed. Primary browser QA completed the entire 12-family/28-object transaction at 1440×1000 and 390×844, inspected the neutral card and artifact shelf, reached all-green deterministic Proof and BagIt validation, and separately verified the tiny fixture's disabled export. An independent bounded closure audit found no remaining material M5 defect. Feature freeze is active. The actual live `gpt-5.6` card, canonical sanitized record, and recorded-replay visuals remain pending the user-owned credential action, so formal M5 completion is not claimed.** |
+| Actual status | **COMPLETE — FEATURE-FROZEN** |
+| Actual verification | **PASSED through release commit `d71b0b903a8259b158e1d674c5735edb88a6c665`: commit `819e674ba74fb86d981f390d52214de5b4e4f7a7` froze the selected-root CLI, compact Atlas, exception-only Decisions queue, exact evidence and transformation presentation, separate GPT/human authority, blocker-specific Proof, proof-artifact controls, responsive layout, and one tiny unresolved-Meaning fixture. Browser QA completed the hero at desktop and mobile sizes and confirmed the negative fixture creates no stage. Final judge-facing captures now show the Atlas counts and risks, actual live request metrics, the neutral live card and human controls, exact recorded-replay labeling, verified deterministic Proof, and the blocked negative state. Feature freeze remains active.** |
 
 **Feature freeze is mandatory when M5 is complete.**
 
@@ -248,8 +249,8 @@ Pre-authorized optional cuts, in order:
 | Downstream consumer | M7 release candidate |
 | Owner | Primary integrator; bounded documentation/claims audit may be delegated |
 | Allowed scope cut | Cuts 5–8 only; no new feature work |
-| Actual status | **IN_PROGRESS** |
-| Actual verification | **M6 began after deterministic feature freeze at commit `819e674ba74fb86d981f390d52214de5b4e4f7a7`. Release documentation, claims, licensing, screenshot capture, and clean-environment preparation are independently executable. Final live metrics, canonical replay evidence, and the live/replay screenshots remain key-gated.** |
+| Actual status | **COMPLETE** |
+| Actual verification | **PASSED at release commit `d71b0b903a8259b158e1d674c5735edb88a6c665`: one live `gpt-5.6` transaction and two complete keyless replays passed; the canonical record is model/schema/evidence-bound and sanitized; live, replay, proof, Atlas, and blocked-negative captures were visually inspected; README, MIT license, limitations, provenance, troubleshooting, and factual Codex build disclosure are present. `uv lock --check`, `uv sync --frozen`, 116 pytest tests, Ruff lint and format, `git diff --check`, source and wheel builds, local Markdown links, canonical-record validation, and a repository secret scan passed. Two bounded release audits found no remaining product, claim, record, or source-checkout packaging blocker after correction of latency attribution and screenshot captions.** |
 
 ### M7 — Release candidate
 
@@ -266,8 +267,8 @@ Pre-authorized optional cuts, in order:
 | Downstream consumer | M8 recording package and M9 public submission |
 | Owner | Primary integrator; independent release-candidate review may be delegated |
 | Allowed scope cut | No feature cuts remain; fix blockers or simplify implementation behind the same contract |
-| Actual status | **PENDING** |
-| Actual verification | **NOT RUN** |
+| Actual status | **IN_PROGRESS** |
+| Actual verification | **M6 release commit selected as `d71b0b903a8259b158e1d674c5735edb88a6c665`. Clean-clone install, keyless replay transaction, judge commands, live-startup-only smoke, final secret/Git checks, and public-repository readiness remain to be reproduced outside the working tree.** |
 
 ### M8 — Recording readiness
 

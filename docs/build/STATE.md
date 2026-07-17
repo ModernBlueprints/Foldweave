@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **17 July 2026 at 20:07:22 CEST**
+Checkpoint: **Friday 17 July 2026 at 21:15:30 CEST**
 
-Phase: **M6 — RELEASE HARDENING**
+Phase: **M7 — RELEASE CANDIDATE**
 
 Production goal: **ACTIVE**
 
@@ -12,17 +12,12 @@ H+0: **Friday 17 July 2026 at 17:16:25 CEST**
 
 - Recording-ready boundary: Tuesday 21 July 2026 at 02:00 CEST
 - Submission boundary: Wednesday 22 July 2026 at 02:00 CEST
-- Product window at H+0: 80.726 hours
+- Product time remaining: 76 hours 44 minutes 29 seconds
+- Total time to submission: 100 hours 44 minutes 29 seconds
 - Protected submission reserve: 24 hours
-- H+80 target: Tuesday 21 July 2026 at 01:16:25 CEST
-- Margin from H+80 to recording boundary: 43 minutes 35 seconds
-- Compression: not required; ordinary H+ targets apply
-- Product time remaining at this checkpoint: 77 hours 52 minutes 37 seconds
-- Total time to submission at this checkpoint: 101 hours 52 minutes 37 seconds
-- M5 ordinary target: Sunday 19 July 2026 at 01:16:25 CEST
+- Compression: not required; ordinary H+ targets remain in force
 
-Milestone targets force integration and scope control; they are not cancellation
-timers.
+Targets force integration and scope control. They are not cancellation timers.
 
 ## Verified repository state
 
@@ -30,91 +25,81 @@ timers.
 - Branch: `main`
 - Scaffold baseline:
   `f1c519d215790d9e9949c5991c96826e5a2e295b`
-- Product foundation:
-  `c177663c59efb22fb85f18d021f850fe396b08b6`
-- Deterministic walking transaction:
-  `83d64fe361747faef4e340c76a2958736d754e5a`
-- M2–M4 hardening and complete deterministic proof:
-  `1cce39d8c46c62eef96b9baa64b83d16765d5c03`
-- Deterministic product experience and feature freeze:
+- Feature-freeze product commit:
   `819e674ba74fb86d981f390d52214de5b4e4f7a7`
-- The working tree was clean immediately after the M5 product commit; this
-  checkpoint and plan update are the current documentation-only changes.
+- M6 live/replay release commit:
+  `d71b0b903a8259b158e1d674c5735edb88a6c665`
 - No Git remote or public repository exists yet.
+- The working tree was clean immediately after the M6 release commit. This
+  synchronized plan/state checkpoint is the only current change.
 
-## Verified product evidence
+## Verified release evidence
 
-- Hero package: 12 stable object families, 28 content objects, 30 source
-  package members, one `campaña` Meaning-risk family, and one casefold collision
-  pair.
-- M2 strict input matrix: 41 focused package-import scenarios pass, including
-  identifier, UTF-8/CSV, supported-tree, reciprocal relationship, traversal,
-  symlink, special-file, and source-change behavior.
-- M3 deterministic transaction: bounded evidence, complete fingerprints,
-  coordinator-side card validation, exact cache/stale-card behavior, explicit
-  human authority, identity-level propagation, persistent conservative spend
-  reservation, write-once replay capture, retry without a second provider call,
-  and replay-startup evidence compatibility are implemented.
-- M4 proof: exact data-member accounting; staged content hashes; declared control
-  semantics and references; canonical source snapshot and decision ledger;
-  strict forward/reverse maps; reverse dry run; profile and collision checks;
-  post-BagIt deterministic rerun; final BagIt validation; blocked failure
-  reports; and atomic no-replace promotion are implemented.
-- Former false-green reproductions for extra staged data, post-proof payload
-  mutation, stale proof after failed re-stage, crafted decision authority, long
-  metadata evidence, and tampered state artifacts are regression-tested and
-  independently confirmed closed.
-- Current automation: `uv sync --frozen` passed; 116 pytest tests passed; Ruff
-  lint and format checks passed; `git diff --check` passed.
-- M5 product experience: selected local source/output paths; concise Atlas
-  disclosures; a three-family initial exception queue; complete before/after,
-  trace, risk, reference, and neutral Decision Card content; refusal-safe batch
-  authority; explicit blocker details; and open/download proof-artifact controls.
-- Browser transactions at 1440×1000 and 390×844: 12/12 families resolved; 28
-  objects staged; neutral card content and evidence linkage remained visually
-  separate from human authority; all deterministic proof checks plus Library of
-  Congress BagIt validation rendered green; long paths and proof labels wrapped
-  at the narrow viewport.
-- The single tiny negative fixture was separately rendered with its Meaning
-  decision unresolved, its exact blocker listed, and staging disabled. Automated
-  tests also prove the valid two-member fixture creates no output when unresolved.
-- An independent bounded M5 closure audit found no remaining material defect.
-- Source payloads used in browser QA remained unchanged. Ephemeral browser-QA
-  stages were outside the repository and are not product or replay evidence.
+- M0 through M6: **COMPLETE**. Feature freeze remains active.
+- Hero: 12 stable families, 28 content objects, 30 source-package members, one
+  Meaning-risk family, and one casefold collision pair.
+- One explicit live request used the exact `gpt-5.6` alias and the complete
+  visible hero evidence packet. The returned card passed schema, evidence-ID,
+  candidate-path, and advisory-authority validation.
+- Canonical replay record:
+  `src/name_atlas/recordings/hero_decision_card.json`; SHA-256
+  `2fe0da43fe57e72043effcf13dc3a3084b8a262295e132b00109bf767f06ae00`;
+  evidence fingerprint
+  `0f0b0b7cf923432431e7d184c6881cb34d61a0e5caf578f87cc029494b97d830`.
+- Provider-reported usage: 1,676 input tokens, 994 output tokens, and 2,670
+  total tokens. Application-measured end-to-end latency: 14.645 seconds.
+  Application-estimated model cost: USD 0.0382. Conservative committed budget
+  reservation: USD 0.6790 of the USD 10 cap.
+- The live transaction reached 12/12 explicit human resolutions, including the
+  human-entered `campaign-poster` descriptor, then passed copy-only staging,
+  source equality, 28 complete forward/reverse map rows, reverse dry run, every
+  deterministic proof check, and Library of Congress `bagit` validation.
+- Two subsequent complete replay transactions ran with `OPENAI_API_KEY` absent,
+  displayed **Recorded GPT-5.6 response**, made no provider request, and reached
+  the same verified result. Their staged data trees and deterministic artifacts
+  are byte-identical except for the expected run location/time fields and the
+  corresponding verification-report tag hash.
+- The tiny negative fixture visibly and mechanically blocks staging while its
+  Meaning decision is unresolved.
+- Current automation: `uv lock --check`; `uv sync --frozen`; 116 pytest tests;
+  Ruff lint and format; `git diff --check`; source/wheel build; local Markdown
+  link scan; canonical-record validation; and repository secret scan all pass.
+- Six 1280×720 product captures were visually inspected. Their captions now
+  describe only visible evidence; the Atlas capture exposes no personal path.
+- Two bounded M6 audits found no remaining product, record, claim, secret, or
+  documented source-checkout judge-path blocker after one correction pass.
 
-## Current blocker and readiness
+## Credential and release readiness
 
-- `OPENAI_API_KEY`: **NOT_CONFIGURED** at this checkpoint.
-- API spend: **USD 0 observed**; no OpenAI request has been made.
-- Canonical replay record: **ABSENT**.
-- M1: deterministic slice complete; required live evidence pending.
-- M2: **COMPLETE**.
-- M3: deterministic decision transaction complete; live/replay evidence pending.
-- M4: **COMPLETE**.
-- M5: deterministic experience **FEATURE-FROZEN**; formal completion remains
-  pending actual live-card and recorded-replay evidence.
-- M6: **IN_PROGRESS** for independently executable release work.
-- Live GPT-5.6 run readiness: implementation **GO**; execution **BLOCKED** only
-  by local credential configuration.
-
-The missing credential blocks the first real GPT-5.6 card, sanitized canonical
-record, replay proof, and completion of M1/M3/M5. It does not block current M5
-product-experience, fixture, responsive, accessibility, documentation, or
-release work. Never request that the key be pasted into chat.
+- A replacement restricted project API key is configured only in ignored local
+  `.env`, whose mode is 600. Its value has never been committed or included in
+  a release artifact.
+- The first accidentally exposed one-time key was revoked before use. It is not
+  the active replacement key and no request was made with it.
+- Exactly one provider request has been made with the replacement key. M7 may
+  use it only for a startup smoke that does not generate another card.
+- After the clean-clone live-startup smoke, revoke the replacement key and
+  remove local `.env`, then verify both facts without exposing the key.
+- M7: **IN_PROGRESS**.
+- Live GPT-5.6 implementation and recorded replay: **COMPLETE**.
+- Public repository: **PENDING**.
+- Recording package, public video, and Devpost submission: **PENDING**.
+- Current M7 blocker: **NONE**.
 
 ## Compact recovery capsule
 
-- Current phase: M6 release hardening; deterministic feature freeze is active.
-- Unresolved product decisions: none.
-- Verified baseline: commit `819e674`; 116 tests; Ruff/frozen sync/diff checks;
-  complete 1440×1000 and 390×844 deterministic browser transactions plus the
-  one-fixture negative block.
-- External dependency: local `OPENAI_API_KEY` configuration, then one bounded
-  baseline `gpt-5.6` call and exact recorded replay verification.
-- Budget: USD 0 observed; USD 10 project cap; conservative reservation is
-  committed before any live request.
-- Prohibitions: no discovery/tournament/harness loop; no secret exposure; no
-  unsupported claims; no silent model substitution.
-- Next operation: **Complete the minimum M6 release documentation, license,
-  package metadata, deterministic screenshot set, claims audit, and release
-  checks while continuing to check locally for live credential access.**
+- Phase: M7 release candidate; M0–M6 complete; feature freeze active.
+- Release commit: `d71b0b903a8259b158e1d674c5735edb88a6c665`.
+- Product evidence: one real `gpt-5.6` call, one sanitized exact-fingerprint
+  record, one verified live transaction, two verified keyless replay
+  transactions, 116 tests, clean lint/format/build/link/secret checks.
+- Budget: one request; USD 0.0382 estimated model cost; USD 0.6790 conservative
+  reservation; USD 10 cap.
+- Prohibitions: no discovery/tournament/harness loop; no new features; no second
+  provider request; no secret exposure; no unsupported claim; no silent model
+  substitution; no consumption of the final 24-hour reserve for product work.
+- Credential cleanup: perform one no-request clean-clone live-startup smoke,
+  then revoke the replacement key and remove ignored `.env`.
+- Next operation: **Commit this synchronized M6 checkpoint, create a fresh clone
+  outside the working tree at the release commit, and execute every M7 clean-
+  environment check including a complete keyless replay transaction.**
