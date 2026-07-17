@@ -1,6 +1,6 @@
 # Pre-existing Work Disclosure
 
-Status: **NO PRODUCT CODE REUSED**
+Status: **SELECTIVE MECHANICAL ADAPTATION DISCLOSED; NO WHOLESALE CODE OR RUNTIME DEPENDENCY**
 
 This file records the boundary between Reversible Name Atlas and an earlier
 Build Week feasibility spike. The spike is evidence about selected mechanical

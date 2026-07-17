@@ -32,6 +32,9 @@ def test_replay_mode_runs_on_loopback(monkeypatch: Any) -> None:
     assert called["host"] == "127.0.0.1"
     assert called["port"] == 8123
     assert called["app"].title == "Reversible Name Atlas"
+    runtime_config = called["app"].state.runtime_config
+    assert runtime_config.replay_record_configured is True
+    assert runtime_config.provider_status == "Recorded GPT-5.6 response"
 
 
 def test_selected_supported_package_reaches_the_local_workbench(

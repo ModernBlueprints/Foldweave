@@ -224,8 +224,8 @@
                     <pre>{{ item.outbound_text }}</pre>
                   </details>
                   <form method="post" action="/families/{{ item.family.family_id }}/generate">
-                    <button class="button button--primary" type="submit">
-                      {% if diagnostics.mode == 'live' %}Generate neutral card with gpt-5.6{% else %}Load recorded GPT-5.6 card{% endif %}
+                    <button class="button button--primary" type="submit" {% if diagnostics.mode == 'replay' and not diagnostics.replay_record_configured %}disabled{% endif %}>
+                      {% if diagnostics.mode == 'live' %}Generate neutral card with gpt-5.6{% elif diagnostics.replay_record_configured %}Load recorded GPT-5.6 card{% else %}Recorded GPT-5.6 response unavailable{% endif %}
                     </button>
                   </form>
                 {% elif item.mechanically_blocked %}

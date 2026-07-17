@@ -233,6 +233,7 @@ async def test_connected_walking_skeleton_requires_model_then_human_then_proof(
     assert "Campaña poster" in initial.text
     assert "Repository-ready identity profile" in initial.text
     assert "What GPT-5.6 will see" in initial.text
+    assert "Recorded GPT-5.6 response unavailable" in initial.text
     assert "Mechanical blocker" in initial.text
     assert "Mechanical blocker; no model call" in initial.text
     assert "Transformation trace, risks, and affected links" in initial.text

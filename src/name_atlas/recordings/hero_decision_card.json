@@ -1,0 +1,99 @@
+{
+  "model": "gpt-5.6",
+  "schema_version": "decision-card.v1",
+  "evidence_fingerprint": "0f0b0b7cf923432431e7d184c6881cb34d61a0e5caf578f87cc029494b97d830",
+  "generated_at": "2026-07-17T20:40:58.041024+02:00",
+  "decision_card": {
+    "possible_interpretations": [
+      {
+        "text": "The three paths may represent one archival family with original, access, and preservation roles, because the declared relationships link both derivatives to the same original.",
+        "evidence_ids": [
+          "relationship:original",
+          "relationship:access",
+          "relationship:preservation"
+        ]
+      },
+      {
+        "text": "The proposed names may express a shared identity through the dc.identifier prefix \"NA-0001\" and the descriptor \"campana-poster,\" while retaining separate role directories and suffixes.",
+        "evidence_ids": [
+          "metadata:row:2:column:8ab5320c0e59489af985",
+          "path:proposed:original",
+          "path:proposed:access",
+          "path:proposed:preservation"
+        ]
+      },
+      {
+        "text": "The descriptor appears associated with the Spanish title \"Campaña poster\" and the source stem \"campaña-poster.\"",
+        "evidence_ids": [
+          "metadata:row:2:column:368f499940a0caa46d70",
+          "metadata:row:2:column:09c077fd7826ffa5f780",
+          "path:source:original"
+        ]
+      }
+    ],
+    "possible_meaning_loss": [
+      {
+        "text": "Changing \"campaña\" to \"campana\" removes the tilde distinction between ñ and n. In Spanish, this can alter reading or lexical meaning rather than merely changing typography.",
+        "evidence_ids": [
+          "metadata:row:2:column:368f499940a0caa46d70",
+          "metadata:row:2:column:09c077fd7826ffa5f780",
+          "path:source:original",
+          "path:proposed:original"
+        ]
+      },
+      {
+        "text": "The proposed access and preservation names likewise replace \"campaña\" with \"campana,\" so the same distinction is lost across all three family members.",
+        "evidence_ids": [
+          "path:source:access",
+          "path:source:preservation",
+          "path:proposed:access",
+          "path:proposed:preservation"
+        ]
+      }
+    ],
+    "uncertainty": "The evidence establishes the source and proposed spellings and the declared family roles, but it does not state whether preserving the Spanish ñ in filenames is an archival requirement or whether an ASCII-only operational form is required.",
+    "why_the_distinction_matters": "Treating the change as technical normalization emphasizes filename consistency, while treating ñ as identity-bearing language information emphasizes fidelity to the Spanish title and source name. That distinction affects discoverability, human interpretation, and whether the paths continue to reflect the recorded wording.",
+    "discriminating_question": "Must the filename descriptor preserve the Spanish ñ as identity-bearing text, or must it use the supplied ASCII form \"campana\"?",
+    "candidate_explanations": [
+      {
+        "candidate_path": "objects/NA-0001__campana-poster__original.svg",
+        "explanation": "This candidate corresponds to the declared original, adds the dc.identifier prefix and an explicit original-role suffix, and changes the source descriptor from \"campaña-poster\" to \"campana-poster.\"",
+        "evidence_ids": [
+          "relationship:original",
+          "metadata:row:2:column:8ab5320c0e59489af985",
+          "path:source:original",
+          "path:proposed:original"
+        ]
+      },
+      {
+        "candidate_path": "manualNormalization/access/NA-0001__campana-poster__access.svg",
+        "explanation": "This candidate corresponds to the declared access derivative, retains the access directory, adds the dc.identifier prefix, expresses the access role with a double-underscore suffix, and changes \"campaña\" to \"campana.\"",
+        "evidence_ids": [
+          "relationship:access",
+          "metadata:row:2:column:8ab5320c0e59489af985",
+          "path:source:access",
+          "path:proposed:access"
+        ]
+      },
+      {
+        "candidate_path": "manualNormalization/preservation/NA-0001__campana-poster__preservation.svg",
+        "explanation": "This candidate corresponds to the declared preservation derivative, retains the preservation directory, adds the dc.identifier prefix, expresses the preservation role with a double-underscore suffix, and changes \"campaña\" to \"campana.\"",
+        "evidence_ids": [
+          "relationship:preservation",
+          "metadata:row:2:column:8ab5320c0e59489af985",
+          "path:source:preservation",
+          "path:proposed:preservation"
+        ]
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": 1676,
+    "cached_input_tokens": 0,
+    "output_tokens": 994,
+    "reasoning_tokens": 135,
+    "total_tokens": 2670,
+    "latency_ms": 14645.113833015785,
+    "estimated_cost_usd": 0.0382
+  }
+}
