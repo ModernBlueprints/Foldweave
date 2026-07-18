@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Sole Connected Change Implementation Plan
 
-Status: **EXECUTION-READY; CONNECTED CHANGE GOAL INACTIVE**
+Status: **EXECUTION ACTIVE; C0 IN PROGRESS**
 
-Phase: **WAITING_FOR_CONNECTED_CHANGE_GOAL_ACTIVATION**
+Phase: **C0_EXISTENTIAL_CROSS_LAYOUT_GATE**
 
 Submission hold: **ACTIVE**
 
@@ -65,8 +65,10 @@ The former A4, plugin gate, and A5–A7 are:
 
 `SUPERSEDED BEFORE START — REPLACED BY THE CONNECTED CHANGE OR A3 RELEASE-FALLBACK SEQUENCE`
 
-Connected Change, native-picker expansion, shared MCP, plugin packaging, budget
-migration, new provider calls, promotion, video, and submission have not begun.
+Before C+0, Connected Change, native-picker expansion, shared MCP, plugin
+packaging, budget migration, new provider calls, promotion, video, and
+submission had not begun. C0 now authorizes only the bounded existential engine
+and proof transaction; every later surface remains deferred.
 
 ## 2. C+0 activation, timing, and profile decision
 
@@ -74,6 +76,28 @@ C+0 is the Europe/Oslo timestamp when the user explicitly activates the complete
 amended `docs/build/GOAL.md` in this primary Codex task. Scaffold approval,
 editing, commit, handoff, reproduction, or readiness does not create C+0. H+0,
 R+0, and A+0 remain historical and cannot be reset.
+
+Observed activation:
+
+- C+0: **Saturday 18 July 2026 at 23:31:39 CEST**;
+- available to feature freeze: **38 hours, 28 minutes, 21 seconds**;
+- available to recording readiness: **50 hours, 28 minutes, 21 seconds**;
+- `planned_connected_change_hours`: **50 hours, 28 minutes, 21 seconds**;
+- `pre_freeze_scale`: **0.961812500**.
+
+Calculated targets:
+
+| Milestone | Activated target |
+|---|---|
+| C0 feasibility decision | Sunday 19 July 2026 at 05:17:54 CEST |
+| C1 complete engine | Sunday 19 July 2026 at 16:50:24 CEST |
+| C2 browser/native experience | Monday 20 July 2026 at 01:29:47 CEST |
+| C3 real GPT evidence and fixtures | Monday 20 July 2026 at 06:18:19 CEST |
+| C4 shared MCP and plugin decision | Monday 20 July 2026 at 10:09:09 CEST |
+| C5 feature freeze | Monday 20 July 2026 at 14:00:00 CEST |
+
+The binding C0 latest-decision time is **Sunday 19 July 2026 at 05:17:54
+CEST**, the earliest of the scaled target, C+8, and freeze-minus-32-hours.
 
 At C+0 calculate:
 
@@ -403,8 +427,14 @@ downstream consumer, owner, allowed cut, actual status, and actual verification.
   non-overlapping contracts.
 - **Allowed cut:** none inside the gate. Permit the initial implementation,
   correction 1, and correction 2 only.
-- **Actual status:** `NOT STARTED — GOAL INACTIVE`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `IN PROGRESS — INITIAL IMPLEMENTATION ATTEMPT` from C+0 on
+  Saturday 18 July 2026 at 23:31:39 CEST.
+- **Actual verification:** activation objective matches committed `GOAL.md`
+  apart from the expected `/goal` prefix and final-newline representation;
+  branch/worktree were clean and local/upstream refs were identical at
+  `121789a` immediately before activation edits; official deadline is valid;
+  activation baseline passed with 590 tests, lock, Ruff lint, Ruff format, and
+  `git diff --check`. The C0 product transaction is not yet proven.
 - **Terminal decision:** record exactly `CONNECTED_CHANGE_GO` if the complete
   positive and negative transaction passes. If the same material premise still
   fails after correction 2, record exactly `A3_RELEASE_FALLBACK`, preserve all
