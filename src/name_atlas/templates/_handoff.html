@@ -65,6 +65,12 @@
         <input id="verifier-command" class="bp6-input mono" type="text" readonly value="{{ shell.verifier_command }}">
       </section>
 
+      <section class="command-card" aria-labelledby="restore-command-title">
+        <div><img src="{{ url_for('static', path='/vendor/blueprint/icons/history.svg') }}" alt="" aria-hidden="true"><span><strong id="restore-command-title">Reconstruct the original logical package</strong><small>Verifies the receipt first. Replace RESTORE_DESTINATION with one absent local path.</small></span></div>
+        <label class="visually-hidden" for="restore-command">Receiver restore command</label>
+        <input id="restore-command" class="bp6-input mono" type="text" readonly value="{{ shell.restore_command }}">
+      </section>
+
       <details class="technical-disclosure">
         <summary>Independent verification boundary</summary>
         <p>Internal consistency does not authenticate sender identity or prove that the committed description is an authentic historical source.</p>

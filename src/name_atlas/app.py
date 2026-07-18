@@ -541,6 +541,11 @@ def _shell_context(
             if stage_root is not None
             else None
         ),
+        "restore_command": (
+            f"uv run name-atlas restore-receipt {quote(stage_root)} RESTORE_DESTINATION"
+            if stage_root is not None
+            else None
+        ),
         "stale_differences": stale_differences,
         "source_scan_blocker": source_scan_blocker,
     }

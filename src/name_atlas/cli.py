@@ -26,6 +26,7 @@ from name_atlas.receiver_verifier import (
     ReceiptVerificationStatus,
     verify_receipt,
 )
+from name_atlas.restore import RestoreError, restore_receipt
 from name_atlas.verification import BagItPackageValidator
 from name_atlas.workflow import UnavailableReplayDecisionCardProvider, WorkflowSession
 
@@ -92,6 +93,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optionally compare the committed source description to this root.",
     )
+
+    restore = subparsers.add_parser(
+        "restore-receipt",
+        help="Reconstruct the supported source package from a verified handoff.",
+    )
+    restore.add_argument("received_bag", type=Path)
+    restore.add_argument("restore_destination", type=Path)
     return parser
 
 
@@ -121,6 +129,21 @@ def run(
             return 0
         print(f"BLOCKED {' '.join(result.failed_check_ids)}")
         return 1
+
+    if args.command == "restore-receipt":
+        try:
+            report = restore_receipt(
+                args.received_bag.expanduser(),
+                args.restore_destination.expanduser(),
+            )
+        except ReceiptCandidateError as exc:
+            print(f"Restore input error: {exc}", file=sys.stderr)
+            return 2
+        except RestoreError as exc:
+            print(f"Restore BLOCKED: {exc}", file=sys.stderr)
+            return 1
+        print(f"RESTORED {report.receipt_fingerprint} {report.destination}")
+        return 0
 
     mode = RunMode(args.mode)
     selected_environment = os.environ if environ is None else environ

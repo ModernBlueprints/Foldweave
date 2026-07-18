@@ -606,7 +606,14 @@ async def test_five_state_workbench_is_semantic_local_and_human_authoritative(
             )
             assert len(rerun_forms) == 1
             assert "verifier" in rerun_forms[0].text().lower()
-            assert "restore-receipt" not in handoff_text
+            restore_commands = tuple(
+                element.attrs.get("value", "")
+                for element in handoff_document.descendants("input")
+                if "restore-receipt" in element.attrs.get("value", "")
+            )
+            assert len(restore_commands) == 1
+            assert restore_commands[0].endswith(" RESTORE_DESTINATION")
+            assert "restore-receipt" not in incomplete_handoff.text
 
             finalized_decide_document = _parse(finalized_decide.text)
             assert "finalized Migration Case is read-only" in (
