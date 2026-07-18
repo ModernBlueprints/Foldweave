@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **Saturday 18 July 2026 at 05:11:24 CEST**
+Checkpoint: **Saturday 18 July 2026 at 06:43:54 CEST**
 
-Phase: **R6_RELEASE_HARDENING**
+Phase: **R7_RECORDING_READINESS**
 
 Historical first-cycle goal: **SUPERSEDED FOR REVISED FUTURE EXECUTION**
 
@@ -18,120 +18,118 @@ Submission hold: **ACTIVE**
 
 - Recording-ready: Tuesday 21 July 2026 at 02:00 CEST
 - Submission due: Wednesday 22 July 2026 at 02:00 CEST
-- Time to recording-ready: 68 hours 48 minutes 36 seconds
-- Time to submission: 92 hours 48 minutes 36 seconds
-- Final submission reserve: 24 hours
-- Planned revision window: 69 hours 8 minutes 9 seconds
+- Time to recording-ready: 67 hours 16 minutes 6 seconds
+- Time to submission: 91 hours 16 minutes 6 seconds
+- Protected submission reserve: 24 hours
 - Protected pre-recording contingency: 4 hours
-- R1 target: Saturday 18 July 2026 at 12:42:57 CEST
-- R2 target: Sunday 19 July 2026 at 02:32:35 CEST
-- R3 target: Sunday 19 July 2026 at 14:23:42 CEST
-- R4 and restore-gate target: Monday 20 July 2026 at 04:13:19 CEST
-- R5 target when admitted: Monday 20 July 2026 at 12:07:24 CEST
-- R6 target: Monday 20 July 2026 at 20:01:28 CEST
-- R7 target: Monday 20 July 2026 at 22:00:00 CEST
 
 ## Observed repository and environment
 
 - Repository: `/Users/nikolai/Desktop/Repos/reversible-name-atlas`
 - Revision branch: `revision/portable-change-receipt`
-- Known-good public predecessor and branch parent:
-  `827b0f6f93174d3c34aedfd98d8467a299ab2669`
-- Local `main` and `origin/main` were both observed at that predecessor before
-  this governance revision.
-- Governance commit locator: unique revision-branch commit with subject
-  `docs: establish revised product operating scaffold` and parent `827b0f6`; its
-  SHA is reported by the scaffold handoff, not embedded here.
+- Known-good public predecessor: `827b0f6f93174d3c34aedfd98d8467a299ab2669`
+- Local `main` and `origin/main`: still at the known-good predecessor
+- Accepted R6 candidate: `eb54f3a2b3ab60bc690d3151e7f5bce0ad28aa0c`
+- Candidate subject: `feat: harden revised release candidate`
+- Candidate checkout state immediately after commit: clean
 - Public repository: `https://github.com/ModernBlueprints/reversible-name-atlas`
-- Python 3.11 environment and locked dependencies: present.
+- Revised public alignment: **NOT YET PERFORMED**
+- Python: 3.11.9
 - `OPENAI_API_KEY` in the current environment: **ABSENT**; no value was read or
-  exposed.
+  exposed
 
-- R1 walking transaction is committed at
-  `2495a6fabd38e2695d574c02ac8a8130717eb729`.
-- R2 case-authority hardening is committed at
-  `5949a0f3255e181fdde46ca206d86a6c41bb5eb6`; the revision branch was clean
-  immediately after that product commit.
-- R3 receipt and receiver-verifier completion is committed at
-  `b59b9efd5752b4038c89db6e2b0fd6f19e1b5a47`.
-- R4 five-state product experience is committed at
-  `0e7543af1f46e06a55ccd22d75c647b44b68d102`.
-- R5 verified logical restore is committed at
-  `b10445138baf47ee4156a5a5ed151d0cb7819d4e`.
+Milestone product commits:
 
-## Inherited verified baseline
+- R1: `2495a6fabd38e2695d574c02ac8a8130717eb729`
+- R2: `5949a0f3255e181fdde46ca206d86a6c41bb5eb6`
+- R3: `b59b9efd5752b4038c89db6e2b0fd6f19e1b5a47`
+- R4: `0e7543af1f46e06a55ccd22d75c647b44b68d102`
+- R5: `b10445138baf47ee4156a5a5ed151d0cb7819d4e`
+- R6 candidate: `eb54f3a2b3ab60bc690d3151e7f5bce0ad28aa0c`
 
-- First-cycle strict import, deterministic proposals, collision/reference
-  checks, human decisions, identity propagation, copy-only staging, maps,
-  reverse dry run, BagIt validation, and loopback application: **PRESENT**.
-- First-cycle replay/live truthfulness and one real validated `gpt-5.6` card:
-  **PRESENT**.
-- Inherited record SHA-256:
-  `2fe0da43fe57e72043effcf13dc3a3084b8a262295e132b00109bf767f06ae00`.
-- Inherited evidence fingerprint:
-  `0f0b0b7cf923432431e7d184c6881cb34d61a0e5caf578f87cc029494b97d830`.
-- The inherited record is reusable while evidence, model, card schema, and hero
-  Meaning case remain exact; no second call is required merely for persistence
-  or receipt binding.
-- Execution-time baseline: `uv lock --check`, 116 pytest tests, Ruff lint, Ruff
-  format check, and `git diff --check` all passed before governance edits.
+## Verified release state
 
-## Revised capability status
-
-- Persistent `migration-case.v1` authority and restart: **COMPLETE (R1)**
-- Atomic persistence, locking, and revision checks: **COMPLETE (R2)**
-- Exact staleness differences and before-mutation revalidation: **COMPLETE (R2)**
-- Evidence/card/human-decision receipt binding: **COMPLETE (R1)**
-- Path-neutral `v2` artifacts and original controls: **COMPLETE (R3)**
-- Acyclic Portable Change Receipt and offline HTML: **COMPLETE (R3)**
-- Independent keyless receiver verifier: **COMPLETE (R3)**
-- BagIt-valid altered-ledger counterfactual: **COMPLETE (R1/R3)**
-- Five-state Atlas/Decide/Stage/Verify/Handoff workbench: **COMPLETE (R4)**
-- Blueprint dark visual layer and packaged assets: **COMPLETE (R4)**
+- Persistent case, exact staleness, evidence/card/human binding: **COMPLETE**
+- Portable receipt, path-neutral artifacts, original controls: **COMPLETE**
+- Independent keyless receiver verifier: **COMPLETE**
+- Exact BagIt-valid altered-ledger counterfactual: **COMPLETE**
+- Five-state dark Blueprint workbench: **COMPLETE**
+- Verify-first 30-member logical restore: **COMPLETE**
 - Restore applicability gate: **GO — RECORDED ONCE AT 04:19:07 CEST**
-- Bounded `restore-receipt` implementation: **COMPLETE (R5)**
-- Revised release hardening: **IN PROGRESS (R6)**
-- Revised recording readiness: **NOT STARTED**
+- Revised feature freeze: **ACTIVE**
+- R6 release hardening: **COMPLETE**
+- R7 recording readiness: **IN PROGRESS**
+- Product code, feature, and design work remaining: **NONE PLANNED**
 
-First-cycle README, screenshots, narration, Devpost copy, and thumbnail:
+R6 candidate evidence:
 
-`STALE — PRESERVED FIRST-CYCLE RELEASE MATERIAL; MUST BE REGENERATED AFTER REVISED FEATURE FREEZE`
+- exact detached clean clone and `uv sync --frozen`: pass;
+- 265/265 tests, lock, Ruff lint/format, compilation, and Git whitespace: pass;
+- build and wheel integrity: pass;
+- wheel SHA-256:
+  `1ed641680a164196bf0fc07d894389713d0033ad28ffda27cba7253e2c0e266b`;
+- installed-wheel default replay from an unrelated and deliberately shadowing
+  working directory: pass;
+- live startup with no key: truthful exit `2`;
+- live startup with a non-secret placeholder: exact `gpt-5.6`, zero provider
+  requests, and no budget-ledger creation;
+- primary exact-commit receipt:
+  `9279dd11742f73518bf6a27f6a2fa41d3a15659fc3fe27592c6bf8a0499334da`;
+- independent clean-clone receipt:
+  `e68229f3cc7d3cef736823a138c3099617e4a325aaaae016e91704141b8bf5f0`;
+- both copied handoffs verified source-free and with their exact source;
+- both exact altered-ledger copies passed BagIt and blocked only on
+  `artifact_digest_mismatch:decision_ledger`;
+- both restores reproduced all 30 source members and 23,621 bytes exactly;
+- two independent final audits: `GO`;
+- seven final 1440×900 screenshots: complete and verified; and
+- 1500×1000 3:2 submission thumbnail: complete and verified.
 
-The revised feature freeze is now **ACTIVE**. Remaining work is limited to
-defects, proof integrity, accessibility, visual QA, clean installation,
-documentation, screenshots, claims, demo rehearsal, and release readiness.
-Current blocker: **NONE**.
+R7 rehearsal evidence:
+
+- selected recording receipt:
+  `2ba5d8316f970d0a8f220a57fef1b7f77c167213146eeef2639284f251f0509a`;
+- browser transaction at 1280×720: Atlas → Decide → Stage → Verify → Handoff
+  → offline receipt, complete with no horizontal overflow;
+- copied selected handoff: `VERIFIED` in 0.95 seconds;
+- controlled selected alteration: BagIt pass plus exact Name Atlas blocker;
+- selected logical restore: `RESTORED` in 0.74 seconds, 30/30 members exact;
+- storyboard: continuous 0:00–2:45 visual schedule rehearsed;
+- narration: 356-word draft complete; actual voice recording and timing remain
+  user-owned; and
+- final public promotion and unauthenticated public clone: pending.
+
+Release materials are current for the revised release: README, limitations,
+build log, submission draft, seven screenshots, narration, shot list, claim
+matrix, and thumbnail. Final video, `/feedback`, personal attestations, explicit
+submission-hold release, and submission remain user-owned or protected actions.
+
+Current blocker: **NONE for independent release work**.
 
 ## Compact recovery capsule
 
-- Phase: `R6_RELEASE_HARDENING`
-- Branch and baseline: `revision/portable-change-receipt` at governance commit
-  `fbe6dea`, with R1 at `2495a6f`, R2 at `5949a0f`, R3 at `b59b9ef`, and R4 at
-  `0e7543a`, and R5 at `b104451`, from public predecessor `827b0f6`
-- Current milestone: R6 in progress; target Monday 20 July 2026 at 20:01:28 CEST
-- Last verified commands: lock check; 262 pytest tests; Ruff lint/format; Python
-  compilation; Git whitespace check; actual restore CLI; clean wheel
-  build/install/restore — all passed
-- Case status: strict restart, exact staleness, binding revalidation, zero-call
-  card reuse, writer/revision conflicts, and finalized immutability complete
-- Receipt/verifier status: receipt `69c1d00e…` verified after copy, source-free
-  and with exact source; exact BagIt-valid altered-ledger copy blocked with
-  `artifact_digest_mismatch:decision_ledger`; full negative matrix passed
-- UI status: five connected dark Blueprint routes pass desktop, medium, and
-  narrow visual/authority QA
-- Restore status: gate `GO`; command, strict report, failure matrix, clean-wheel
-  execution, independent audit, and Handoff QA complete at R5 commit `b104451`
-- Feature-freeze status: `ACTIVE` after R5
-- Release-material status: first-cycle materials preserved but stale
+- Phase: `R7_RECORDING_READINESS`
+- Branch/baseline: revision branch at accepted R6 candidate `eb54f3a`; public
+  `main` and `origin/main` remain `827b0f6`
+- Current milestone: R7 in progress
+- Last verified commands: exact clean-clone sync, 265 tests, Ruff, compilation,
+  build, wheel install, replay/live startup, complete hero transaction,
+  verifier, controlled failure, restore, browser rehearsal — all passed
+- Case status: complete and restart-safe
+- Receipt/verifier status: complete; selected fingerprint `2ba5d831…f0509a`
+- UI status: complete; five routes and offline receipt rehearsed
+- Restore gate/status: `GO` / complete
+- Feature-freeze status: active
+- Release-material status: revised materials complete; public alignment pending
 - Submission hold: active
-- Blockers: none
-- Next operation: execute R6 proof-integrity and release hardening; refresh the
-  README, limitations, build log, submission package, screenshots, narration,
-  shot list, Devpost draft, and claim matrix only from the frozen final behavior.
+- Blockers: none for independent work
+- Next operation: commit the R7 release-material checkpoint, verify that exact
+  commit, fast-forward-promote it normally to public `main`, run an
+  unauthenticated public clean-clone judge check, and close R7 without submitting
 
 ## Exact next operation
 
-Execute R6 under feature freeze: independently harden proof integrity, replay
-and live truthfulness, portability, secrets, assets, build and clean-clone judge
-paths; then regenerate all stale revised-release documentation, screenshots,
-narration, shot list, Devpost draft, and claims from the verified release.
+Create and verify the final no-feature release checkpoint from the accepted R6
+candidate and current R7 materials. Promote only after that verification; then
+confirm the public repository from an unauthenticated clone and stop at the
+remaining video/user-action boundary with the submission hold still active.

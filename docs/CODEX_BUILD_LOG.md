@@ -74,6 +74,7 @@ revision was built on `revision/portable-change-receipt`.
 | `0e7543af1f46e06a55ccd22d75c647b44b68d102` | Delivered the connected Atlas, Decide, Stage, Verify, and Handoff workbench with server-owned state and locally packaged Blueprint dark assets. | 241 tests. Browser QA passed at 1440×900, 1000×800, and 390×844; a clean wheel contained the required CSS, icons, license, and notices. |
 | `b10445138baf47ee4156a5a5ed151d0cb7819d4e` | Added verify-first `restore-receipt`, strict `restore-report.v1`, exact original-control restoration, complete snapshot proof, and no-replace promotion. | 262 tests. An unmocked restore reconstructed 30 members and 23,621 bytes exactly; source and handoff remained unchanged; isolated-wheel execution and adversarial race/failure matrices passed. |
 | `d034b27b8b47224c4f7bff5d8be4717241522618` | Closed R5 and began frozen R6 release hardening. | Feature freeze active; only proof integrity, release QA, documentation, screenshots, rehearsal, and submission preparation remain. |
+| `eb54f3a2b3ab60bc690d3151e7f5bce0ad28aa0c` | Hardened the revised release candidate, packaged the hero in the wheel, corrected durable replay restart and installed-wheel source selection, replaced the first-cycle release copy, and installed the seven revised screenshots. | 265 tests; two final independent audits; exact detached clean-clone, build, installed-wheel, complete receipt, controlled-failure, restore, link, license, path, secret, and screenshot checks all returned `GO`. |
 
 ### Current verified checkpoint
 
@@ -118,6 +119,46 @@ source at receipt fingerprint
 Its disposable altered-ledger copy remains ordinary-BagIt-valid while the Name
 Atlas verifier exits `1` with exactly
 `artifact_digest_mismatch:decision_ledger`.
+
+### Exact-commit R6 acceptance and R7 rehearsal
+
+The exact detached candidate `eb54f3a` was installed with Python 3.11 from a
+fresh local clone. Its locked environment passed all 265 tests, Ruff
+lint/format, compilation, build, and Git checks. The resulting 85-entry wheel
+matched SHA-256
+`1ed641680a164196bf0fc07d894389713d0033ad28ffda27cba7253e2c0e266b`,
+contained the 30-member hero, replay record, templates, Blueprint assets, MIT
+license, Apache-2.0 license, and third-party notice, and ran from an unrelated
+working directory with no API key.
+
+The primary exact-commit transaction survived process restart and produced
+receipt `9279dd11742f73518bf6a27f6a2fa41d3a15659fc3fe27592c6bf8a0499334da`.
+Its copied bag verified with and without its source, the exact altered ledger
+remained BagIt-valid but blocked only on
+`artifact_digest_mismatch:decision_ledger`, and restore reconstructed all 30
+members. A separate independent clone reproduced the entire matrix with
+receipt `e68229f3cc7d3cef736823a138c3099617e4a325aaaae016e91704141b8bf5f0`,
+23,621 restored bytes, unchanged source and handoff, and overall verdict `GO`.
+
+R7 then rehearsed the complete visual transaction at a 1280×720 capture
+viewport: Atlas, low-risk batch approval, mechanical collision edit, the exact
+recorded GPT-5.6 card, human Meaning edit, Stage, seven-group Verify, Handoff,
+and offline receipt. The transaction had no horizontal document overflow and
+produced selected recording receipt
+`2ba5d8316f970d0a8f220a57fef1b7f77c167213146eeef2639284f251f0509a`.
+The copied selected handoff verified in 0.95 seconds; the controlled altered
+copy passed BagIt and produced the exact blocker; and restore completed in 0.74
+seconds with all 30 source members byte-identical and the copied handoff
+unchanged. The continuous visual storyboard remains 0:00–2:45. The actual
+voice recording and its final timing remain user-owned.
+
+The code-native Devpost thumbnail is a 1500×1000, 3:2, 210,124-byte PNG with
+SHA-256 `1eee93fe81037843ca80453574d9f488a8aef97c0ad542ea615cfcd045a78ca0`.
+Its SVG source has SHA-256
+`91e1f7eff0159df6417913d3493a330ffef718857839b12e928a9cf8df1b4836`.
+It uses only project-native text and vector shapes in the established dark
+visual system, and its visible abbreviated digest is the selected recording
+receipt `2ba5…f0509a`, not a decorative invented value.
 
 ### Revised screenshot replacement record
 

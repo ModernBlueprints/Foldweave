@@ -1,6 +1,6 @@
 # Reversible Name Atlas — Revised Integrated Implementation Plan
 
-Status: **ACTIVE / R6 IN PROGRESS — FEATURE FREEZE ACTIVE**
+Status: **ACTIVE / R7 IN PROGRESS — R6 RELEASE CANDIDATE ACCEPTED**
 
 Amended production goal: **ACTIVE**
 
@@ -435,10 +435,29 @@ hardening.
   reviewers allowed.
 - **Allowed cut:** only remaining optional presentation conveniences; no required
   integrity or release surface.
-- **Actual status:** `IN_PROGRESS`.
+- **Actual status:** `COMPLETE`.
 - **Actual verification:** feature freeze began after verified R5 commit
-  `b104451`. Release hardening and revised release-material regeneration are
-  now the only active work.
+  `b104451`; the accepted R6 candidate is
+  `eb54f3a2b3ab60bc690d3151e7f5bce0ad28aa0c`. The final worktree and two
+  independent reviews passed 265 tests, lock integrity, Ruff lint/format,
+  Python compilation, Git whitespace, claim/link/path/secret checks, and the
+  complete revised screenshot audit. The exact detached candidate passed a
+  fresh Python 3.11 `uv sync --frozen`, all 265 tests, build, wheel, license,
+  asset, hero, replay, and installed-wheel checks. Its wheel SHA-256 is
+  `1ed641680a164196bf0fc07d894389713d0033ad28ffda27cba7253e2c0e266b`.
+  A primary exact-commit transaction survived restart and independently
+  verified receipt
+  `9279dd11742f73518bf6a27f6a2fa41d3a15659fc3fe27592c6bf8a0499334da`;
+  the BagIt-valid altered ledger blocked only on
+  `artifact_digest_mismatch:decision_ledger`, and restore reproduced all 30
+  members. A separate clean-clone auditor independently reproduced the same
+  complete matrix with receipt
+  `e68229f3cc7d3cef736823a138c3099617e4a325aaaae016e91704141b8bf5f0`
+  and returned overall `GO`. Replay startup was keyless and truthful; live
+  startup with no key exited `2`, while a non-secret placeholder exposed exact
+  `gpt-5.6` readiness without a provider request. README, limitations, build
+  log, submission copy, seven screenshots, and the code-native 3:2 submission
+  thumbnail now match the frozen product and claims.
 
 ### R7 — Recording readiness
 
@@ -462,8 +481,22 @@ hardening.
 - **Owner:** primary integrator; user owns voice recording and `/feedback`.
 - **Allowed cut:** no required release surface; restore remains absent if already
   gate-cut.
-- **Actual status:** `PENDING / INACTIVE`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `IN_PROGRESS`.
+- **Actual verification:** the accepted product candidate is `eb54f3a`. A
+  complete browser rehearsal at a 1280×720 capture viewport traversed Atlas,
+  explicit low-risk approval, mechanical collision edit, the exact recorded
+  GPT-5.6 card, human Meaning edit, copy-only Stage, seven-group Verify,
+  Handoff, and the offline receipt with no horizontal overflow. The selected
+  recording transaction has receipt fingerprint
+  `2ba5d8316f970d0a8f220a57fef1b7f77c167213146eeef2639284f251f0509a`.
+  Its copied handoff verified in 0.95 seconds; its ordinary-BagIt-valid altered
+  ledger blocked exactly as required; and restore completed in 0.74 seconds
+  with all 30 source members byte-identical and the copied handoff unchanged.
+  The 0:00–2:45 visual storyboard was rehearsed at its specified shot holds;
+  the 356-word narration remains a user-owned recording and timing action.
+  Remaining R7 work is the final governance/release commit, normal
+  fast-forward promotion, unauthenticated public-clone confirmation, and exact
+  public release handoff. No product code, feature, or design work remains.
 
 ## Protected submission reserve
 

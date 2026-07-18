@@ -1,7 +1,7 @@
 # Reversible Name Atlas — revised Build Week submission package
 
-Status: **R6 DRAFT — REVISED PRODUCT AND SCREENSHOTS COMPLETE; FINAL RELEASE
-SHA, VIDEO, DUE DILIGENCE, AND SUBMISSION PENDING**
+Status: **R7 DRAFT — RELEASE CANDIDATE, REHEARSAL, SCREENSHOTS, AND THUMBNAIL
+COMPLETE; PUBLIC ALIGNMENT, VIDEO, USER ACTIONS, AND SUBMISSION PENDING**
 
 Submission hold: **ACTIVE — DO NOT SUBMIT UNTIL THE USER EXPLICITLY RELEASES
 THE HOLD**
@@ -47,9 +47,11 @@ representative authority when applicable, and every other personal attestation.
 | Public repository | <https://github.com/ModernBlueprints/reversible-name-atlas> |
 | License | MIT |
 | Current known-good public baseline | `827b0f6f93174d3c34aedfd98d8467a299ab2669`; revised release not yet promoted at this draft checkpoint |
-| Final revised release SHA | `[PENDING: fill only after R6/R7 clean-clone acceptance and public alignment]` |
-| Final demo receipt fingerprint | `[PENDING: fill from the selected recording transaction]` |
+| Accepted R6 product candidate | `eb54f3a2b3ab60bc690d3151e7f5bce0ad28aa0c` |
+| Final revised release SHA | `[PENDING: fill only after the recording-ready release checkpoint is committed and public alignment passes]` |
+| Final demo receipt fingerprint | `2ba5d8316f970d0a8f220a57fef1b7f77c167213146eeef2639284f251f0509a` |
 | Final screenshot hashes | Recorded in the revised screenshot inventory below; recheck only after a deliberate recapture |
+| Devpost thumbnail | `docs/submission-thumbnail.png` — 1500×1000 PNG, 3:2, 210,124 bytes, SHA-256 `1eee93fe81037843ca80453574d9f488a8aef97c0ad542ea615cfcd045a78ca0` |
 | Public YouTube URL | `[USER ACTION REQUIRED: record/approve voice-over, upload as Public, and supply verified URL]` |
 | `/feedback` Session ID | `[USER ACTION REQUIRED: run /feedback in the primary Codex build task and supply the generated ID]` |
 | Entrant type and country | `[USER ACTION REQUIRED: confirm; do not infer]` |
@@ -214,11 +216,16 @@ undeclared references, embedded links, or arbitrary filesystem state.
 - verify-first logical reconstruction of all 30 source members and 23,621 bytes
   in the R5 acceptance transaction, with source and handoff unchanged; and
 - 265 tests plus lock, Ruff lint/format, isolated wheel, browser, and Git
-  whitespace checks on the current R6 candidate.
+  whitespace checks on exact candidate `eb54f3a`;
+- a fresh detached Python 3.11 clean clone, installed 85-entry wheel, complete
+  durable transaction, copied-bag verification, controlled failure, and
+  30-member restore independently returned `GO`; and
+- a complete R7 browser/terminal rehearsal produced selected receipt
+  `2ba5d8316f970d0a8f220a57fef1b7f77c167213146eeef2639284f251f0509a`.
 
-Final exact-commit clean-clone evidence, public revised SHA, and the selected
-recording receipt remain pending and must replace the placeholders before
-submission.
+Public revised SHA and unauthenticated public-clone alignment remain pending.
+The selected recording receipt is fixed above. No product code, feature, or
+design work remains planned.
 
 ## Technology list
 
@@ -380,6 +387,7 @@ of this release.
 | Tagline | `Refactor the collection. Hand over the proof.` |
 | Category | `Work & Productivity` |
 | Repository | `https://github.com/ModernBlueprints/reversible-name-atlas` — confirm it resolves to the selected revised release before submission |
+| Thumbnail | `docs/submission-thumbnail.png` — upload the exact hash recorded above |
 | Technologies | `Codex, GPT-5.6, OpenAI Responses API, Python 3.11, FastAPI, Jinja2, Pydantic v2, Blueprint, BagIt, uv, pytest, Ruff, CSS, GitHub` |
 | Testing instructions | `On macOS with Python 3.11 and uv: run uv sync --frozen, then uv run name-atlas demo --mode replay and open http://127.0.0.1:8000. The included hero data and recorded GPT-5.6 card need no API key. Run uv run pytest for the full suite. After staging, use the copyable verify-receipt and restore-receipt commands on the Handoff page.` |
 | Video URL | `[USER ACTION REQUIRED: PUBLIC YOUTUBE URL]` |
@@ -387,7 +395,7 @@ of this release.
 | Submitter type | `[USER CONFIRM: Individual / Team of Individuals / Organization]` |
 | Country | `[USER CONFIRM; do not infer]` |
 | Plugin/developer-tool fields | `Not applicable — Work & Productivity standalone local browser application.` |
-| Final release SHA | `[PENDING R6/R7 ACCEPTANCE]` |
+| Final release SHA | `[PENDING PUBLIC ALIGNMENT]` |
 | Submission hold | `ACTIVE — final submit prohibited until explicit user release` |
 
 ## Three-minute demo storyboard
@@ -410,6 +418,13 @@ three-minute limit. Do not accelerate unreadable UI footage to hit the target.
 | 2:18–2:25 | Terminal: successful bounded restore summary or Handoff restore command plus verified report | Supported original logical package can be reconstructed into an absent destination. |
 | 2:25–2:43 | Concise commit/test overlay, product end card, repository URL | Specific Codex workflow, 265-test checkpoint, closing value proposition. |
 | 2:43–2:45 | Silent two-second end card | Leave a clean visual landing frame. |
+
+R7 visual rehearsal status: **PASS**. The complete application sequence was
+rehearsed at a 1280×720 capture viewport with the specified shot holds and no
+horizontal overflow. The selected receipt, copied-bag verifier, controlled
+failure, and restore commands were then rerun from the exact candidate. The
+visual schedule totals 2:45. This is timing evidence for the shot plan, not a
+substitute for the user's final narrated recording.
 
 ## Timed English voice-over draft
 
@@ -523,6 +538,19 @@ All final captures must use synthetic fixture data, avoid secrets and sender-
 local personal paths, preserve truthful status colors, contain no clipping or
 horizontal document overflow, and match the selected release behavior.
 
+### Devpost gallery thumbnail
+
+Use [`submission-thumbnail.png`](submission-thumbnail.png), a code-native
+1500×1000 PNG in the established dark visual system. It is 3:2, 210,124 bytes,
+and has SHA-256
+`1eee93fe81037843ca80453574d9f488a8aef97c0ad542ea615cfcd045a78ca0`.
+The editable vector source is
+[`submission-thumbnail.svg`](submission-thumbnail.svg), SHA-256
+`91e1f7eff0159df6417913d3493a330ffef718857839b12e928a9cf8df1b4836`.
+It contains only project-native text and vector shapes; no generated or
+third-party promotional imagery is embedded. The visible `2ba5…f0509a`
+fragment is the actual selected recording receipt, not illustrative evidence.
+
 ## Limitations and claim boundaries for public copy
 
 The public description and video may say that the verified release:
@@ -563,32 +591,32 @@ Do not claim:
 | Persistent restart-safe case | Restart test and exact case/card/decision rehydration | Verified at R2 and in the 265-test R6 suite |
 | Source change blocks | Added/removed/renamed/resized/content-changed matrix and UI blocker | Verified at R2 and in the 265-test R6 suite |
 | Portable path-neutral receipt | Artifact schema/path scan, fingerprint, raw digest and staged-data recomputation | Verified at R3 and in the R6 candidate path scan |
-| Independent keyless verification | Copied-bag subprocess with API key absent and bag byte snapshot | Verified at R3/R5; final clean-clone run pending |
+| Independent keyless verification | Copied-bag subprocess with API key absent and bag byte snapshot | Verified at R3/R5 and twice from exact detached `eb54f3a` clean clones |
 | BagIt-valid altered ledger blocks | BagIt pass plus exit `1` and exact `artifact_digest_mismatch:decision_ledger` | Verified at R1/R3 and reverified in R6; final screenshot records the exact Name Atlas blocker |
 | Five-state coherent experience | Route/guard matrix and browser QA at recording and narrow widths | Verified at R4/R5 and final R6 screenshot/narrow QA |
-| Bounded restore | Verify-first unmocked restore, exact 30-member snapshot equality, no overwrite, source/handoff unchanged | Verified at R5; final clean-clone run pending |
+| Bounded restore | Verify-first unmocked restore, exact 30-member snapshot equality, no overwrite, source/handoff unchanged | Verified at R5 and twice from exact detached `eb54f3a` clean clones |
 | Real GPT-5.6 card | Canonical record SHA, evidence fingerprint, usage, and live/replay build evidence | Verified; no new call made or needed |
 | 265 passing tests | Fresh R6 release-hardening full-suite output | Verified by the primary integrator after the final path-selection correction |
-| Final public release | Selected SHA, clean branch, public alignment, unauthenticated clone | `[PENDING R6/R7]` |
+| Final public release | Selected SHA, clean branch, public alignment, unauthenticated clone | `[PENDING PUBLIC ALIGNMENT]` |
 | Final video and submission | Public playback, `/feedback`, personal attestations, explicit hold release, Devpost receipt | `[USER ACTIONS AND FINAL CLOSURE PENDING]` |
 
 ## Due-diligence checklist
 
 ### Product and repository
 
-- [ ] R6/R7 release SHA selected and recorded above
+- [ ] Recording-ready release SHA selected and recorded above
 - [ ] Revision fast-forward promoted only after release acceptance
 - [ ] Public repository resolves to the selected SHA
 - [ ] Public repository is MIT-licensed and third-party notices are present
-- [ ] `uv sync --frozen` passes in an unauthenticated clean clone
-- [ ] Complete keyless hero replay passes from that clean clone
-- [ ] Copied-bag `verify-receipt` passes from that clean clone
-- [ ] Admitted `restore-receipt` passes from that clean clone
-- [ ] Final pytest, Ruff lint, Ruff format, build, wheel, link, secret,
+- [x] `uv sync --frozen` passes in an exact detached clean clone
+- [x] Complete keyless hero replay passes from that clean clone
+- [x] Copied-bag `verify-receipt` passes from that clean clone
+- [x] Admitted `restore-receipt` passes from that clean clone
+- [x] Final pytest, Ruff lint, Ruff format, build, wheel, link, secret,
       absolute-path, license/asset, and Git-clean checks pass
-- [ ] Replay label/model/evidence fingerprint remain exact
-- [ ] Live startup remains truthful without making an unnecessary provider call
-- [ ] README, limitations, provenance, build log, and sample-data guidance match
+- [x] Replay label/model/evidence fingerprint remain exact
+- [x] Live startup remains truthful without making an unnecessary provider call
+- [x] README, limitations, provenance, build log, and sample-data guidance match
       the selected release
 
 ### Claims, media, and intellectual property
@@ -602,6 +630,8 @@ Do not claim:
 - [ ] No unlicensed music, third-party footage, or unsupported trademark use
 - [x] All seven revised screenshots pass final visual QA and their hashes are
       recorded
+- [x] Final 3:2 project-gallery thumbnail is rendered, visually inspected, and
+      hash-recorded
 - [ ] Final narration matches the selected product and is approved by the user
 - [ ] Final video duration is strictly under 3:00
 - [ ] Final video has intelligible English audio covering the product, concrete
