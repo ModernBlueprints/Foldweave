@@ -1,6 +1,6 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **Saturday 18 July 2026 at 07:14:18 CEST**
+Checkpoint: **Saturday 18 July 2026 at 07:38:21 CEST**
 
 Phase: **RECORDING_READY — WAITING FOR USER VIDEO AND FEEDBACK**
 
@@ -18,8 +18,8 @@ Submission hold: **ACTIVE**
 
 - Recording-ready: Tuesday 21 July 2026 at 02:00 CEST
 - Submission due: Wednesday 22 July 2026 at 02:00 CEST
-- Time to recording-ready: 66 hours 45 minutes 42 seconds
-- Time to submission: 90 hours 45 minutes 42 seconds
+- Time to recording-ready: 66 hours 21 minutes 39 seconds
+- Time to submission: 90 hours 21 minutes 39 seconds
 - Protected submission reserve: 24 hours
 - Protected pre-recording contingency: 4 hours
 
@@ -36,8 +36,8 @@ Submission hold: **ACTIVE**
 - Selected release subject: `docs: prepare revised recording-ready release`
 - Selected release parent: `eb54f3a2b3ab60bc690d3151e7f5bce0ad28aa0c`
 - Public repository: `https://github.com/ModernBlueprints/reversible-name-atlas`
-- Before this submission-reserve checkpoint, local `main`, `origin/main`, the
-  local revision branch, and its remote branch all resolved to `4aa6c7b`.
+- Before this video-preflight checkpoint, local `main`, `origin/main`, the local
+  revision branch, and its remote branch all resolved to `04eb20d`.
 - The exact current governance-closure SHA cannot be embedded in its own file;
   resolve it from fresh Git and the handoff after the normal push.
 - Python: 3.11.9
@@ -77,6 +77,23 @@ Selected release evidence:
 - selected logical restore: 30/30 members byte-identical;
 - seven revised screenshots and 1500×1000 3:2 thumbnail: complete; and
 - 356-whitespace-word English narration draft and capture shot list: complete.
+
+Video-capture preflight evidence:
+
+- exact accepted wheel rebuilt at unchanged SHA-256 `1ed641680a…e266b` and
+  installed under a neutral temporary path;
+- keyless recorded replay and one complete scratch case-to-handoff transaction:
+  pass, with no provider request;
+- macOS capture device and FFmpeg H.264 encoding: pass;
+- safer page-only capture: 1920×1080, 30 fps, H.264/yuv420p, with no Codex or
+  browser chrome, personal path, notification, account data, or credential;
+- ignored local preflight video SHA-256: `b3f746fe…dd688`;
+- ignored local inspected frame SHA-256: `4e4bf731…9aead`; and
+- disposable full-display capture, scratch case/stage, isolated environment,
+  raw frames, and 48 MB temporary workspace: removed after verification.
+
+This is capture-path evidence, not final-video evidence. The accepted release,
+selected receipt, screenshots, and thumbnail were not changed.
 
 Public alignment evidence:
 
@@ -120,11 +137,12 @@ Remaining user-owned or protected work:
 - authorize final Devpost submission.
 
 Remaining joint finalization after voice audio exists: capture/edit the final
-under-three-minute video, upload it publicly to YouTube, verify full playback,
-insert its URL, run the final claim/rule/clean-run audit, and complete the Build
-Week custom fields without submitting while the hold remains active. Optional
-gallery upload can be completed after the user signs in to Devpost in a browser;
-it is not a product or eligibility gate.
+under-three-minute video through the verified page-only capture path, upload it
+publicly to YouTube, verify full playback, insert its URL, run the final
+claim/rule/clean-run audit, and complete the Build Week custom fields without
+submitting while the hold remains active. Optional gallery upload can be
+completed after the user signs in to Devpost in a browser; it is not a product
+or eligibility gate.
 
 Current blocker: **USER-OWNED VOICE RECORDING AND `/feedback`; NO INDEPENDENT
 PRODUCT OR REPOSITORY BLOCKER**.
@@ -136,15 +154,17 @@ PRODUCT OR REPOSITORY BLOCKER**.
   exact governance-closure HEAD comes from fresh Git
 - Current milestone: R7 complete; video/submission reserve active
 - Last verified commands: exact local and credential-disabled public clean-clone
-  sync, 265 tests, Ruff, compilation, build, verifier, and keyless route smoke
+  sync, 265 tests, Ruff, compilation, build, verifier, keyless route smoke, exact
+  wheel rebuild/install, scratch full transaction, and 1920×1080 page-only
+  capture encode
 - Case status: complete and restart-safe
 - Receipt/verifier status: complete; selected fingerprint `2ba5d831…f0509a`
 - UI status: complete; five routes and offline receipt rehearsed
 - Restore gate/status: `GO` / complete
 - Feature-freeze status: active
-- Release-material status: recording-ready; Devpost software-page core and
-  thumbnail populated; public video, `/feedback`, Build Week answers, and
-  optional gallery pending
+- Release-material status: recording-ready; capture/encode preflight and Devpost
+  software-page core complete; public narrated video, `/feedback`, Build Week
+  answers, and optional gallery pending
 - Submission hold: active
 - Blockers: user voice and `/feedback`; no independent product blocker
 - Next operation: user records and supplies or approves the final narration

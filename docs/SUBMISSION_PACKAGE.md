@@ -528,6 +528,15 @@ proof of duration.
     it as Public on YouTube, then watch the complete public playback before
     adding its URL to Devpost.
 
+Capture preflight status: **PASS**. On Saturday 18 July 2026, the exact accepted
+wheel was installed under a neutral temporary path and completed a keyless
+replay transaction. The page-only capture path produced clean 1920×1080,
+30 fps H.264/yuv420p footage without Codex or browser chrome, personal paths,
+notifications, account data, or credentials. Its disposable three-second test
+is retained only in ignored local workspace. This proves the capture and encode
+toolchain, not the final video: final shot timing, audio acceptance, complete
+playback, and public upload still require the user's recorded narration.
+
 ## Revised screenshot inventory and specification
 
 The first-cycle screenshots were replaced by the exact revised set below. Each

@@ -299,3 +299,37 @@ pytest tests, Ruff lint, Ruff format, and `git diff --check` passed. This was
 pre-submission preparation only. The user's voice recording, `/feedback`,
 personal attestations, explicit submission-hold release, and final Devpost
 submission remain pending; the hold remains active.
+
+## Video-capture preflight — 18 July 2026
+
+The protected submission-reserve work verified the final capture path without
+creating or publishing a final video. FFmpeg `8.0.1` detected the macOS screen
+capture device and successfully encoded a disposable 0.97-second H.264 test.
+That full-display test was deleted immediately after codec, dimensions, frame
+rate, and duration were verified so no incidental desktop content was retained.
+
+The safer capture route records only the Name Atlas page viewport. A disposable
+browser session produced 1920×1080 page-only frames with no Codex window,
+browser chrome, account data, notification, credential, or personal path. A
+three-second 30 fps H.264/yuv420p preflight encode passed with SHA-256
+`b3f746fe0bf5a7b6a7da2d297f15be44863fda727c25aa19548ffdd7228dd688`.
+The corresponding inspected frame has SHA-256
+`4e4bf7310f6e92674b78f614f6b142e16c77901bac081896bb9f59c803b9aead`.
+Both are retained only in the ignored local
+`.name-atlas/video-production/preflight/` workspace.
+
+The preflight rebuilt and installed the exact accepted wheel, whose SHA-256
+remained
+`1ed641680a164196bf0fc07d894389713d0033ad28ffda27cba7253e2c0e266b`,
+from a neutral temporary directory. Keyless replay displayed **Recorded
+GPT-5.6 response** and a scratch transaction exercised low-risk approval, the
+collision edit, the exact evidence-bound card, the human Meaning edit, copy-only
+staging, and the verified handoff. The 48 MB disposable workspace—wheel,
+environment, case, stage, raw frames, and full-display test—was removed
+afterward; the accepted release and selected receipt were unchanged.
+
+This establishes capture and encoding readiness only. The final recording must
+still be timed against the user's actual narration, checked with audio, exported
+under three minutes, and watched locally and after public YouTube upload. No
+video was uploaded, no provider call was made, and the submission hold remains
+active.
