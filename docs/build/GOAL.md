@@ -4,9 +4,10 @@
 
 This amended goal is inactive merely by existing, being committed, being
 reproduced in a handoff, or through implementation of the meta-plan that authored
-it. It becomes binding only when the user explicitly activates this complete
-text in the current primary Codex task. Record that Europe/Oslo timestamp as
-C+0.
+it. A user-authorized pre-activation branch push or remote-preservation
+checkpoint does not activate it either. It becomes binding only when the user
+explicitly activates this complete text in the current primary Codex task.
+Record that Europe/Oslo timestamp as C+0.
 
 Preserve:
 
@@ -18,10 +19,14 @@ Preserve:
 - completed immutable A3 fallback:
   `e3803d26d342f5c128f4e9876a7b7e35c35bde3c`;
 - branch: `revision/ai-first-folder-refactor`;
-- governance baseline locator: the unique commit on that branch with parent
+- governance baseline:
+  `4d4f07814a24ed2e28b015cecb1655e5c414632c`, with parent
   `e3803d26d342f5c128f4e9876a7b7e35c35bde3c` and subject
-  `docs: establish connected-change operating scaffold`; use the exact SHA
-  reported in the scaffold handoff and fresh Git, never a self-referential SHA.
+  `docs: establish connected-change operating scaffold`;
+- pre-activation remote-preservation checkpoint: the unique child of
+  `4d4f07814a24ed2e28b015cecb1655e5c414632c` with subject
+  `docs: record pre-activation remote checkpoint`; use the exact SHA reported in
+  the preservation handoff and fresh Git, never a self-referential SHA.
 
 The preceding AI-first goal was active through completed A3 and is superseded for
 all future execution. Do not reset or conflate H+0, R+0, A+0, and C+0.

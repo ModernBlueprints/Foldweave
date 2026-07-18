@@ -1,6 +1,6 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **Saturday 18 July 2026 at 23:07:12 CEST**
+Checkpoint: **Saturday 18 July 2026 at 23:24:33 CEST**
 
 Phase: **WAITING_FOR_CONNECTED_CHANGE_GOAL_ACTIVATION**
 
@@ -19,14 +19,14 @@ Submission hold: **ACTIVE**
 - Amended Connected Change goal: **INACTIVE**.
 - Connected Change C+0: **NOT_STARTED**.
 - Feature freeze: **Monday 20 July 2026 at 14:00 CEST**.
-- Time remaining to feature freeze at checkpoint: **38 hours, 52 minutes,
-  47 seconds**.
+- Time remaining to feature freeze at checkpoint: **38 hours, 35 minutes,
+  27 seconds**.
 - Recording ready: **Tuesday 21 July 2026 at 02:00 CEST**.
-- Time remaining to recording readiness at checkpoint: **50 hours, 52 minutes,
-  47 seconds**.
+- Time remaining to recording readiness at checkpoint: **50 hours, 35 minutes,
+  27 seconds**.
 - Submission deadline: **Wednesday 22 July 2026 at 02:00 CEST**.
-- Time remaining to submission at checkpoint: **74 hours, 52 minutes,
-  47 seconds**.
+- Time remaining to submission at checkpoint: **74 hours, 35 minutes,
+  27 seconds**.
 - Submission hold: **ACTIVE**.
 
 ## Repository checkpoint
@@ -36,18 +36,25 @@ Submission hold: **ACTIVE**
 - Completed A3 checkpoint:
   `e3803d26d342f5c128f4e9876a7b7e35c35bde3c`.
 - A3 subject: `feat: complete A3 persistent proof transaction`.
-- Governance commit locator: parent
+- Governance commit:
+  `4d4f07814a24ed2e28b015cecb1655e5c414632c`, with parent
   `e3803d26d342f5c128f4e9876a7b7e35c35bde3c` and subject
-  `docs: establish connected-change operating scaffold`; exact SHA is reported
-  in the handoff.
+  `docs: establish connected-change operating scaffold`.
+- Pre-activation remote-preservation checkpoint locator: parent
+  `4d4f07814a24ed2e28b015cecb1655e5c414632c` and subject
+  `docs: record pre-activation remote checkpoint`; exact SHA is reported in the
+  handoff after commit and remote verification.
 - Local `main`, `origin/main`, and local/remote
   `revision/portable-change-receipt`: **PRESERVED AT `4baec1e` WHEN THIS
   CHECKPOINT WAS PREPARED**.
-- New branch/worktree, push, promotion, merge, rebase, force-push: **NOT
-  PERFORMED**.
+- Current revision branch remote backup: **CREATED AND VERIFIED AT `4d4f078`
+  UNDER EXPLICIT USER AUTHORIZATION; FOLLOW-UP CHECKPOINT IDENTIFIED ABOVE,
+  WITH ITS EXACT REMOTE SHA REPORTED IN THE HANDOFF AFTER VERIFICATION**.
+- New branch/worktree, promotion, merge, rebase, force-push: **NOT PERFORMED**.
 
-This file does not contain its own governance commit SHA or assert its own
-post-commit cleanliness. Fresh Git evidence controls current repository facts.
+This file does not contain its own remote-preservation commit SHA or assert its
+own post-commit cleanliness. Fresh Git evidence controls current repository
+facts.
 
 ## Observed product state
 
@@ -82,12 +89,12 @@ post-commit cleanliness. Fresh Git evidence controls current repository facts.
 
 - `uv lock --check`: **PASSED; 32 packages resolved**.
 - `PYTHONDONTWRITEBYTECODE=1 uv run --no-sync pytest -p no:cacheprovider`:
-  **590 passed in 21.39 seconds**.
+  **590 passed in 21.61 seconds**.
 - `uv run --no-sync ruff check .`: **PASSED**.
 - `uv run --no-sync ruff format --check .`: **PASSED; 100 files already
   formatted**.
-- `git diff --check`: **PASSED BEFORE GOVERNANCE EDITING; MUST PASS AGAIN BEFORE
-  COMMIT**.
+- `git diff --check e3803d2..4d4f078`: **PASSED FOR THE COMMITTED SCAFFOLD;
+  FOLLOW-UP CHECKPOINT VERIFICATION IS REPORTED IN THE HANDOFF**.
 - Process `OPENAI_API_KEY`: **ABSENT**.
 - Ignored owner-only `.env.local`: **PRESENT; VALUE NOT READ OR LOADED**.
 - Live Connected Change planner-call readiness: **BLOCKED UNTIL C+0, C0,
@@ -97,17 +104,21 @@ post-commit cleanliness. Fresh Git evidence controls current repository facts.
   reported estimated cost; **NOT MIGRATED**.
 - New provider calls since A+0: **NONE**.
 - Shared MCP dependency/install: **ABSENT / NOT STARTED**.
-- Server, browser, picker, MCP, plugin, GitHub, YouTube, Devpost, and final
-  submission mutations during this scaffold: **NOT PERFORMED**.
+- Server, browser, picker, MCP, plugin, YouTube, Devpost, and final-submission
+  mutations: **NOT PERFORMED**.
+- GitHub after the completed scaffold: **ONE USER-AUTHORIZED ORDINARY PUSH OF
+  `revision/ai-first-folder-refactor`; NO PR, MAIN UPDATE, PROMOTION, RELEASE, OR
+  GOAL ACTIVATION**.
 
 ## Compact recovery capsule
 
 - Phase: `WAITING_FOR_CONNECTED_CHANGE_GOAL_ACTIVATION`.
-- Branch/A3 baseline: `revision/ai-first-folder-refactor` /
-  `e3803d26d342f5c128f4e9876a7b7e35c35bde3c`.
+- Branch/A3/governance baseline: `revision/ai-first-folder-refactor` /
+  `e3803d26d342f5c128f4e9876a7b7e35c35bde3c` /
+  `4d4f07814a24ed2e28b015cecb1655e5c414632c`.
 - Active profile/current milestone: `NONE / C0 NOT STARTED`.
-- Latest checks: `590 tests; lock; Ruff lint; Ruff format; pre-commit diff
-  check`.
+- Latest checks: `590 tests; lock; Ruff lint; Ruff format; committed-scaffold
+  diff check; initial remote backup at 4d4f078`.
 - Change File/matcher: `NOT STARTED`.
 - Job/provenance: `A3 v1 VERIFIED; v2/capsule origin NOT STARTED`.
 - Receipt/verifier/reconstruction: `A3 VERIFIED; CONNECTED CHANGE NOT STARTED`.
@@ -118,9 +129,10 @@ post-commit cleanliness. Fresh Git evidence controls current repository facts.
 - Feature freeze/release materials: `PENDING / STALE`.
 - Submission hold: `ACTIVE`.
 - Blockers: `NONE`.
-- Next operation: user explicitly activates the complete amended goal at the
-  governance commit reported in the scaffold handoff.
+- Next operation: after the follow-up checkpoint is committed, pushed, and
+  reported, the user explicitly activates the complete amended goal at that
+  remote-preserved branch state.
 
 ## Exact next operation
 
-`User explicitly activates the complete amended docs/build/GOAL.md in this primary Codex task at the governance commit reported in the scaffold handoff.`
+`After the pre-activation checkpoint commit and remote branch are verified identical, the user explicitly activates the complete amended docs/build/GOAL.md in this primary Codex task at the remote-preserved branch state reported in the handoff.`

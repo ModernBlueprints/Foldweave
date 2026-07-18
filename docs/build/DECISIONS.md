@@ -742,3 +742,15 @@ overrides those artifacts.
   complete and the user explicitly releases the hold.
 - Rationale: Irreversible submission remains a user-owned gate and must reflect
   the final selected profile rather than an intermediate build.
+
+## D-078 — Pre-activation remote preservation
+
+- Date: 18 July 2026
+- Decision: Under the user's explicit instruction, publish the existing
+  `revision/ai-first-folder-refactor` history to the matching remote branch,
+  then commit and push this factual checkpoint before C+0.
+- Rationale: A remote copy protects the completed A1–A3 implementation and the
+  inactive Connected Change scaffold before the next sprint. This ordinary
+  branch backup does not activate the goal, select a product profile, alter
+  `main`, open a pull request, promote a release, or release the submission
+  hold.
