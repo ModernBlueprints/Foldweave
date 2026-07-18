@@ -260,3 +260,42 @@ reversibility, or measured time savings. The recording-ready release commit and
 public-repository alignment are complete. Video, `/feedback` ID, personal
 attestations, explicit hold release, and Devpost submission remain pending.
 The submission hold remains active.
+
+## Devpost pre-submission preparation — 18 July 2026
+
+The authenticated Devpost connector identified the existing Reversible Name
+Atlas project as software ID `1344382`, slug `reversible-name-atlas`. The
+separate historical Preflight submission draft was inspected only as a list
+entry and was not changed.
+
+The Reversible Name Atlas project was updated from the first-cycle story to the
+exact frozen revised Devpost copy in `docs/SUBMISSION_PACKAGE.md`, including the
+new tagline, 4,715-character Markdown source, technology list, and public GitHub
+repository link. Devpost rendered the accepted story as 4,676 characters. The
+exact 210,124-byte frozen PNG thumbnail with SHA-256
+`1eee93fe81037843ca80453574d9f488a8aef97c0ad542ea615cfcd045a78ca0`
+was uploaded once through the connector's streamed-file path and its resulting
+public image returned HTTP 200.
+
+Post-update semantic verification reported:
+
+- project name `Reversible Name Atlas`;
+- tagline `Refactor the collection. Hand over the proof.`;
+- public project URL <https://devpost.com/software/reversible-name-atlas>;
+- project page state `published`;
+- no attached hackathon;
+- no video URL; and
+- no OpenAI Build Week submission performed.
+
+Both available browser sessions displayed Devpost as logged out, so no optional
+gallery upload was attempted. The seven accepted local screenshots remain
+ready. The connector independently returned the complete OpenAI Build Week
+submission-field schema, but no Build Week category, repository/testing
+custom-field answer, `/feedback`, video, country, submitter type, or personal
+answer was written or submitted. The final-submit tool was not called.
+
+Immediately before this documentation checkpoint, `uv lock --check`, all 265
+pytest tests, Ruff lint, Ruff format, and `git diff --check` passed. This was
+pre-submission preparation only. The user's voice recording, `/feedback`,
+personal attestations, explicit submission-hold release, and final Devpost
+submission remain pending; the hold remains active.

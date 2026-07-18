@@ -1,6 +1,6 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **Saturday 18 July 2026 at 06:54:42 CEST**
+Checkpoint: **Saturday 18 July 2026 at 07:14:18 CEST**
 
 Phase: **RECORDING_READY — WAITING FOR USER VIDEO AND FEEDBACK**
 
@@ -18,8 +18,8 @@ Submission hold: **ACTIVE**
 
 - Recording-ready: Tuesday 21 July 2026 at 02:00 CEST
 - Submission due: Wednesday 22 July 2026 at 02:00 CEST
-- Time to recording-ready: 67 hours 5 minutes 18 seconds
-- Time to submission: 91 hours 5 minutes 18 seconds
+- Time to recording-ready: 66 hours 45 minutes 42 seconds
+- Time to submission: 90 hours 45 minutes 42 seconds
 - Protected submission reserve: 24 hours
 - Protected pre-recording contingency: 4 hours
 
@@ -36,8 +36,8 @@ Submission hold: **ACTIVE**
 - Selected release subject: `docs: prepare revised recording-ready release`
 - Selected release parent: `eb54f3a2b3ab60bc690d3151e7f5bce0ad28aa0c`
 - Public repository: `https://github.com/ModernBlueprints/reversible-name-atlas`
-- Before this governance-only closure, local `main`, `origin/main`, the local
-  revision branch, and its remote branch all resolved to `6591d57`.
+- Before this submission-reserve checkpoint, local `main`, `origin/main`, the
+  local revision branch, and its remote branch all resolved to `4aa6c7b`.
 - The exact current governance-closure SHA cannot be embedded in its own file;
   resolve it from fresh Git and the handoff after the normal push.
 - Python: 3.11.9
@@ -94,6 +94,21 @@ Release materials are current for the revised release: README, limitations,
 provenance, build log, submission draft, seven screenshots, narration draft,
 shot list, claim matrix, and thumbnail.
 
+Devpost pre-submission state:
+
+- authenticated Devpost connector project `1344382`, slug
+  `reversible-name-atlas`, has the exact revised story, technology list,
+  repository link, tagline, and frozen thumbnail;
+- <https://devpost.com/software/reversible-name-atlas> is a published software
+  page, and its thumbnail serves successfully;
+- the project's live `hackathons` list is empty and its video URL is null, so
+  no Reversible Name Atlas OpenAI Build Week submission record exists;
+- the separate historical Preflight submission draft was not changed;
+- category, repository/testing custom answers, `/feedback`, public video, and
+  personal attestations remain pending for the Build Week form; and
+- both available browser sessions were logged out of Devpost, so the optional
+  seven-image gallery was not uploaded. The local accepted images remain ready.
+
 Remaining user-owned or protected work:
 
 - record and approve the final English voice-over;
@@ -106,8 +121,10 @@ Remaining user-owned or protected work:
 
 Remaining joint finalization after voice audio exists: capture/edit the final
 under-three-minute video, upload it publicly to YouTube, verify full playback,
-insert its URL, run the final claim/rule/clean-run audit, and complete the draft
-form without submitting while the hold remains active.
+insert its URL, run the final claim/rule/clean-run audit, and complete the Build
+Week custom fields without submitting while the hold remains active. Optional
+gallery upload can be completed after the user signs in to Devpost in a browser;
+it is not a product or eligibility gate.
 
 Current blocker: **USER-OWNED VOICE RECORDING AND `/feedback`; NO INDEPENDENT
 PRODUCT OR REPOSITORY BLOCKER**.
@@ -125,7 +142,9 @@ PRODUCT OR REPOSITORY BLOCKER**.
 - UI status: complete; five routes and offline receipt rehearsed
 - Restore gate/status: `GO` / complete
 - Feature-freeze status: active
-- Release-material status: recording-ready; public video and `/feedback` pending
+- Release-material status: recording-ready; Devpost software-page core and
+  thumbnail populated; public video, `/feedback`, Build Week answers, and
+  optional gallery pending
 - Submission hold: active
 - Blockers: user voice and `/feedback`; no independent product blocker
 - Next operation: user records and supplies or approves the final narration

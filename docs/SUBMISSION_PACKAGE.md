@@ -1,8 +1,8 @@
 # Reversible Name Atlas — revised Build Week submission package
 
 Status: **R7 RECORDING-READY — PRODUCT, PUBLIC REPOSITORY, REHEARSAL,
-SCREENSHOTS, THUMBNAIL, NARRATION DRAFT, AND SHOT LIST COMPLETE; VIDEO, USER
-ACTIONS, HOLD RELEASE, AND SUBMISSION PENDING**
+SCREENSHOTS, THUMBNAIL, NARRATION DRAFT, SHOT LIST, AND DEVPOST SOFTWARE-PAGE
+CORE COMPLETE; VIDEO, USER ACTIONS, HOLD RELEASE, AND SUBMISSION PENDING**
 
 Submission hold: **ACTIVE — DO NOT SUBMIT UNTIL THE USER EXPLICITLY RELEASES
 THE HOLD**
@@ -10,7 +10,9 @@ THE HOLD**
 This is the one working package for the revised demo, Devpost draft, screenshot
 set, and final due-diligence pass. It is not a product specification. Its R7
 status means the product, public repository, and recording materials are ready;
-the actual video, user-owned fields, hold release, and submission are not.
+the public Devpost software page also has the revised story, technologies,
+repository link, and frozen thumbnail. The actual video, user-owned fields,
+Build Week submission answers, hold release, and submission are not complete.
 Product truth and claim authority remain in
 [`build/BUILD_SPEC.md`](build/BUILD_SPEC.md) and
 [`LIMITATIONS.md`](LIMITATIONS.md).
@@ -54,7 +56,8 @@ representative authority when applicable, and every other personal attestation.
 | Selected recording-ready release SHA | `6591d57e254a21944fb0c4bdfb2f7a4eec18eda4` — [exact public commit](https://github.com/ModernBlueprints/reversible-name-atlas/commit/6591d57e254a21944fb0c4bdfb2f7a4eec18eda4) |
 | Final demo receipt fingerprint | `2ba5d8316f970d0a8f220a57fef1b7f77c167213146eeef2639284f251f0509a` |
 | Final screenshot hashes | Recorded in the revised screenshot inventory below; recheck only after a deliberate recapture |
-| Devpost thumbnail | `docs/submission-thumbnail.png` — 1500×1000 PNG, 3:2, 210,124 bytes, SHA-256 `1eee93fe81037843ca80453574d9f488a8aef97c0ad542ea615cfcd045a78ca0` |
+| Devpost project page | <https://devpost.com/software/reversible-name-atlas> — revised core fields published; no hackathon attached |
+| Devpost thumbnail | `docs/submission-thumbnail.png` — 1500×1000 PNG, 3:2, 210,124 bytes, SHA-256 `1eee93fe81037843ca80453574d9f488a8aef97c0ad542ea615cfcd045a78ca0`; uploaded and serving with HTTP 200 |
 | Public YouTube URL | `[USER ACTION REQUIRED: record/approve voice-over, upload as Public, and supply verified URL]` |
 | `/feedback` Session ID | `[USER ACTION REQUIRED: run /feedback in the primary Codex build task and supply the generated ID]` |
 | Entrant type and country | `[USER ACTION REQUIRED: confirm; do not infer]` |
@@ -393,8 +396,9 @@ of this release.
 | Project name | `Reversible Name Atlas` |
 | Tagline | `Refactor the collection. Hand over the proof.` |
 | Category | `Work & Productivity` |
-| Repository | `https://github.com/ModernBlueprints/reversible-name-atlas` — confirm it resolves to the selected revised release before submission |
-| Thumbnail | `docs/submission-thumbnail.png` — upload the exact hash recorded above |
+| Repository | `https://github.com/ModernBlueprints/reversible-name-atlas` — confirm current public HEAD contains the selected tested product/media checkpoint before submission |
+| Public Devpost project page | `https://devpost.com/software/reversible-name-atlas` — revised story, technologies, repository link, and thumbnail populated; not attached to Build Week |
+| Thumbnail | `docs/submission-thumbnail.png` — uploaded from the exact hash recorded above |
 | Technologies | `Codex, GPT-5.6, OpenAI Responses API, Python 3.11, FastAPI, Jinja2, Pydantic v2, Blueprint, BagIt, uv, pytest, Ruff, CSS, GitHub` |
 | Testing instructions | `On macOS with Python 3.11 and uv: run uv sync --frozen, then uv run name-atlas demo --mode replay and open http://127.0.0.1:8000. The included hero data and recorded GPT-5.6 card need no API key. Run uv run pytest for the full suite. After staging, use the copyable verify-receipt and restore-receipt commands on the Handoff page.` |
 | Video URL | `[USER ACTION REQUIRED: PUBLIC YOUTUBE URL]` |
@@ -402,7 +406,7 @@ of this release.
 | Submitter type | `[USER CONFIRM: Individual / Team of Individuals / Organization]` |
 | Country | `[USER CONFIRM; do not infer]` |
 | Plugin/developer-tool fields | `Not applicable — Work & Productivity standalone local browser application.` |
-| Final release SHA | `6591d57e254a21944fb0c4bdfb2f7a4eec18eda4` |
+| Selected tested product/media checkpoint | `6591d57e254a21944fb0c4bdfb2f7a4eec18eda4`; omit a commit field unless Devpost explicitly asks, then resolve current public HEAD fresh |
 | Submission hold | `ACTIVE — final submit prohibited until explicit user release` |
 
 ## Three-minute demo storyboard
@@ -651,13 +655,16 @@ Do not claim:
 - [ ] User confirms country of residence and eligibility
 - [ ] User confirms ownership, representative authority when applicable, and
       all personal/legal attestations after reading the form and rules
+- [x] Public Devpost project page has the revised description, technologies,
+      repository link, and exact frozen thumbnail
 - [ ] Work & Productivity is selected
 - [ ] Repository URL and testing instructions are exact
 - [ ] Public YouTube URL is added
 - [ ] User runs `/feedback` in the primary build task and adds the exact Session
       ID
-- [ ] Project description, technologies, screenshots, thumbnail, and required
-      custom fields are complete
+- [ ] Build Week custom fields and the public video are complete; the local
+      seven-screenshot set is ready, but optional gallery upload awaits a
+      signed-in Devpost browser session
 - [ ] Due date is reconfirmed against the official rules immediately before
       submission
 - [ ] User explicitly releases the active submission hold
