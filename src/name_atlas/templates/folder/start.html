@@ -14,19 +14,21 @@
     {% endif %}
 
     <form class="folder-form" method="post" action="/start">
+      <input type="hidden" name="csrf_token" value="{{ state.csrf_token }}">
       <label for="source-root">Folder to organize</label>
       <input class="bp6-input" id="source-root" name="source_root" type="text" inputmode="text" autocomplete="off" spellcheck="false" required value="{{ state.source_value }}" placeholder="/absolute/path/to/project">
 
       <label for="user-request">What should change?</label>
       <textarea class="bp6-input" id="user-request" name="user_request" rows="5" maxlength="8000" required placeholder="Prepare this project for handoff. Keep every file and every supported Markdown link working.">{{ state.request_value }}</textarea>
+      <p class="folder-field-help">Every source file is always kept exactly once. This request controls only file renaming and folder grouping. Deletion, omission, merging, conversion, and document-body editing are not supported.</p>
 
       <label for="output-parent">Result location</label>
       <input class="bp6-input" id="output-parent" name="output_parent" type="text" inputmode="text" autocomplete="off" spellcheck="false" required value="{{ state.output_value }}" placeholder="/absolute/path/for/result">
 
       <div class="folder-disclosure" aria-label="How the operation works">
-        <p><strong>Your original folder will not be changed.</strong> Name Atlas will create and verify a separate result. It sends GPT-5.6 your instruction, relative file names and folder structure, selected excerpts from eligible text and Markdown files, and supported Markdown-link context needed to plan the change. It does not send every file's bytes.</p>
+        <p><strong>Your original folder will not be changed.</strong> Name Atlas will create and verify a separate result. It sends GPT-5.6 your instruction, relative file names and folder structure, basic file metadata used to bind the plan, selected excerpts from eligible text and Markdown files, and supported Markdown-link context needed to plan the change. It does not send every file's bytes. Raw content hashes are kept local.</p>
         <p>Name Atlas asks the Responses API not to retain the response as application state and keeps the working planning record locally. Standard OpenAI API data-retention policies may still apply.</p>
-        <p class="folder-development-note"><strong>This A1 development build uses a deterministic planner and makes no API call.</strong> Live GPT-5.6 planning is introduced and verified in the later A4 milestone.</p>
+        <p class="folder-development-note"><strong>This A2 development build makes no API call and its deterministic planner accepts only the exact demonstration request shown in this field.</strong> Other requests block rather than produce a misleading result. General bounded GPT-5.6 planning is introduced and verified in A4.</p>
       </div>
 
       <button class="bp6-button bp6-intent-primary bp6-large folder-primary-action" type="submit">

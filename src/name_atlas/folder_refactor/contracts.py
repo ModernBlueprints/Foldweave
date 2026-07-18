@@ -15,6 +15,7 @@ from name_atlas.folder_refactor.naming import (
 from name_atlas.folder_refactor.serialization import canonical_sha256
 
 SHA256_PATTERN = r"^[a-f0-9]{64}$"
+MAX_MARKDOWN_ADAPTER_BYTES = 16 * 1024 * 1024
 
 
 class StrictFrozenModel(BaseModel):
@@ -130,6 +131,7 @@ class FolderPlan(StrictFrozenModel):
     schema_version: Literal["folder-plan.v1"] = "folder-plan.v1"
     source_commitment: str = Field(pattern=SHA256_PATTERN)
     request_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    request_scope: Literal["rename_and_move_every_file"]
     evidence_schema_version: Literal["folder-evidence-ledger.v1"] = (
         "folder-evidence-ledger.v1"
     )
@@ -193,6 +195,7 @@ class FolderAcceptedPlan(StrictFrozenModel):
     schema_version: Literal["folder-accepted-plan.v1"] = "folder-accepted-plan.v1"
     source_commitment: str = Field(pattern=SHA256_PATTERN)
     request_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    request_scope: Literal["rename_and_move_every_file"]
     evidence_schema_version: Literal["folder-evidence-ledger.v1"] = (
         "folder-evidence-ledger.v1"
     )
@@ -267,12 +270,17 @@ class FolderVerificationReport(StrictFrozenModel):
     path_change_count: int = Field(ge=0, le=500)
     protected_file_count: int = Field(ge=0, le=500)
     empty_directory_count: int = Field(ge=0, le=1_000)
+    supported_link_count: int = Field(default=0, ge=0)
+    rewritten_link_count: int = Field(default=0, ge=0)
+    rewritten_markdown_file_count: int = Field(default=0, ge=0, le=500)
     checks: tuple[FolderVerificationCheck, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
     def require_complete_success(self) -> FolderVerificationReport:
-        """A promoted A1 report cannot contain a failed check."""
+        """Require truthful link counts and a completely passing report."""
 
+        if self.rewritten_link_count > self.supported_link_count:
+            raise ValueError("Rewritten-link count exceeds supported-link count.")
         if any(not check.passed for check in self.checks):
             raise ValueError("A promoted verification report cannot contain failures.")
         return self

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
 
 import httpx
@@ -72,6 +73,12 @@ def _transport(service: FolderRunService) -> httpx.ASGITransport:
     return httpx.ASGITransport(app=create_folder_app(service))
 
 
+def _csrf(response: httpx.Response) -> str:
+    match = re.search(r'name="csrf_token" value="([^"]+)"', response.text)
+    assert match is not None
+    return match.group(1)
+
+
 @pytest.mark.anyio
 async def test_start_is_plain_exact_and_truthful(tmp_path: Path) -> None:
     service = _GatedFolderService(tmp_path)
@@ -106,7 +113,7 @@ async def test_start_is_plain_exact_and_truthful(tmp_path: Path) -> None:
     assert "Standard OpenAI API data-retention policies may still apply." in (
         response.text
     )
-    assert "Deterministic development planner — no API call" in response.text
+    assert "Deterministic A2 planner — no API call" in response.text
     assert str(tmp_path / "preselected-source") in response.text
     assert str(tmp_path / "preselected-results") in response.text
     assert "upload" not in response.text.lower()
@@ -128,6 +135,8 @@ async def test_server_owned_start_working_done_transaction(tmp_path: Path) -> No
         transport=transport,
         base_url="http://testserver",
     ) as client:
+        csrf_token = _csrf(await client.get("/start"))
+        form["csrf_token"] = csrf_token
         started = await client.post("/start", data=form)
         await asyncio.wait_for(service.started.wait(), timeout=1)
         working_root = await client.get("/")
@@ -153,14 +162,14 @@ async def test_server_owned_start_working_done_transaction(tmp_path: Path) -> No
     assert working.status_code == 200
     for stage in (
         "Reading folder",
-        "GPT-5.6 is planning",
+        "Name Atlas is planning",
         "Checking every file and destination",
         "Creating a separate result",
         "Updating supported links",
         "Verifying result",
     ):
         assert stage in working.text
-    assert "GPT-5.6 is not called in this A1 development transaction." in working.text
+    assert "GPT-5.6 is not called in this A2 development transaction." in working.text
     assert status.json()["lifecycle"] == "planning"
     assert duplicate.status_code == 303
     assert duplicate.headers["location"] == "/working"
@@ -191,24 +200,28 @@ async def test_invalid_form_and_service_blocker_fail_closed(tmp_path: Path) -> N
         transport=invalid_transport,
         base_url="http://testserver",
     ) as client:
+        csrf_token = _csrf(await client.get("/start"))
         invalid = await client.post(
             "/start",
             data={
                 "source_root": "relative/source",
                 "user_request": "Do this.",
                 "output_parent": str(tmp_path),
+                "csrf_token": csrf_token,
             },
         )
     async with httpx.AsyncClient(
         transport=blocked_transport,
         base_url="http://testserver",
     ) as client:
+        csrf_token = _csrf(await client.get("/start"))
         start = await client.post(
             "/start",
             data={
                 "source_root": str(tmp_path / "source"),
                 "user_request": "Move the protected file.",
                 "output_parent": str(tmp_path / "results"),
+                "csrf_token": csrf_token,
             },
         )
         assert start.status_code == 303
@@ -225,6 +238,49 @@ async def test_invalid_form_and_service_blocker_fail_closed(tmp_path: Path) -> N
     assert status.json()["lifecycle"] == "blocked"
     assert "protected_member_request: .env cannot be moved" in blocked.text
     assert "The original folder remains unchanged." in blocked.text
+
+
+@pytest.mark.anyio
+async def test_mutating_forms_reject_untrusted_host_origin_and_csrf(
+    tmp_path: Path,
+) -> None:
+    service = _GatedFolderService(tmp_path)
+    app = create_folder_app(service)
+    form = {
+        "source_root": str(tmp_path / "source"),
+        "user_request": "Prepare this project for handoff.",
+        "output_parent": str(tmp_path / "results"),
+        "csrf_token": app.state.folder_web_state.csrf_token,
+    }
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        hostile_host = await client.post(
+            "/start",
+            data=form,
+            headers={"host": "attacker.example"},
+        )
+        hostile_origin = await client.post(
+            "/start",
+            data=form,
+            headers={"origin": "http://attacker.example"},
+        )
+        missing_csrf = await client.post(
+            "/start",
+            data={key: value for key, value in form.items() if key != "csrf_token"},
+        )
+        wrong_csrf = await client.post(
+            "/start",
+            data={**form, "csrf_token": "wrong-token"},
+        )
+
+    assert hostile_host.status_code == 400
+    assert hostile_origin.status_code == 403
+    assert missing_csrf.status_code == 422
+    assert wrong_csrf.status_code == 422
+    assert service.calls == 0
 
 
 def test_completed_presentation_rejects_false_or_malformed_proof(
@@ -279,12 +335,14 @@ async def test_real_service_runs_start_to_bagit_backed_done(tmp_path: Path) -> N
         transport=transport,
         base_url="http://testserver",
     ) as client:
+        csrf_token = _csrf(await client.get("/start"))
         response = await client.post(
             "/start",
             data={
                 "source_root": str(source),
                 "user_request": "Prepare this project folder for handoff.",
                 "output_parent": str(output_parent),
+                "csrf_token": csrf_token,
             },
         )
         assert response.status_code == 303

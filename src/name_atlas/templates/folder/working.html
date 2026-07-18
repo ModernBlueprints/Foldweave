@@ -10,7 +10,31 @@
         <span>{{ state.blocker }}</span>
       </div>
       <p class="folder-lede">The original folder remains unchanged. Start a fresh job after correcting the exact blocker.</p>
-      <p>Restart this local A1 development app to return to Start. Persistent fresh-job handling is introduced in A3.</p>
+      <p>Start a fresh job after correcting the blocker. No partial result is accepted.</p>
+    {% elif state.lifecycle.value == "awaiting_clarification" %}
+      <div class="folder-kicker">One detail needed</div>
+      <h1 id="working-title">Name Atlas needs one answer</h1>
+      <p class="folder-lede">The same job will continue automatically. Your original folder remains untouched.</p>
+
+      <div class="folder-planner-truth" role="status">
+        <img src="{{ url_for('static', path='/vendor/blueprint/icons/help.svg') }}" alt="" aria-hidden="true">
+        <span><strong>{{ planner_label }}</strong><small>The deterministic A2 provider makes no API call.</small></span>
+      </div>
+
+      {% if state.clarification_error %}
+        <div class="folder-alert" role="alert">
+          <img src="{{ url_for('static', path='/vendor/blueprint/icons/warning-sign.svg') }}" alt="" aria-hidden="true">
+          <span>{{ state.clarification_error }}</span>
+        </div>
+      {% endif %}
+
+      <form class="folder-form" method="post" action="/clarify">
+        <input type="hidden" name="csrf_token" value="{{ state.csrf_token }}">
+        <label for="clarification-answer">{{ state.clarification.question }}</label>
+        <textarea class="bp6-input" id="clarification-answer" name="answer" rows="4" maxlength="4000" required autofocus></textarea>
+        <button class="bp6-button bp6-intent-primary bp6-large folder-primary-action" type="submit">Answer and continue</button>
+      </form>
+      <p>No file-by-file review is required.</p>
     {% else %}
       <div class="folder-kicker">Creating a separate result</div>
       <h1 id="working-title">Name Atlas is checking the whole plan</h1>
@@ -18,7 +42,7 @@
 
       <div class="folder-planner-truth" role="status">
         <img src="{{ url_for('static', path='/vendor/blueprint/icons/history.svg') }}" alt="" aria-hidden="true">
-        <span><strong>{{ planner_label }}</strong><small>GPT-5.6 is not called in this A1 development transaction.</small></span>
+        <span><strong>{{ planner_label }}</strong><small>GPT-5.6 is not called in this A2 development transaction.</small></span>
       </div>
 
       <ol class="folder-stages" aria-label="Folder transaction progress">
@@ -28,7 +52,7 @@
             <span class="folder-stage-marker" aria-hidden="true">{% if stage_index < state.completed_stage_count %}✓{% else %}{{ loop.index }}{% endif %}</span>
             <span>
               <strong>{{ stage }}</strong>
-              {% if stage == "GPT-5.6 is planning" %}<small>Development substitute active; no API call.</small>{% endif %}
+              {% if stage == "Name Atlas is planning" %}<small>Deterministic provider active; no API call.</small>{% endif %}
             </span>
           </li>
         {% endfor %}
@@ -44,6 +68,10 @@
               return;
             }
             if (status.lifecycle === "blocked") {
+              window.location.reload();
+              return;
+            }
+            if (status.lifecycle === "awaiting_clarification") {
               window.location.reload();
               return;
             }

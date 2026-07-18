@@ -141,6 +141,13 @@ receipt, and reconstruction material. Primary UI wording is “new folder” or
   unsupported path, member-limit breach, or regular file with `st_nlink > 1`.
 - Never silently skip an unsupported member.
 - Use streaming hashing and copying.
+- There is no total folder-byte or opaque-payload-byte cap beyond the capacity
+  rule in `IO-008`. Each `.md` or `.markdown` member is limited to 16 MiB
+  because the exact semantic adapter must decode and index it in memory. A
+  larger Markdown member blocks during inventory, before any provider call.
+- Permit at most 10,000 supported local Markdown references across the complete
+  folder. The scanner counts before retaining the next reference and blocks
+  with `markdown_reference_limit_exceeded` during scanning, before provider use.
 
 ### IO-007 — Protected and evidence-denied members
 
@@ -158,6 +165,11 @@ Protected members:
 - are injected mechanically into the accepted map;
 - never expose content through GPT evidence tools;
 - block a request that requires their inspection or movement.
+
+A protected Markdown member may be carried unchanged only when it contains no
+supported local link. If one contains a supported local link, scanning blocks
+before any provider call: preserving that relationship could require exposing
+or rewriting evidence-denied content, so it is outside this release contract.
 
 ### IO-008 — Capacity, overlap, and source equality
 
@@ -223,6 +235,13 @@ inline links and inline images whose destination is either inside `<...>` or an
 unquoted token without literal whitespace or unescaped parentheses. Targets
 must be relative local files and may have an optional `#fragment`.
 
+Each Markdown member is limited to 16 MiB as specified by `IO-006`. The scanner
+uses compact bounded auxiliary structures and streams line-range discovery; it
+does not create an unbounded whole-folder text index. The complete folder may
+contain at most 10,000 supported local Markdown references; exceeding that
+limit blocks before provider use. Protected Markdown members follow the
+fail-closed local-link rule in `IO-007`.
+
 - Ignore fenced code, indented code, and inline code.
 - Ignore and count external schemes and anchor-only links.
 - Reject query strings, absolute/root-relative/file URLs, outside-root paths,
@@ -247,6 +266,19 @@ delete, merge, duplicate, invent, or directly operate on a file. The compiler
 rejects unknown, duplicate, missing, protected, or stale IDs; injects exact
 unchanged protected-file and empty-directory mappings; and produces one
 immutable accepted plan accounting for every source file exactly once.
+
+Every submitted and accepted plan carries the exact supported request scope
+`rename_and_move_every_file`. This field is a structural declaration, not proof
+that model prose is semantically correct. A live or replay planner must return a
+structured `blocked` outcome when the request is outside that fixed scope. The
+deterministic A2 development provider is bound to one exact declared request
+and blocks every other request fingerprint; it cannot promote an arbitrary
+plain-English request merely because the complete-file compiler is safe.
+
+The exact A2 deterministic-development request is:
+
+> Prepare this project for handoff. Keep every file and every supported
+> Markdown link working.
 
 Product-generated proof files under `name-atlas/` are outside the user-file
 bijection. Requests to delete, discard, deduplicate, merge, retain only selected
@@ -363,18 +395,22 @@ plan after the user's original action authorization.
 ### AI-009 — Evidence and planner outcome
 
 Source text is untrusted evidence, never instruction authority. GPT may receive
-the request, relative inventory metadata, protection flags, selected eligible
-UTF-8 excerpts, supported-link context, evidence IDs, and profile description.
-It never receives absolute paths, arbitrary payload bytes, protected contents,
-opaque binary/media/document content, secrets, or unrelated files.
+the request; relative paths; member kind; stable file ID; byte size; protected
+and evidence-eligible flags; selected eligible UTF-8 excerpts; supported-link
+context; evidence IDs; and profile description. Raw payload digests and
+detailed protection reasons remain local. GPT never receives absolute paths,
+arbitrary payload bytes, protected contents, opaque binary/media/document
+content, secrets, or unrelated files.
 
 `folder-planner-outcome.v1` is the discriminated union `plan`,
 `clarification`, or `blocked`. A plan binds source commitment, request
-fingerprint, schema versions, and evidence fingerprint. It contains a validated
-result-folder name and exactly one entry per planner-eligible file: ID, original
-path, proposed target, concise rationale, and known evidence IDs. It contains no
-absolute path or exclusion. Any defensive exclusions field must be present and
-empty.
+fingerprint, the exact `rename_and_move_every_file` request scope, schema
+versions, and evidence fingerprint. It contains a validated result-folder name
+and exactly one entry per planner-eligible file: ID, original path, proposed
+target, concise rationale, and known evidence IDs. It contains no absolute path
+or exclusion. Any defensive exclusions field must be present and empty. The
+planner must use the terminal `blocked` outcome for requests outside the fixed
+scope; model confidence or self-asserted scope never overrides the compiler.
 
 The evidence ledger records exact outbound evidence, declared `tool_name`,
 validated tool arguments, stable result or failure, explicit status, byte count,
@@ -432,7 +468,7 @@ evidence only and cannot qualify this requirement.
 
 Before **Plan and create copy**, display:
 
-> Your original folder will not be changed. Name Atlas will create and verify a separate result. It sends GPT-5.6 your instruction, relative file names and folder structure, selected excerpts from eligible text and Markdown files, and supported Markdown-link context needed to plan the change. It does not send every file's bytes.
+> Your original folder will not be changed. Name Atlas will create and verify a separate result. It sends GPT-5.6 your instruction, relative file names and folder structure, basic file metadata used to bind the plan, selected excerpts from eligible text and Markdown files, and supported Markdown-link context needed to plan the change. It does not send every file's bytes. Raw content hashes are kept local.
 
 Also display:
 
@@ -461,7 +497,10 @@ USD 10; record reported usage and estimated cost after every attempt.
 `GET /start` and `POST /start` show only folder path, plain-English request,
 result location/output parent, exact source-untouched and outbound-evidence
 disclosures, and **Plan and create copy**. `--source` prepopulates the local
-path. Never describe this as uploading. A native picker is excluded.
+path. Immediately beside the request, state that every source file is always
+kept exactly once and that the field controls only renaming and folder grouping;
+deletion, omission, merging, conversion, and document-body editing are not
+supported. Never describe this as uploading. A native picker is excluded.
 
 ### UX-010 — Working and clarification
 
@@ -474,6 +513,14 @@ use while hiding repair noise and technical manifests by default. When needed,
 show one question, accept one plain answer, and resume the same persisted job.
 Refresh and explicit restart with the same job path cannot duplicate provider
 calls or output.
+
+Scanning, planning, copying, link rewriting, and proof execute as one complete
+worker-thread service operation so the loopback web event loop remains
+responsive. The durable writer and transaction authority stay together for the
+whole operation. Presentation-only phase callbacks cannot mutate the job or
+transaction. Shutdown or task cancellation waits for the mutation-owning
+operation to reach its safe result or blocker; it never abandons a detached
+writer thread.
 
 ### UX-011 — Done
 

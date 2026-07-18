@@ -82,6 +82,7 @@ def test_ai_first_development_run_is_a_supported_loopback_command(
     (source / "note.txt").write_text("one file\n", encoding="utf-8")
     output = tmp_path / "results"
     output.mkdir()
+    job_path = tmp_path / "jobs" / "folder-job.json"
 
     def fake_run(app: Any, **kwargs: Any) -> None:
         called["app"] = app
@@ -89,7 +90,7 @@ def test_ai_first_development_run_is_a_supported_loopback_command(
 
     def fail_if_provider_initializes(*args: Any, **kwargs: Any) -> None:
         del args, kwargs
-        raise AssertionError("A1 development mode must not initialize a provider.")
+        raise AssertionError("A2 development mode must not initialize a provider.")
 
     monkeypatch.setattr(cli.uvicorn, "run", fake_run)
     monkeypatch.setattr(
@@ -107,6 +108,8 @@ def test_ai_first_development_run_is_a_supported_loopback_command(
             str(source),
             "--output",
             str(output),
+            "--job",
+            str(job_path),
             "--port",
             "8124",
         ],
@@ -117,11 +120,10 @@ def test_ai_first_development_run_is_a_supported_loopback_command(
     assert called["host"] == "127.0.0.1"
     assert called["port"] == 8124
     assert called["app"].title == "Reversible Name Atlas"
-    assert called["app"].state.folder_run_service.result_folder_name == (
-        "name-atlas-organized-copy"
-    )
+    assert called["app"].state.folder_run_service.job_path == job_path.resolve()
     captured = capsys.readouterr()
-    assert "Deterministic development planner — no API call" in captured.out
+    assert "Deterministic A2 planner — no API call" in captured.out
+    assert f"FolderRefactorJob: {job_path.resolve()}" in captured.out
 
 
 def test_ai_first_development_run_rejects_invalid_startup_paths_and_port(
@@ -161,6 +163,42 @@ def test_ai_first_development_run_rejects_invalid_startup_paths_and_port(
     assert missing_exit == 2
     assert invalid_port_exit == 2
     assert "Startup blocked:" in capsys.readouterr().err
+
+
+def test_development_default_output_cannot_mutate_selected_source(
+    monkeypatch: Any,
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    source = tmp_path / "selected-source"
+    source.mkdir()
+    (source / "user.txt").write_text("keep me\n", encoding="utf-8")
+    proposed_output = source / ".name-atlas" / "folder-results"
+    job_path = tmp_path / "jobs" / "safe-job.json"
+    monkeypatch.setattr(cli, "FOLDER_OUTPUT_ROOT", proposed_output)
+
+    def fail_if_server_starts(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("Server must not start for overlapping paths.")
+
+    monkeypatch.setattr(cli.uvicorn, "run", fail_if_server_starts)
+
+    exit_code = cli.run(
+        [
+            "run",
+            "--mode",
+            "development",
+            "--source",
+            str(source),
+            "--job",
+            str(job_path),
+        ],
+        environ={},
+    )
+
+    assert exit_code == 2
+    assert not proposed_output.exists()
+    assert sorted(path.name for path in source.iterdir()) == ["user.txt"]
+    assert "may not contain one another" in capsys.readouterr().err
 
 
 def test_replay_cli_resumes_a_durable_post_decision_case(

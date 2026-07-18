@@ -4,15 +4,16 @@
   <section class="folder-panel folder-panel--done" aria-labelledby="done-title">
     <div class="folder-verdict">
       <img src="{{ url_for('static', path='/vendor/blueprint/icons/tick-circle.svg') }}" alt="" aria-hidden="true">
-      <span><small>Deterministic A1 proof</small><strong>VERIFIED</strong></span>
+      <span><small>Deterministic A2 proof</small><strong>VERIFIED</strong></span>
     </div>
     <h1 id="done-title">Your separate result is ready</h1>
-    <p class="folder-lede">Name Atlas created the copy and checked the facts it can prove in this walking transaction.</p>
+    <p class="folder-lede">Name Atlas created the separate copy, preserved supported links, and checked the facts it can prove.</p>
 
     <dl class="folder-proof-grid">
       <div><dt>Original files present</dt><dd>{{ state.result.source_file_count }} of {{ state.result.source_file_count }}, exactly once</dd></div>
       <div><dt>Paths changed</dt><dd>{{ state.result.path_change_count }}</dd></div>
-      <div><dt>Supported Markdown links updated</dt><dd>{{ state.result.supported_link_update_count }} <small>Link rewriting arrives in A2</small></dd></div>
+      <div><dt>Supported Markdown links checked</dt><dd>{{ state.result.supported_link_count }}</dd></div>
+      <div><dt>Supported Markdown links updated</dt><dd>{{ state.result.supported_link_update_count }}</dd></div>
       <div><dt>Original folder</dt><dd>Unchanged</dd></div>
       <div><dt>Files removed or overwritten</dt><dd>None</dd></div>
       <div><dt>Result proof</dt><dd>Deterministic checks passed</dd></div>
@@ -34,21 +35,21 @@
       </details>
       <details>
         <summary>View proof</summary>
-        <p>Every source file has one accepted result path, copied payload hashes match, protected paths stay fixed, and the source scan remained equal through promotion.</p>
+        <p>Every source file has one accepted result path, unchanged payloads match, supported Markdown links keep the same target, protected paths stay fixed, and the source scan remained equal through promotion.</p>
         {% if state.result.technical_facts %}
           <dl class="folder-technical-facts">
             {% for label, value in state.result.technical_facts %}<div><dt>{{ label }}</dt><dd><code>{{ value }}</code></dd></div>{% endfor %}
           </dl>
         {% endif %}
       </details>
-      <form method="post" action="/verify-again">
-        <button class="bp6-button" type="submit"{% if not state.result.independent_verification_passed %} aria-describedby="verify-later"{% endif %}>Verify again</button>
-        {% if not state.result.independent_verification_passed %}<small id="verify-later">Independent keyless verification is added in A3.</small>{% endif %}
-      </form>
-      <form method="post" action="/recreate-original">
-        <button class="bp6-button" type="submit"{% if not state.result.reconstruction_available %} aria-describedby="restore-later"{% endif %}>Recreate original layout</button>
-        {% if not state.result.reconstruction_available %}<small id="restore-later">Exact reconstruction is added in A3.</small>{% endif %}
-      </form>
+      <div>
+        <button class="bp6-button" type="button" disabled aria-describedby="verify-later">Verify again</button>
+        <small id="verify-later">Independent keyless verification is added in A3.</small>
+      </div>
+      <div>
+        <button class="bp6-button" type="button" disabled aria-describedby="restore-later">Recreate original layout</button>
+        <small id="restore-later">Exact reconstruction is added in A3.</small>
+      </div>
     </div>
   </section>
 {% endblock %}

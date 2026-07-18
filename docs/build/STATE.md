@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **Saturday 18 July 2026 at 16:44:41 CEST**
+Checkpoint: **Saturday 18 July 2026 at 19:43:09 CEST**
 
-Phase: **A2 — CONNECTED-FOLDER AND PLANNER HARDENING**
+Phase: **A3 — PERSISTENT PROOF TRANSACTION**
 
 Submission hold: **ACTIVE**
 
@@ -13,14 +13,14 @@ Submission hold: **ACTIVE**
 - First- and second-cycle execution: **COMPLETE HISTORICAL BASELINE; SUPERSEDED FOR AI-FIRST FUTURE EXECUTION**.
 - Amended AI-first production goal: **ACTIVE**.
 - AI-first A+0: **Saturday 18 July 2026 at 15:37:55 CEST**.
-- AI-first product implementation: **A1 COMPLETE; A2 IN PROGRESS**.
+- AI-first product implementation: **A1–A2 COMPLETE; A3 IN PROGRESS**.
 
 ## Absolute boundaries at checkpoint
 
 - Recording-ready: **Tuesday 21 July 2026 at 02:00 CEST**.
-- Time remaining to recording-ready: **57 hours, 15 minutes, 18 seconds**.
+- Time remaining to recording-ready: **54 hours, 16 minutes, 51 seconds**.
 - Submission deadline: **Wednesday 22 July 2026 at 02:00 CEST**.
-- Time remaining to submission: **81 hours, 15 minutes, 18 seconds**.
+- Time remaining to submission: **78 hours, 16 minutes, 51 seconds**.
 - Planned product window: **58 hours, 22 minutes, 5 seconds** from A+0.
 - A1 target: **Sunday 19 July 2026 at 01:21:35 CEST**.
 - Mandatory feature freeze: **Monday 20 July 2026 at 14:00:00 CEST**.
@@ -61,17 +61,21 @@ future commit SHA. Fresh Git overrides stale repository statements here.
 
 - Ordinary-folder input and protected-member rules: **A1 COMPLETE**.
 - Generic identities, inventory, and accepted-plan compiler: **A1 COMPLETE**.
-- Bounded complete GPT-5.6 planner: **A2 IN PROGRESS; NO PROVIDER CALL YET**.
+- Bounded planner contracts, evidence tools, repair limits, and one-question
+  state: **A2 COMPLETE; NO OPENAI PROVIDER CALL YET**.
 - New live zero-question record and replay: **NOT STARTED**.
 - New live clarification record and replay: **NOT STARTED**.
-- Markdown reference graph and exact rewriting: **A2 IN PROGRESS**.
-- Persistent `FolderRefactorJob`: **NOT STARTED**.
-- Generic separate BagIt-backed A1 result: **COMPLETE FOR THE WALKING SLICE**.
+- Markdown reference graph and exact rewriting: **A2 COMPLETE**.
+- Persistent `FolderRefactorJob`: **A2 INITIAL AUTHORITY COMPLETE FOR PLANNING,
+  CLARIFICATION, EXECUTION, RESTART, AND STALENESS; A3 TERMINAL RECEIPT AUTHORITY
+  IN PROGRESS**.
+- Generic separate BagIt-backed link-aware result: **A2 COMPLETE FOR THE
+  PRE-RECEIPT TRANSACTION**.
 - Generic receipt and original-content artifacts: **NOT STARTED**.
 - Generic source-free verifier and controlled negative: **NOT STARTED**.
 - Generic original-layout reconstruction: **NOT STARTED**.
-- Start/Working/Done experience: **A1 WALKING SLICE COMPLETE; FINAL A4
-  EXPERIENCE PENDING**.
+- Start/Working/Done experience: **A2 INTEGRATED FLOW COMPLETE; FINAL A4
+  EXPERIENCE AND REAL GPT EVIDENCE PENDING**.
 - 24-file hero and ambiguity fixture: **NOT STARTED**.
 - Optional Codex plugin gate: **NOT REACHED**.
 - AI-first feature freeze: **REOPENED ONLY FOR THE APPROVED SCOPE AFTER A+0**.
@@ -100,26 +104,27 @@ future commit SHA. Fresh Git overrides stale repository statements here.
 
 ## Compact recovery capsule
 
-- Phase: `A2 — CONNECTED-FOLDER AND PLANNER HARDENING`.
+- Phase: `A3 — PERSISTENT PROOF TRANSACTION`.
 - Branch/baseline: `revision/ai-first-folder-refactor` from `4baec1e`.
-- Current milestone: `A1 COMPLETE; A2 IN PROGRESS`.
-- Last verified commands: `uv lock --check`; **108 focused tests**; **359 full
-  pytest tests**; Ruff lint; Ruff format check; `git diff --check`;
-  `name-atlas run --mode development` browser transaction.
-- Generic job: `NOT STARTED`.
-- GPT planner/live/replay: `NOT STARTED`.
-- Accepted plan/result: `A1 COMPLETE`; A2 link-aware plan pending.
-- Receipt/verifier/reconstruction: `NOT STARTED`.
-- Browser: `A1 START/WORKING/DONE VERIFIED AT DESKTOP AND NARROW VIEWPORTS`.
+- Current milestone: `A1–A2 COMPLETE; A3 IN PROGRESS`.
+- Last verified commands: `uv lock --check`; **242 focused tests**; **502 full
+  pytest tests**; Ruff lint; Ruff format check; `git diff --check`; A2 browser
+  transaction and restart at desktop and narrow viewports.
+- Generic job: `A2 PERSISTENT PLANNING/CLARIFICATION/EXECUTION AUTHORITY COMPLETE`.
+- GPT planner/live/replay: `BOUNDED CONTRACTS COMPLETE; REAL PROVIDER AND NEW
+  REPLAYS NOT STARTED`.
+- Accepted plan/result: `A2 COMPLETE PRE-RECEIPT TRANSACTION`.
+- Receipt/verifier/reconstruction: `A3 IN PROGRESS; NOT YET VERIFIED`.
+- Browser: `A2 START/WORKING/DONE AND RESPONSIVE BACKGROUND EXECUTION VERIFIED`.
 - Plugin gate: `NOT REACHED`.
 - Feature freeze: reopened for approved scope; mandatory freeze Monday 20 July
   2026 at 14:00:00 CEST.
 - Release materials: stale second-cycle material preserved.
 - Submission hold: `ACTIVE`.
 - Blockers: none.
-- Next operation: implement and verify the A2 exact Markdown reference graph,
-  bounded planner repair, and one-question clarification transaction.
+- Next operation: implement and verify the A3 portable artifact family, receipt
+  DAG, keyless verifier, controlled alteration, and exact reconstruction.
 
 ## Exact next operation
 
-`Implement and verify the A2 exact Markdown reference graph and rewrite → bounded planner tools and repair → one-question clarification → source-stale blockers, while keeping the A1 product runnable.`
+`Implement and verify the A3 persistent proof transaction: portable artifacts → immutable receipt DAG → source-free keyless verifier → exact controlled alteration → original-layout reconstruction, while keeping the A2 product runnable.`

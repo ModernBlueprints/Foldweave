@@ -72,6 +72,7 @@ class DeterministicDevelopmentPlanner:
         plan = FolderPlan(
             source_commitment=inventory.source_commitment,
             request_fingerprint=request_fingerprint(request),
+            request_scope="rename_and_move_every_file",
             evidence_fingerprint=evidence_fingerprint,
             result_folder_name=self._result_folder_name,
             entries=entries,

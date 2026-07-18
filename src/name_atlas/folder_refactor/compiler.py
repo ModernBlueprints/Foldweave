@@ -10,6 +10,11 @@ from name_atlas.folder_refactor.contracts import (
     FolderInventory,
     FolderPlan,
 )
+from name_atlas.folder_refactor.markdown_contracts import FolderReferenceGraph
+from name_atlas.folder_refactor.markdown_links import (
+    MarkdownLinkError,
+    derive_reference_rewrites,
+)
 from name_atlas.folder_refactor.naming import (
     TargetPathError,
     validate_complete_target_tree,
@@ -35,6 +40,7 @@ def compile_plan(
     *,
     known_evidence_ids: Collection[str],
     evidence_fingerprint: str,
+    reference_graph: FolderReferenceGraph,
 ) -> FolderAcceptedPlan:
     """Compile a complete planner submission into an immutable accepted map."""
 
@@ -134,14 +140,74 @@ def compile_plan(
         )
     except TargetPathError as exc:
         _reject("invalid_target_tree", str(exc))
-    return FolderAcceptedPlan(
+    accepted = FolderAcceptedPlan(
         source_commitment=inventory.source_commitment,
         request_fingerprint=expected_request_fingerprint,
+        request_scope=plan.request_scope,
         evidence_fingerprint=evidence_fingerprint,
         result_folder_name=result_folder_name,
         file_mappings=tuple(mappings),
         empty_directories=empty_directories,
     )
+    try:
+        derive_reference_rewrites(reference_graph, accepted)
+    except MarkdownLinkError as exc:
+        _reject(exc.code, exc.message)
+    return accepted
+
+
+def validate_accepted_plan(
+    inventory: FolderInventory,
+    request: str,
+    accepted_plan: FolderAcceptedPlan,
+) -> None:
+    """Rebind a serialized accepted plan to an independent source scan.
+
+    The accepted-plan model validates its internal shape. This execution-time
+    check additionally proves that authority-bearing flags and original paths
+    still agree with the separately scanned inventory.
+    """
+
+    if accepted_plan.source_commitment != inventory.source_commitment:
+        _reject("source_commitment_mismatch", "Accepted plan targets another source.")
+    if accepted_plan.request_fingerprint != request_fingerprint(request):
+        _reject(
+            "request_fingerprint_mismatch",
+            "Accepted plan targets another request.",
+        )
+    by_id = {item.file_id: item for item in inventory.files}
+    mappings_by_id = {item.file_id: item for item in accepted_plan.file_mappings}
+    if set(mappings_by_id) != set(by_id):
+        _reject(
+            "accepted_plan_file_accounting_mismatch",
+            "Accepted plan must account for every scanned file exactly once.",
+        )
+    for file_id, source_file in by_id.items():
+        mapping = mappings_by_id[file_id]
+        if mapping.original_path != source_file.relative_path:
+            _reject(
+                "accepted_plan_original_path_mismatch",
+                f"Accepted path does not match file identity: {file_id}",
+            )
+        if mapping.protected != source_file.protected or (
+            mapping.planner_supplied == source_file.protected
+        ):
+            _reject(
+                "accepted_plan_authority_mismatch",
+                "Accepted authority flags do not match the scanned member: "
+                f"{source_file.relative_path}",
+            )
+        _validated_target(
+            mapping.target_path,
+            original_path=source_file.relative_path,
+            protected=source_file.protected,
+        )
+    expected_empty = tuple(item.relative_path for item in inventory.empty_directories)
+    if accepted_plan.empty_directories != expected_empty:
+        _reject(
+            "accepted_plan_empty_directory_mismatch",
+            "Accepted plan must preserve every explicit empty directory unchanged.",
+        )
 
 
 def _validated_target(value: str, *, original_path: str, protected: bool) -> str:

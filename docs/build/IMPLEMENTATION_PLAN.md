@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Sole AI-first Implementation Plan
 
-Status: **ACTIVE — A2 IN PROGRESS**
+Status: **ACTIVE — A3 IN PROGRESS**
 
-Phase: **A2 — CONNECTED-FOLDER AND PLANNER HARDENING**
+Phase: **A3 — PERSISTENT PROOF TRANSACTION**
 
 Submission hold: **ACTIVE**
 
@@ -241,10 +241,33 @@ installation, or release hardening.
   subagent permitted.
 - **Allowed cut:** decorative progress behavior, advanced filters, and extra
   evidence presentation only.
-- **Actual status:** `IN PROGRESS` from Saturday 18 July 2026 at 16:44:41 CEST.
-- **Actual verification:** A1 generic contracts and the continuously runnable
-  product are verified inputs; Markdown/reference, bounded planner repair, and
-  clarification work has not yet passed A2 acceptance.
+- **Actual status:** `COMPLETE` on Saturday 18 July 2026 at 19:43:09 CEST.
+- **Actual verification:** the exact-span Markdown adapter now blocks unsupported
+  local-looking syntax, preserves every byte outside accepted destination spans,
+  and proves that rewritten links still identify the same payload. Markdown
+  evidence is bounded to 16 MiB per eligible file and 10,000 supported links per
+  source folder before provider use. The planner contracts enforce response,
+  evidence, repair, and one-question limits; persist every transition; and
+  durably block stale, malformed, over-budget, protected-content, and unsupported
+  requests. The deterministic A2 provider is bound to one exact disclosed
+  development request, so arbitrary unrecorded language cannot create a result;
+  general live-language classification remains an A4 requirement. The initial
+  `FolderRefactorJob` survives planning, clarification, execution, restart,
+  cancellation, and completed-result recovery without duplicate provider calls
+  or output. Browser work runs off the event loop with one mutation authority and
+  reports truthful Reading/Planning/Checking/Creating/Updating/Verifying phases.
+  Zero-question and one-question deterministic transactions, note/target/both
+  move rewrites, stale-source blocking, exact-request blocking, a real 500-file
+  evidence-limit failure, source immutability, and desktop/narrow browser flows
+  passed. **242 focused tests and 502 full-suite tests passed**; `uv lock
+  --check`, Ruff lint, Ruff format, and `git diff --check` passed. Three bounded
+  adversarial reviews returned `GO` on transaction semantics, worker
+  architecture, and durability. The worker reviewer classified additional
+  phase-by-phase copy/proof/shutdown/thread-affinity regression coverage as
+  `PARTIAL`; the complete-operation worker boundary, cancellation safety, and
+  primary responsiveness path passed, and no material A2 architecture defect
+  remains. No OpenAI provider call was made. Terminal receipt authority,
+  source-free verification, and reconstruction remain correctly assigned to A3.
 
 ### A3 — Persistent proof transaction
 
@@ -279,8 +302,12 @@ installation, or release hardening.
 - **Owner:** primary integrator; bounded receipt/verifier adversarial reviewer
   permitted after implementation.
 - **Allowed cut:** extra verifier display formats and negative permutations only.
-- **Actual status:** `NOT STARTED`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `IN PROGRESS` from Saturday 18 July 2026 at 19:43:09 CEST.
+- **Actual verification:** verified A2 planner, reference, initial job,
+  transaction, and restart behavior are the active inputs. The new portable
+  artifact family, immutable receipt DAG, source-free verifier, controlled
+  negative, exact reconstruction, and terminal `verified` job authority have not
+  yet passed A3 acceptance.
 
 ### A4 — Complete product experience and real GPT evidence
 

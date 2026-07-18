@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from name_atlas.folder_refactor.contracts import (
+    MAX_MARKDOWN_ADAPTER_BYTES,
     FolderEmptyDirectory,
     FolderFile,
     FolderInventory,
@@ -16,6 +17,7 @@ from name_atlas.folder_refactor.contracts import (
 )
 from name_atlas.folder_refactor.naming import (
     TargetPathError,
+    protected_suffix,
     validate_complete_target_tree,
     validate_target_path,
 )
@@ -247,7 +249,15 @@ def _scan_file(
     protected = bool(reasons)
     if protected:
         _validate_fixed_path(relative_path)
+    else:
+        _validate_eligible_suffix(relative_path)
     suffix = PurePosixPath(relative_path).suffix.casefold()
+    if suffix in {".md", ".markdown"} and size > MAX_MARKDOWN_ADAPTER_BYTES:
+        raise FolderScanError(
+            "Markdown adapter byte limit exceeded: "
+            f"{relative_path!r} is {size} bytes; maximum "
+            f"{MAX_MARKDOWN_ADAPTER_BYTES} bytes."
+        )
     evidence_eligible = not protected and suffix in TEXT_EVIDENCE_SUFFIXES
     identity_payload = {
         "domain": "name-atlas:folder-file-id:v1",
@@ -350,6 +360,24 @@ def _validate_fixed_path(relative_path: str) -> None:
     except TargetPathError as exc:
         raise FolderScanError(
             f"Fixed source path cannot satisfy the result profile: {relative_path!r}"
+        ) from exc
+
+
+def _validate_eligible_suffix(relative_path: str) -> None:
+    """Prove at scan time that one required exact suffix has a valid target."""
+
+    suffix = protected_suffix(PurePosixPath(relative_path).name)
+    candidate = f"x{suffix}"
+    try:
+        validate_target_path(
+            candidate,
+            original_path=relative_path,
+            protected=False,
+        )
+    except TargetPathError as exc:
+        raise FolderScanError(
+            "Source file suffix cannot satisfy the result naming profile: "
+            f"{relative_path!r}"
         ) from exc
 
 

@@ -22,6 +22,7 @@ from name_atlas.folder_refactor.inventory import (
     inventory_evidence_ids,
     scan_folder,
 )
+from name_atlas.folder_refactor.markdown_links import build_reference_graph
 from name_atlas.folder_refactor.naming import protected_suffix
 from name_atlas.folder_refactor.planner import (
     DeterministicDevelopmentPlanner,
@@ -76,6 +77,7 @@ def _complete_plan(
     return FolderPlan(
         source_commitment=scan.inventory.source_commitment,
         request_fingerprint=request_fingerprint(REQUEST),
+        request_scope="rename_and_move_every_file",
         evidence_fingerprint=initial_evidence_fingerprint(scan.inventory),
         result_folder_name=result_folder_name,
         entries=entries,
@@ -90,6 +92,14 @@ def _compile(scan: FolderScan, plan: FolderPlan) -> FolderAcceptedPlan:
         plan,
         known_evidence_ids=inventory_evidence_ids(scan.inventory),
         evidence_fingerprint=initial_evidence_fingerprint(scan.inventory),
+        reference_graph=build_reference_graph(
+            scan.inventory,
+            {
+                item.relative_path: (scan.source_root / item.relative_path).read_bytes()
+                for item in scan.inventory.files
+                if Path(item.relative_path).suffix.casefold() in {".md", ".markdown"}
+            },
+        ),
     )
 
 

@@ -507,3 +507,58 @@ overrides those artifacts.
   product rather than the preserved second-cycle release or an intermediate
   third-cycle state.
 - Active authority: `GOAL.md`, the sole plan, and current `STATE.md`.
+
+## D-052 — Bounded Markdown adapter and protected-link fail-closed rule
+
+- Date: 18 July 2026
+- Decision: Limit each `.md` or `.markdown` member to 16 MiB before provider
+  use, cap the complete folder at 10,000 supported local Markdown references
+  before provider use, keep the total opaque-payload contract governed by
+  capacity rather than a new size cap, use compact per-document scanner
+  structures, and block a protected Markdown member that contains a supported
+  local link.
+- Rationale: Exact span indexing is intentionally in-memory and therefore needs
+  defensible per-document and aggregate graph bounds. Protected link context
+  cannot be exposed or rewritten without violating the evidence-denial
+  boundary.
+- Active authority: `IO-006`, `IO-007`, `IO-011`.
+
+## D-053 — Minimized disclosed inventory metadata
+
+- Date: 18 July 2026
+- Decision: Give the planner only relative path, member kind, stable file ID,
+  byte size, and protected/evidence-eligible flags in inventory views; retain
+  raw payload digests and detailed protection reasons locally and disclose the
+  transmitted basic metadata before the Start action.
+- Rationale: The planner needs stable identities and bounded structural facts,
+  but raw hashes and internal protection diagnostics add no planning value.
+- Active authority: `AI-009`, `AI-012`.
+
+## D-054 — Structurally bounded request intent
+
+- Date: 18 July 2026
+- Decision: Bind every proposed and accepted plan to the one supported
+  `rename_and_move_every_file` scope, require a structured planner blocker for
+  outside-scope intent, bind the deterministic A2 provider to one exact
+  demonstration request, and disclose before execution that every source file
+  is retained exactly once.
+- Rationale: A finite phrase classifier cannot exhaustively interpret arbitrary
+  language. Complete-file mechanics prevent loss but cannot prove that an
+  unrestricted request was semantically fulfilled. Exact development-request
+  binding prevents a misleading success now, while A4 remains responsible for
+  the bounded live planner and truthful unsupported-intent outcome.
+- Active authority: `TX-009`, `AI-009`, `UX-009`, `CLAIM-005`.
+
+## D-055 — Responsive browser with one mutation authority
+
+- Date: 18 July 2026
+- Decision: Run each complete durable scan/planner/copy/proof operation on one
+  worker-thread event loop, keep its writer and transaction authority intact,
+  return progress to the web loop through presentation-only phase callbacks,
+  and defer task cancellation until the mutation-owning operation reaches a
+  safe result or blocker.
+- Rationale: A background asyncio task does not make synchronous filesystem
+  work nonblocking. One operation-level worker boundary keeps `/working` and
+  `/status` responsive without splitting the job across competing writers or
+  leaving a detached mutation running during shutdown.
+- Active authority: `UX-010`, `CASE-007`, `TX-012`.

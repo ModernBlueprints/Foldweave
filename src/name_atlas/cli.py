@@ -22,9 +22,10 @@ from name_atlas.decision_cards import (
 from name_atlas.domain import RunMode
 from name_atlas.folder_app import (
     PLANNER_LABEL,
-    DeterministicFolderRunService,
     create_folder_app,
 )
+from name_atlas.folder_job_service import JobBackedFolderRunService
+from name_atlas.folder_refactor.job import default_job_path
 from name_atlas.package_import import PackageImportError
 from name_atlas.receiver_verifier import (
     ReceiptCandidateError,
@@ -109,7 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--mode",
         choices=("development",),
         required=True,
-        help="Use the truthful deterministic A1 planner with no API call.",
+        help="Use the truthful deterministic A2 planner with no API call.",
     )
     folder_run.add_argument(
         "--port",
@@ -128,6 +129,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Existing result parent (default: .name-atlas/folder-results).",
+    )
+    folder_run.add_argument(
+        "--job",
+        type=Path,
+        default=None,
+        help=(
+            "Resume this exact job file, or create it if absent "
+            "(default: a new UUID-named .name-atlas/jobs file)."
+        ),
     )
 
     verify = subparsers.add_parser(
@@ -318,38 +328,54 @@ def run(
 
 
 def _run_development_folder_app(args: argparse.Namespace) -> int:
-    """Start the truthful deterministic A1 browser product on loopback."""
+    """Start the truthful deterministic A2 browser product on loopback."""
 
     if not 1 <= args.port <= 65_535:
         print("Startup blocked: port must be between 1 and 65535.", file=sys.stderr)
         return 2
-    try:
-        source_root = args.source.expanduser().resolve(strict=True)
-        if args.output is None:
-            FOLDER_OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-            output_parent = FOLDER_OUTPUT_ROOT.resolve(strict=True)
-        else:
-            output_parent = args.output.expanduser().resolve(strict=True)
-    except OSError as exc:
-        print(f"Startup blocked: folder path cannot be opened: {exc}", file=sys.stderr)
-        return 2
-    if not source_root.is_dir() or not output_parent.is_dir():
-        print(
-            "Startup blocked: source and result location must be directories.",
-            file=sys.stderr,
-        )
-        return 2
-
-    app = create_folder_app(
-        DeterministicFolderRunService(),
-        initial_source=source_root,
-        initial_output_parent=output_parent,
-        planner_label=PLANNER_LABEL,
+    job_path = (
+        args.job.expanduser().resolve(strict=False)
+        if args.job is not None
+        else default_job_path(base_directory=PROJECT_ROOT)
     )
+    service = JobBackedFolderRunService(job_path=job_path)
+    initial_source: Path | None = None
+    initial_output_parent: Path | None = None
+    try:
+        if not os.path.lexists(job_path):
+            initial_source = args.source.expanduser().resolve(strict=True)
+            if args.output is None:
+                output_candidate = FOLDER_OUTPUT_ROOT.resolve(strict=False)
+            else:
+                output_candidate = args.output.expanduser().resolve(strict=True)
+            _require_folder_state_separation(
+                source_root=initial_source,
+                output_parent=output_candidate,
+                job_path=job_path,
+            )
+            if args.output is None:
+                output_candidate.mkdir(parents=True, exist_ok=True)
+                initial_output_parent = output_candidate.resolve(strict=True)
+            else:
+                initial_output_parent = output_candidate
+            if not initial_source.is_dir() or not initial_output_parent.is_dir():
+                raise NotADirectoryError(
+                    "source and result location must be directories"
+                )
+        app = create_folder_app(
+            service,
+            initial_source=initial_source,
+            initial_output_parent=initial_output_parent,
+            planner_label=PLANNER_LABEL,
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"Startup blocked: folder job cannot be opened: {exc}", file=sys.stderr)
+        return 2
     logging.basicConfig(level=logging.INFO)
-    LOGGER.info("Starting AI-first A1 Reversible Name Atlas on loopback; no API call.")
+    LOGGER.info("Starting AI-first A2 Reversible Name Atlas on loopback; no API call.")
     print(f"Reversible Name Atlas: http://{LOOPBACK_HOST}:{args.port}")
     print(PLANNER_LABEL)
+    print(f"FolderRefactorJob: {job_path}")
     uvicorn.run(
         app,
         host=LOOPBACK_HOST,
@@ -357,6 +383,27 @@ def _run_development_folder_app(args: argparse.Namespace) -> int:
         log_level="info",
     )
     return 0
+
+
+def _require_folder_state_separation(
+    *,
+    source_root: Path,
+    output_parent: Path,
+    job_path: Path,
+) -> None:
+    """Reject source/output/local-state overlap before creating any path."""
+
+    source = source_root.resolve(strict=True)
+    output = output_parent.resolve(strict=False)
+    job = job_path.resolve(strict=False)
+    if _paths_overlap(source, output):
+        raise ValueError("source and result location may not contain one another")
+    if _paths_overlap(source, job) or _paths_overlap(output, job):
+        raise ValueError("folder job state must be outside source and result trees")
+
+
+def _paths_overlap(left: Path, right: Path) -> bool:
+    return left == right or left in right.parents or right in left.parents
 
 
 def main() -> None:

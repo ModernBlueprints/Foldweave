@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+import hmac
+import secrets
+from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol, runtime_checkable
-from urllib.parse import parse_qs
+from typing import Any, Protocol, TypeVar, runtime_checkable
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from name_atlas.folder_refactor.planner import DeterministicDevelopmentPlanner
 from name_atlas.folder_refactor.transaction import run_folder_refactor
@@ -23,24 +26,40 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=PACKAGE_ROOT / "templates")
 MAX_FORM_BODY_BYTES = 32_768
 MAX_REQUEST_CHARACTERS = 8_000
-PLANNER_LABEL = "Deterministic development planner — no API call"
+PLANNER_LABEL = "Deterministic A2 planner — no API call"
 WORKING_STAGES = (
     "Reading folder",
-    "GPT-5.6 is planning",
+    "Name Atlas is planning",
     "Checking every file and destination",
     "Creating a separate result",
     "Updating supported links",
     "Verifying result",
 )
+_ServiceResult = TypeVar("_ServiceResult")
 
 
 class FolderWebLifecycle(StrEnum):
-    """Server-owned A1 presentation states."""
+    """Server-owned A1/A2 presentation states."""
 
     IDLE = "idle"
     PLANNING = "planning"
+    AWAITING_CLARIFICATION = "awaiting_clarification"
     VERIFIED = "verified"
     BLOCKED = "blocked"
+
+
+class FolderWorkPhase(StrEnum):
+    """Coarse presentation phases reported by one durable service authority."""
+
+    READING = "reading"
+    PLANNING = "planning"
+    CHECKING = "checking"
+    CREATING = "creating"
+    UPDATING_LINKS = "updating_links"
+    VERIFYING = "verifying"
+
+
+FolderProgressCallback = Callable[[FolderWorkPhase], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +75,7 @@ class FolderRunPresentation:
     source_unchanged: bool
     all_files_present_once: bool
     deterministic_proof_passed: bool
+    supported_link_count: int = 0
     supported_link_update_count: int = 0
     independent_verification_passed: bool = False
     reconstruction_available: bool = False
@@ -71,8 +91,10 @@ class FolderRunPresentation:
             raise ValueError("A completed result must account for at least one file.")
         if not 0 <= self.path_change_count <= self.source_file_count:
             raise ValueError("Path-change count is outside the source-file count.")
-        if self.supported_link_update_count < 0:
-            raise ValueError("Supported-link update count cannot be negative.")
+        if not 0 <= self.supported_link_update_count <= self.supported_link_count:
+            raise ValueError(
+                "Supported-link update count must be within the checked-link count."
+            )
         if not (
             self.source_unchanged
             and self.all_files_present_once
@@ -81,6 +103,73 @@ class FolderRunPresentation:
             raise ValueError("A Done presentation cannot contain a failed core proof.")
         if self.data_root != self.result_root / "data":
             raise ValueError("The user folder must be the result's data directory.")
+
+
+@dataclass(frozen=True, slots=True)
+class FolderClarificationRequest:
+    """One compact missing-intent question bound to an existing service job."""
+
+    question: str
+    continuation_token: str
+
+    def __post_init__(self) -> None:
+        """Keep the single clarification bounded and unambiguous."""
+
+        if not self.question or self.question != self.question.strip():
+            raise ValueError("Clarification question must be nonempty and trimmed.")
+        if len(self.question) > 1_000 or "\x00" in self.question:
+            raise ValueError("Clarification question is too large or contains NUL.")
+        if (
+            not self.continuation_token
+            or self.continuation_token != self.continuation_token.strip()
+            or len(self.continuation_token) > 256
+        ):
+            raise ValueError("Clarification continuation token is invalid.")
+        if "\x00" in self.continuation_token:
+            raise ValueError("Clarification continuation token contains NUL.")
+
+
+FolderRunOutcome = FolderRunPresentation | FolderClarificationRequest
+
+
+@dataclass(frozen=True, slots=True)
+class FolderWebCheckpoint:
+    """Read-only durable state used to seed a reconstructed browser process."""
+
+    lifecycle: FolderWebLifecycle
+    source_root: Path
+    output_parent: Path
+    request: str
+    clarification: FolderClarificationRequest | None = None
+    blocker: str | None = None
+    result: FolderRunPresentation | None = None
+    resume_required: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.source_root.is_absolute() or not self.output_parent.is_absolute():
+            raise ValueError("Browser checkpoint paths must be absolute.")
+        if not self.request.strip():
+            raise ValueError("Browser checkpoint request cannot be blank.")
+        if self.lifecycle is FolderWebLifecycle.AWAITING_CLARIFICATION:
+            if self.clarification is None or self.resume_required:
+                raise ValueError("Clarification checkpoint requires only its question.")
+        elif self.clarification is not None:
+            raise ValueError("Only clarification state may carry a question.")
+        if self.lifecycle is FolderWebLifecycle.BLOCKED:
+            if not self.blocker or self.resume_required:
+                raise ValueError("Blocked checkpoint requires only an exact blocker.")
+        elif self.blocker is not None:
+            raise ValueError("Only blocked state may retain a blocker.")
+        if self.lifecycle is FolderWebLifecycle.PLANNING:
+            if not self.resume_required:
+                raise ValueError("Planning checkpoint must resume automatically.")
+        elif self.resume_required:
+            raise ValueError("Only planning state can request automatic resume.")
+        if self.lifecycle is FolderWebLifecycle.VERIFIED:
+            if self.result is None or self.resume_required:
+                raise ValueError("Verified checkpoint requires only verified facts.")
+        elif self.result is not None:
+            raise ValueError("Only verified state may carry completed facts.")
 
 
 @runtime_checkable
@@ -93,17 +182,73 @@ class FolderRunService(Protocol):
         source_root: Path,
         output_parent: Path,
         request: str,
+    ) -> FolderRunOutcome:
+        """Return verified facts or one bound missing-intent question."""
+        ...
+
+
+@runtime_checkable
+class ClarifyingFolderRunService(FolderRunService, Protocol):
+    """Optional service capability for continuing the same job once."""
+
+    async def continue_after_clarification(
+        self,
+        *,
+        continuation_token: str,
+        answer: str,
     ) -> FolderRunPresentation:
-        """Return verified facts for one separately created result."""
+        """Continue the existing job with exactly one plain-text answer."""
+        ...
+
+
+@runtime_checkable
+class ResumableFolderRunService(ClarifyingFolderRunService, Protocol):
+    """Service that can seed and continue one exact persisted local job."""
+
+    def web_checkpoint(self) -> FolderWebCheckpoint | None:
+        """Return current durable presentation state without provider activity."""
+        ...
+
+    async def resume_existing_job(self) -> FolderRunOutcome:
+        """Continue exact durable planning/execution without creating a job."""
+        ...
+
+
+@runtime_checkable
+class WorkerThreadFolderRunService(FolderRunService, Protocol):
+    """Service whose bounded synchronous internals must not run on the web loop."""
+
+    @property
+    def run_in_worker_thread(self) -> bool:
+        """Return true when each complete service operation needs one worker thread."""
+        ...
+
+
+@runtime_checkable
+class ProgressReportingFolderRunService(FolderRunService, Protocol):
+    """Service that emits presentation-only progress without ceding authority."""
+
+    def set_progress_callback(
+        self,
+        callback: FolderProgressCallback | None,
+        /,
+    ) -> None:
+        """Install or clear the current browser's thread-safe phase callback."""
         ...
 
 
 @dataclass(frozen=True, slots=True)
 class DeterministicFolderRunService:
-    """Bridge the A1 browser shell to the complete generic transaction."""
+    """Bridge the browser shell to the complete deterministic A2 transaction."""
 
     result_folder_name: str = "name-atlas-organized-copy"
     target_prefix: str = "organized"
+
+    @property
+    def run_in_worker_thread(self) -> bool:
+        """Keep the legacy A1 scan/copy/proof bridge off the web event loop."""
+
+        return True
 
     async def plan_and_create_copy(
         self,
@@ -112,7 +257,7 @@ class DeterministicFolderRunService:
         output_parent: Path,
         request: str,
     ) -> FolderRunPresentation:
-        """Run the truthful no-API A1 planner and expose verified facts only."""
+        """Run the truthful no-API A2 planner and expose verified facts only."""
 
         planner = DeterministicDevelopmentPlanner(
             result_folder_name=self.result_folder_name,
@@ -133,7 +278,8 @@ class DeterministicFolderRunService:
             data_root=result.data_root,
             source_file_count=result.report.file_count,
             path_change_count=result.report.path_change_count,
-            supported_link_update_count=0,
+            supported_link_count=result.report.supported_link_count,
+            supported_link_update_count=result.report.rewritten_link_count,
             source_unchanged=checks.get("source_unchanged") is True,
             all_files_present_once=(
                 checks.get("complete_file_bijection") is True
@@ -159,8 +305,16 @@ class _FolderWebState:
     current_stage: int = 0
     completed_stage_count: int = 0
     result: FolderRunPresentation | None = None
+    clarification: FolderClarificationRequest | None = None
+    clarification_answer: str | None = None
+    clarification_answer_count: int = 0
+    clarification_error: str | None = None
     blocker: str | None = None
     notice: str | None = None
+    csrf_token: str = field(
+        default_factory=lambda: secrets.token_urlsafe(32),
+        repr=False,
+    )
     worker: asyncio.Task[None] | None = field(default=None, repr=False)
 
 
@@ -177,35 +331,69 @@ def create_folder_app(
 ) -> FastAPI:
     """Create the A1 loopback UI around an injected folder transaction service."""
 
-    state = _FolderWebState(
-        source_value=str(initial_source) if initial_source is not None else "",
-        output_value=(
-            str(initial_output_parent) if initial_output_parent is not None else ""
-        ),
+    checkpoint = (
+        service.web_checkpoint()
+        if isinstance(service, ResumableFolderRunService)
+        else None
+    )
+    state = _state_from_checkpoint(
+        checkpoint,
+        initial_source=initial_source,
+        initial_output_parent=initial_output_parent,
     )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         try:
+            if (
+                checkpoint is not None
+                and checkpoint.resume_required
+                and isinstance(service, ResumableFolderRunService)
+            ):
+                state.worker = asyncio.create_task(
+                    _resume_job(state=state, service=service),
+                    name="name-atlas-a2-resume-job",
+                )
             yield
         finally:
             if state.worker is not None and not state.worker.done():
-                state.worker.cancel()
-                with suppress(asyncio.CancelledError):
-                    await state.worker
+                if _uses_worker_thread(service):
+                    await _await_mutating_worker(state.worker)
+                else:
+                    state.worker.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await state.worker
 
     app = FastAPI(
         title="Reversible Name Atlas",
         description=(
             "Describe the change. Keep supported Markdown links. Prove the result."
         ),
-        version="0.1.0-a1",
+        version="0.2.0-a2",
         docs_url=None,
         redoc_url=None,
         lifespan=lifespan,
     )
     app.state.folder_web_state = state
     app.state.folder_run_service = service
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["127.0.0.1", "localhost", "testserver", "[::1]"],
+    )
+
+    @app.middleware("http")
+    async def reject_cross_origin_mutations(request: Request, call_next):
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            origin = request.headers.get("origin")
+            if origin is not None and not _origin_matches_host(
+                origin,
+                request.headers.get("host", ""),
+            ):
+                return HTMLResponse("Cross-origin request blocked.", status_code=403)
+            if request.headers.get("sec-fetch-site", "").casefold() == "cross-site":
+                return HTMLResponse("Cross-site request blocked.", status_code=403)
+        return await call_next(request)
+
     app.mount(
         "/static",
         StaticFiles(directory=PACKAGE_ROOT / "static"),
@@ -231,7 +419,10 @@ def create_folder_app(
         if state.lifecycle is not FolderWebLifecycle.IDLE:
             return _redirect(_next_path(state))
         try:
-            source_root, user_request, output_parent = await _parse_start_form(request)
+            source_root, user_request, output_parent = await _parse_start_form(
+                request,
+                expected_csrf_token=state.csrf_token,
+            )
         except FolderFormError as exc:
             state.blocker = str(exc)
             return _render_start(
@@ -248,6 +439,10 @@ def create_folder_app(
         state.current_stage = 0
         state.completed_stage_count = 0
         state.result = None
+        state.clarification = None
+        state.clarification_answer = None
+        state.clarification_answer_count = 0
+        state.clarification_error = None
         state.blocker = None
         state.notice = None
         state.worker = asyncio.create_task(
@@ -258,7 +453,7 @@ def create_folder_app(
                 output_parent=output_parent,
                 user_request=user_request,
             ),
-            name="name-atlas-a1-folder-job",
+            name="name-atlas-a2-folder-job",
         )
         await asyncio.sleep(0)
         return _redirect("/working")
@@ -286,16 +481,66 @@ def create_folder_app(
                 "/done" if state.lifecycle is FolderWebLifecycle.VERIFIED else None
             ),
             "blocked": state.lifecycle is FolderWebLifecycle.BLOCKED,
+            "clarification_required": (
+                state.lifecycle is FolderWebLifecycle.AWAITING_CLARIFICATION
+            ),
         }
         return JSONResponse(payload)
 
     @app.post("/clarify", include_in_schema=False)
-    async def clarify() -> RedirectResponse:
-        state.notice = (
-            "This deterministic A1 transaction did not request clarification. "
-            "The one-question GPT-5.6 path is added in the next integrated slice."
+    async def clarify(request: Request) -> Response:
+        if (
+            state.lifecycle is not FolderWebLifecycle.AWAITING_CLARIFICATION
+            or state.clarification is None
+        ):
+            return HTMLResponse(
+                "Clarification is not active for this job.",
+                status_code=409,
+            )
+        if state.clarification_answer_count != 0:
+            return HTMLResponse(
+                "The one clarification answer has already been used.",
+                status_code=409,
+            )
+        try:
+            answer = await _parse_clarification_form(
+                request,
+                expected_csrf_token=state.csrf_token,
+            )
+        except FolderFormError as exc:
+            state.clarification_error = str(exc)
+            response = TEMPLATES.TemplateResponse(
+                request=request,
+                name="folder/working.html",
+                context=_base_context(state=state, planner_label=planner_label),
+            )
+            response.status_code = 422
+            return response
+        if not isinstance(service, ClarifyingFolderRunService):
+            state.blocker = (
+                "clarification_continuation_unavailable: the injected service "
+                "cannot continue the same job"
+            )
+            state.lifecycle = FolderWebLifecycle.BLOCKED
+            return _redirect("/working")
+
+        state.clarification_answer = answer
+        state.clarification_answer_count = 1
+        state.clarification_error = None
+        state.lifecycle = FolderWebLifecycle.PLANNING
+        state.current_stage = 1
+        state.completed_stage_count = 1
+        state.worker = asyncio.create_task(
+            _continue_job(
+                state=state,
+                service=service,
+                clarification=state.clarification,
+                answer=answer,
+            ),
+            name="name-atlas-a2-clarification-continuation",
         )
-        return _redirect(_next_path(state))
+        await asyncio.sleep(0)
+        return _redirect("/working")
 
     @app.get("/done", response_class=HTMLResponse, include_in_schema=False)
     async def done(request: Request) -> Response:
@@ -308,20 +553,18 @@ def create_folder_app(
         )
 
     @app.post("/verify-again", include_in_schema=False)
-    async def verify_again() -> RedirectResponse:
-        state.notice = (
-            "Independent keyless verification is not part of this A1 walking slice. "
-            "The displayed deterministic proof is the verification currently available."
+    async def verify_again() -> HTMLResponse:
+        return HTMLResponse(
+            "Independent keyless verification is introduced in A3.",
+            status_code=409,
         )
-        return _redirect(_next_path(state))
 
     @app.post("/recreate-original", include_in_schema=False)
-    async def recreate_original() -> RedirectResponse:
-        state.notice = (
-            "Original-layout reconstruction is not part of this A1 walking slice. "
-            "The original source remains unchanged."
+    async def recreate_original() -> HTMLResponse:
+        return HTMLResponse(
+            "Original-layout reconstruction is introduced in A3.",
+            status_code=409,
         )
-        return _redirect(_next_path(state))
 
     return app
 
@@ -334,25 +577,242 @@ async def _run_job(
     output_parent: Path,
     user_request: str,
 ) -> None:
-    state.current_stage = 1
-    state.completed_stage_count = 1
+    state.current_stage = 0
+    state.completed_stage_count = 0
+    clear_progress = _bind_progress_callback(service, state)
     try:
-        result = await service.plan_and_create_copy(
-            source_root=source_root,
-            output_parent=output_parent,
-            request=user_request,
+        outcome = await _invoke_service(
+            service,
+            lambda: service.plan_and_create_copy(
+                source_root=source_root,
+                output_parent=output_parent,
+                request=user_request,
+            ),
         )
     except Exception as exc:  # noqa: BLE001 - service errors are user-visible blockers
         state.blocker = _safe_error_text(exc)
         state.lifecycle = FolderWebLifecycle.BLOCKED
         return
+    finally:
+        clear_progress()
+    _apply_outcome(state, outcome)
+
+
+async def _continue_job(
+    *,
+    state: _FolderWebState,
+    service: ClarifyingFolderRunService,
+    clarification: FolderClarificationRequest,
+    answer: str,
+) -> None:
+    clear_progress = _bind_progress_callback(service, state)
+    try:
+        outcome = await _invoke_service(
+            service,
+            lambda: service.continue_after_clarification(
+                continuation_token=clarification.continuation_token,
+                answer=answer,
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 - service errors are user-visible blockers
+        state.blocker = _safe_error_text(exc)
+        state.lifecycle = FolderWebLifecycle.BLOCKED
+        return
+    finally:
+        clear_progress()
+    if not isinstance(outcome, FolderRunPresentation):
+        state.blocker = "second_clarification_not_allowed"
+        state.lifecycle = FolderWebLifecycle.BLOCKED
+        return
+    _complete_job(state, outcome)
+
+
+def _complete_job(state: _FolderWebState, result: FolderRunPresentation) -> None:
     state.result = result
+    state.clarification = None
+    state.clarification_error = None
+    state.blocker = None
     state.current_stage = len(WORKING_STAGES) - 1
     state.completed_stage_count = len(WORKING_STAGES)
     state.lifecycle = FolderWebLifecycle.VERIFIED
 
 
-async def _parse_start_form(request: Request) -> tuple[Path, str, Path]:
+def _apply_outcome(state: _FolderWebState, outcome: FolderRunOutcome) -> None:
+    """Apply only the two declared service outcomes to server-owned state."""
+
+    if isinstance(outcome, FolderClarificationRequest):
+        if state.clarification_answer_count != 0 or state.clarification is not None:
+            state.blocker = "second_clarification_not_allowed"
+            state.lifecycle = FolderWebLifecycle.BLOCKED
+            return
+        state.clarification = outcome
+        state.lifecycle = FolderWebLifecycle.AWAITING_CLARIFICATION
+        return
+    if not isinstance(outcome, FolderRunPresentation):
+        state.blocker = "invalid_folder_run_outcome"
+        state.lifecycle = FolderWebLifecycle.BLOCKED
+        return
+    _complete_job(state, outcome)
+
+
+async def _resume_job(
+    *,
+    state: _FolderWebState,
+    service: ResumableFolderRunService,
+) -> None:
+    """Resume one exact durable job without starting another provider sequence."""
+
+    state.current_stage = 0
+    state.completed_stage_count = 0
+    clear_progress = _bind_progress_callback(service, state)
+    try:
+        outcome = await _invoke_service(
+            service,
+            service.resume_existing_job,
+        )
+    except Exception as exc:  # noqa: BLE001 - durable blockers are user-visible
+        state.blocker = _safe_error_text(exc)
+        state.lifecycle = FolderWebLifecycle.BLOCKED
+        return
+    finally:
+        clear_progress()
+    _apply_outcome(state, outcome)
+
+
+async def _invoke_service(
+    service: FolderRunService,
+    operation: Callable[[], Coroutine[Any, Any, _ServiceResult]],
+) -> _ServiceResult:
+    """Run one complete durable operation without splitting its authority."""
+
+    if _uses_worker_thread(service):
+        thread_task = asyncio.create_task(
+            asyncio.to_thread(_run_service_operation, operation),
+            name="name-atlas-folder-service-thread",
+        )
+        try:
+            return await asyncio.shield(thread_task)
+        except asyncio.CancelledError:
+            return await _await_service_thread(thread_task)
+    return await operation()
+
+
+def _run_service_operation(
+    operation: Callable[[], Coroutine[Any, Any, _ServiceResult]],
+) -> _ServiceResult:
+    """Own one worker-thread event loop for one complete service operation."""
+
+    return asyncio.run(operation())
+
+
+def _uses_worker_thread(service: FolderRunService) -> bool:
+    return (
+        isinstance(service, WorkerThreadFolderRunService)
+        and service.run_in_worker_thread
+    )
+
+
+async def _await_service_thread(
+    thread_task: asyncio.Task[_ServiceResult],
+) -> _ServiceResult:
+    """Defer cancellation until the one mutation-owning thread reaches safety."""
+
+    while not thread_task.done():
+        try:
+            await asyncio.shield(thread_task)
+        except asyncio.CancelledError:
+            continue
+    return thread_task.result()
+
+
+def _bind_progress_callback(
+    service: FolderRunService,
+    state: _FolderWebState,
+) -> Callable[[], None]:
+    """Route worker-thread progress back onto the server event loop."""
+
+    if not isinstance(service, ProgressReportingFolderRunService):
+        return lambda: None
+    event_loop = asyncio.get_running_loop()
+
+    def report(phase: FolderWorkPhase) -> None:
+        event_loop.call_soon_threadsafe(_apply_work_phase, state, phase)
+
+    service.set_progress_callback(report)
+    return lambda: service.set_progress_callback(None)
+
+
+def _apply_work_phase(state: _FolderWebState, phase: FolderWorkPhase) -> None:
+    """Advance browser presentation monotonically; never change durable state."""
+
+    phase_index = {
+        FolderWorkPhase.READING: 0,
+        FolderWorkPhase.PLANNING: 1,
+        FolderWorkPhase.CHECKING: 2,
+        FolderWorkPhase.CREATING: 3,
+        FolderWorkPhase.UPDATING_LINKS: 4,
+        FolderWorkPhase.VERIFYING: 5,
+    }[phase]
+    if state.lifecycle is FolderWebLifecycle.PLANNING:
+        state.current_stage = max(state.current_stage, phase_index)
+        state.completed_stage_count = max(
+            state.completed_stage_count,
+            phase_index,
+        )
+
+
+async def _await_mutating_worker(worker: asyncio.Task[None]) -> None:
+    """Keep shutdown from abandoning a thread that still owns a mutation lock."""
+
+    while not worker.done():
+        try:
+            await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            continue
+    await worker
+
+
+def _state_from_checkpoint(
+    checkpoint: FolderWebCheckpoint | None,
+    *,
+    initial_source: Path | None,
+    initial_output_parent: Path | None,
+) -> _FolderWebState:
+    """Seed browser presentation from observed durable state or empty defaults."""
+
+    if checkpoint is None:
+        return _FolderWebState(
+            source_value="" if initial_source is None else str(initial_source),
+            output_value=(
+                "" if initial_output_parent is None else str(initial_output_parent)
+            ),
+        )
+    state = _FolderWebState(
+        lifecycle=checkpoint.lifecycle,
+        source_value=str(checkpoint.source_root),
+        request_value=checkpoint.request,
+        output_value=str(checkpoint.output_parent),
+        blocker=checkpoint.blocker,
+        clarification=checkpoint.clarification,
+        result=checkpoint.result,
+    )
+    if checkpoint.lifecycle in {
+        FolderWebLifecycle.PLANNING,
+        FolderWebLifecycle.AWAITING_CLARIFICATION,
+    }:
+        state.current_stage = 1
+        state.completed_stage_count = 1
+    elif checkpoint.lifecycle is FolderWebLifecycle.VERIFIED:
+        state.current_stage = len(WORKING_STAGES) - 1
+        state.completed_stage_count = len(WORKING_STAGES)
+    return state
+
+
+async def _parse_start_form(
+    request: Request,
+    *,
+    expected_csrf_token: str,
+) -> tuple[Path, str, Path]:
     content_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
     if content_type != "application/x-www-form-urlencoded":
         raise FolderFormError("The Start form must use URL-encoded local fields.")
@@ -363,14 +823,17 @@ async def _parse_start_form(request: Request) -> tuple[Path, str, Path]:
         fields = parse_qs(
             body.decode("utf-8", errors="strict"),
             strict_parsing=True,
-            max_num_fields=3,
+            max_num_fields=4,
             keep_blank_values=True,
         )
     except (UnicodeDecodeError, ValueError) as exc:
         raise FolderFormError("The Start form is not valid UTF-8 form data.") from exc
-    expected = {"source_root", "user_request", "output_parent"}
+    expected = {"source_root", "user_request", "output_parent", "csrf_token"}
     if set(fields) != expected or any(len(fields[key]) != 1 for key in expected):
-        raise FolderFormError("Exactly the three displayed Start fields are required.")
+        raise FolderFormError("Exactly the displayed Start fields are required.")
+
+    if not hmac.compare_digest(fields["csrf_token"][0], expected_csrf_token):
+        raise FolderFormError("The Start form security token is invalid or expired.")
 
     source_text = fields["source_root"][0].strip()
     request_text = fields["user_request"][0].strip()
@@ -391,6 +854,43 @@ async def _parse_start_form(request: Request) -> tuple[Path, str, Path]:
             "Folder and result location must be absolute local paths."
         )
     return source_root, request_text, output_parent
+
+
+async def _parse_clarification_form(
+    request: Request,
+    *,
+    expected_csrf_token: str,
+) -> str:
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
+    if content_type != "application/x-www-form-urlencoded":
+        raise FolderFormError("The clarification answer must be URL-encoded text.")
+    body = await request.body()
+    if not body or len(body) > MAX_FORM_BODY_BYTES:
+        raise FolderFormError("The clarification answer is empty or too large.")
+    try:
+        fields = parse_qs(
+            body.decode("utf-8", errors="strict"),
+            strict_parsing=True,
+            max_num_fields=2,
+            keep_blank_values=True,
+        )
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise FolderFormError(
+            "The clarification answer is not valid UTF-8 text."
+        ) from exc
+    expected = {"answer", "csrf_token"}
+    if set(fields) != expected or any(len(fields[key]) != 1 for key in expected):
+        raise FolderFormError("Exactly one clarification answer is required.")
+    if not hmac.compare_digest(fields["csrf_token"][0], expected_csrf_token):
+        raise FolderFormError(
+            "The clarification form security token is invalid or expired."
+        )
+    answer = fields["answer"][0]
+    if not answer.strip():
+        raise FolderFormError("The clarification answer cannot be empty.")
+    if len(answer) > 4_000 or "\x00" in answer:
+        raise FolderFormError("The clarification answer is too large or contains NUL.")
+    return answer
 
 
 def _base_context(
@@ -439,3 +939,21 @@ def _safe_error_text(exc: Exception) -> str:
     if not text:
         return "The folder transaction was blocked without a usable explanation."
     return text[:1_000]
+
+
+def _origin_matches_host(origin: str, host: str) -> bool:
+    """Require an explicitly supplied browser Origin to match the loopback Host."""
+
+    try:
+        parsed = urlsplit(origin)
+    except ValueError:
+        return False
+    return (
+        parsed.scheme == "http"
+        and parsed.username is None
+        and parsed.password is None
+        and parsed.path in {"", "/"}
+        and parsed.query == ""
+        and parsed.fragment == ""
+        and parsed.netloc.casefold() == host.casefold()
+    )

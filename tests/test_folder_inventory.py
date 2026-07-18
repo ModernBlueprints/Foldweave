@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import name_atlas.folder_refactor.inventory as inventory_module
 from name_atlas.folder_refactor.contracts import FolderFile, FolderInventory
 from name_atlas.folder_refactor.inventory import (
     MAX_DIRECTORY_COUNT,
@@ -139,6 +140,24 @@ def test_file_identity_binds_path_size_and_digest(tmp_path: Path) -> None:
             {**first.model_dump(mode="python"), "file_id": "f" * 64},
             strict=True,
         )
+
+
+def test_markdown_adapter_limit_blocks_before_unbounded_parsing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.setattr(inventory_module, "MAX_MARKDOWN_ADAPTER_BYTES", 8)
+    _write(source, "large.md", b"123456789")
+
+    with pytest.raises(FolderScanError, match="Markdown adapter byte limit"):
+        scan_folder(source)
+
+    opaque = tmp_path / "opaque"
+    opaque.mkdir()
+    _write(opaque, "large.bin", b"123456789")
+    assert scan_folder(opaque).inventory.total_bytes == 9
 
 
 def test_portable_commitment_ignores_local_inode_but_local_identity_detects_replacement(
