@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **Saturday 18 July 2026 at 03:09:02 CEST**
+Checkpoint: **Saturday 18 July 2026 at 04:19:07 CEST**
 
-Phase: **R4_FIVE_STATE_PRODUCT_EXPERIENCE**
+Phase: **R5_CONDITIONAL_RESTORE**
 
 Historical first-cycle goal: **SUPERSEDED FOR REVISED FUTURE EXECUTION**
 
@@ -18,8 +18,8 @@ Submission hold: **ACTIVE**
 
 - Recording-ready: Tuesday 21 July 2026 at 02:00 CEST
 - Submission due: Wednesday 22 July 2026 at 02:00 CEST
-- Time to recording-ready: 70 hours 50 minutes 57 seconds
-- Time to submission: 94 hours 50 minutes 57 seconds
+- Time to recording-ready: 69 hours 40 minutes 52 seconds
+- Time to submission: 93 hours 40 minutes 52 seconds
 - Final submission reserve: 24 hours
 - Planned revision window: 69 hours 8 minutes 9 seconds
 - Protected pre-recording contingency: 4 hours
@@ -54,6 +54,8 @@ Submission hold: **ACTIVE**
   immediately after that product commit.
 - R3 receipt and receiver-verifier completion is committed at
   `b59b9efd5752b4038c89db6e2b0fd6f19e1b5a47`.
+- R4 five-state product experience is committed at
+  `0e7543af1f46e06a55ccd22d75c647b44b68d102`.
 
 ## Inherited verified baseline
 
@@ -82,9 +84,10 @@ Submission hold: **ACTIVE**
 - Acyclic Portable Change Receipt and offline HTML: **COMPLETE (R3)**
 - Independent keyless receiver verifier: **COMPLETE (R3)**
 - BagIt-valid altered-ledger counterfactual: **COMPLETE (R1/R3)**
-- Five-state Atlas/Decide/Stage/Verify/Handoff workbench: **PLAIN FLOW COMPLETE (R1)**
-- Blueprint dark visual layer and packaged assets: **NOT STARTED**
-- Restore applicability gate: **NOT EVALUATED**
+- Five-state Atlas/Decide/Stage/Verify/Handoff workbench: **COMPLETE (R4)**
+- Blueprint dark visual layer and packaged assets: **COMPLETE (R4)**
+- Restore applicability gate: **GO — RECORDED ONCE AT 04:19:07 CEST**
+- Bounded `restore-receipt` implementation: **IN PROGRESS (R5)**
 - Revised release candidate and recording readiness: **NOT STARTED**
 
 First-cycle README, screenshots, narration, Devpost copy, and thumbnail:
@@ -97,31 +100,34 @@ implementation is now authorized by the activated goal. Current blocker:
 
 ## Compact recovery capsule
 
-- Phase: `R4_FIVE_STATE_PRODUCT_EXPERIENCE`
+- Phase: `R5_CONDITIONAL_RESTORE`
 - Branch and baseline: `revision/portable-change-receipt` at governance commit
-  `fbe6dea`, with R1 at `2495a6f`, R2 at `5949a0f`, and R3 at `b59b9ef`, from
-  public predecessor `827b0f6`
-- Current milestone: R4 in progress; target Monday 20 July 2026 at 04:13:19 CEST
-- Last verified commands: lock check; 215 pytest tests; Ruff lint/format; Python
-  compilation in the independent review; Git whitespace check — all passed
+  `fbe6dea`, with R1 at `2495a6f`, R2 at `5949a0f`, R3 at `b59b9ef`, and R4 at
+  `0e7543a`, from public predecessor `827b0f6`
+- Current milestone: R5 in progress; target Monday 20 July 2026 at 12:07:24 CEST
+- Last verified commands: lock check; 241 pytest tests; Ruff lint/format; Python
+  compilation; Git whitespace check; clean wheel build/install/smoke — all passed
 - Case status: strict restart, exact staleness, binding revalidation, zero-call
   card reuse, writer/revision conflicts, and finalized immutability complete
 - Receipt/verifier status: receipt `69c1d00e…` verified after copy, source-free
   and with exact source; exact BagIt-valid altered-ledger copy blocked with
   `artifact_digest_mismatch:decision_ledger`; full negative matrix passed
-- UI status: five plain routes pass; dark Blueprint redesign is in progress
-- Restore gate: not evaluated
-- Feature-freeze status: reopened only for the approved revision
+- UI status: five connected dark Blueprint routes pass desktop, medium, and
+  narrow visual/authority QA
+- Restore gate: `GO` at Saturday 18 July 2026 at 04:19:07 CEST; command mandatory,
+  UI independently cuttable
+- Feature-freeze status: only admitted R5 restore remains before mandatory freeze
 - Release-material status: first-cycle materials preserved but stale
 - Submission hold: active
 - Blockers: none
-- Next operation: implement the connected exception-first dark Blueprint Atlas,
-  Decide, Stage, Verify, and Handoff experience with locally packaged assets,
-  server-owned transitions, progressive disclosure, and full route/visual QA.
+- Next operation: implement and verify the admitted copy-only
+  `restore-receipt` command, its strict `restore-report.v1` result, no-replace
+  transaction, reimport, complete portable-snapshot equality, and failure matrix.
 
 ## Exact next operation
 
-Implement and verify R4: locally package the frozen Blueprint core and icon
-assets, refactor the five server-rendered states into a streamlined dark
-exception-first workbench, preserve server-side authority and route guards, and
-complete route, wheel, accessibility, responsive, and browser visual QA.
+Implement and verify R5: add the admitted `restore-receipt` command with
+verify-first dispatch, absent-destination guard, sibling pending transaction,
+reverse-map content copy, byte-exact original-control restoration, strict
+reimport, complete path/size/SHA-256 equality proof, external
+`restore-report.v1`, no-replace promotion, and source/handoff immutability.

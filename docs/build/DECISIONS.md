@@ -300,3 +300,17 @@ overrides those artifacts.
   transaction. Retroactively converting it to a mutable stale case would
   contradict the read-only lifecycle and destroy stable handoff provenance.
 - Active authority: `CASE-002`, corrected `CASE-004`, and `VER-007 --source`.
+
+## D-031 — Conditional restore admitted once
+
+- Date: 18 July 2026
+- Decision: Record the one-time restore gate as `GO` at Saturday 18 July 2026 at
+  04:19:07 CEST. The `restore-receipt` command is now mandatory; its Handoff UI
+  remains independently cuttable.
+- Rationale: Case restart, receipt JSON/HTML, positive and exact controlled-
+  negative receiver verification, all five routes, the 241-test final R4 tree,
+  and the independent cross-artifact audit all pass, with 69 hours 40 minutes
+  52 seconds remaining before recording readiness—well above the required 18
+  hours.
+- Active authority: `REL-006`, the sole implementation plan's recorded restore
+  gate, and current `STATE.md`.

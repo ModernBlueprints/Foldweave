@@ -1,6 +1,6 @@
 # Reversible Name Atlas — Revised Integrated Implementation Plan
 
-Status: **ACTIVE / R4 IN PROGRESS**
+Status: **ACTIVE / R5 IN PROGRESS**
 
 Amended production goal: **ACTIVE**
 
@@ -294,10 +294,25 @@ hardening.
 - **Owner:** primary integrator; bounded visual QA reviewer allowed.
 - **Allowed cut:** motion, second theme, advanced filters, thumbnails, extra
   relationship visuals, case conveniences.
-- **Actual status:** `IN_PROGRESS`.
-- **Actual verification:** R3 is verified and committed at `b59b9ef`; the
-  existing five-route shell and packaging surface have been inspected and the
-  dark Blueprint workbench is the current operation.
+- **Actual status:** `COMPLETE`.
+- **Actual verification:** committed at `0e7543a`. The five server-rendered
+  routes now form one exception-first dark workbench with server-owned state,
+  neutral GPT presentation, read-only finalized decisions, progressive
+  disclosure, current-versus-historical receiver truthfulness, and responsive
+  persistent case facts. Blueprint core `6.17.2`, icons `6.13.0`, the exact
+  nine-icon vocabulary, Apache-2.0 license, and third-party notice are locally
+  packaged with no CDN, React, Vite, Node runtime, or Node judge step. The
+  corrected full suite passed 241 tests; lock, Ruff lint/format, Python
+  compilation, and Git whitespace checks passed. A wheel with SHA-256
+  `520cd30c29ee01a3fda176b12e7a65e8370f1ab0a643b2f6f5443a98b9b50883`
+  installed in a clean Python 3.11 environment, contained all required assets,
+  and served its application and styles from an unrelated working directory.
+  Browser QA at 1440×900, 1000×800, and 390×844 found no horizontal overflow
+  and verified truthful amber, green, and red handoff states. Independent
+  adversarial review corrected the discovered authority and presentation
+  defects, reverified the final tree, and returned R4 `GO` with no material
+  residual defect. The correct byte-identical Blueprint CSS SHA-256 is
+  `04c4dc66a0753f7256194af14f5f96f15a1a149e125898349b26c26c92ba377e`.
 
 ### Restore gate — one-time applicability decision
 
@@ -317,8 +332,21 @@ hardening.
   `CUT_BY_PREAUTHORIZED_GATE`. After a recorded `GO`, the command is mandatory
   and cannot be relabeled as a gate cut. A legitimate gate cut does not block R6
   or release.
-- **Actual status:** `PENDING / INACTIVE`.
-- **Actual verification:** `NOT EVALUATED`.
+- **Actual status:** `COMPLETE — GO`.
+- **Actual verification:** evaluated once at Saturday 18 July 2026 at 04:19:07
+  CEST. The verdict is monotonic: the restore command is now mandatory; only
+  its UI remains independently cuttable.
+
+  | Frozen predicate | Result | Evidence |
+  |---|---|---|
+  | Case persistence and restart | PASS | R2 restart/staleness matrix remains passing in the 241-test final tree |
+  | Receipt JSON and offline HTML | PASS | R3 machine/HTML agreement plus R4 restart and browser inspection |
+  | Positive receiver verification | PASS | copied, source-free hero receipt verification and final receiver suite |
+  | Exact controlled negative | PASS | BagIt-valid altered ledger blocks only on `artifact_digest_mismatch:decision_ledger` |
+  | All five routes | PASS | final route/guard matrix and browser QA at three viewport widths |
+  | Inherited and revised core tests | PASS | 241/241 tests, lock, Ruff lint/format, compilation, and diff check |
+  | No material cross-artifact defect | PASS | independent final R4 audit returned overall `GO` |
+  | At least 18 real hours remain | PASS | 69 hours 40 minutes 52 seconds remained before recording readiness |
 
 ### R5 — Conditional restore
 
@@ -344,8 +372,9 @@ hardening.
 - **Owner:** primary integrator.
 - **Allowed cut:** restore UI only after gate `GO`; there is no post-`GO` command
   cut. An admitted-command failure blocks R5 and release until corrected.
-- **Actual status:** `PENDING / INACTIVE`.
-- **Actual verification:** `NOT APPLICABLE UNTIL GATE`.
+- **Actual status:** `IN_PROGRESS`.
+- **Actual verification:** restore gate recorded `GO` at Saturday 18 July 2026
+  at 04:19:07 CEST. Implementation and acceptance evidence are not yet complete.
 
 ### R6 — Feature freeze and release hardening
 
