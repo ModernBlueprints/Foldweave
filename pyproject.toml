@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-name-atlas = "name_atlas.cli:main"
+name-atlas = "name_atlas.launcher:main"
 
 [dependency-groups]
 dev = [

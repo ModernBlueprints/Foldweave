@@ -182,6 +182,34 @@ def test_complete_c0_origin_receiver_convergence_and_reconstruction(
     assert capsys.readouterr().out.strip() == (
         f"VERIFIED {receiver.receipt_fingerprint}"
     )
+    assert (
+        run_cli(
+            [
+                "verify-receipt",
+                str(unrelated),
+                "--source",
+                str(fixture.martin_root),
+            ],
+            environ={},
+        )
+        == 0
+    )
+    assert capsys.readouterr().out.strip() == (
+        f"VERIFIED {receiver.receipt_fingerprint}"
+    )
+    assert (
+        run_cli(
+            [
+                "verify-receipt",
+                str(unrelated),
+                "--source",
+                str(fixture.sofia_root),
+            ],
+            environ={},
+        )
+        == 1
+    )
+    assert capsys.readouterr().out.strip() == "BLOCKED supplied_source_mismatch"
     cli_restore_destination = (
         receiver.folder_run.result_root.parent / "martin-original-cli"
     )

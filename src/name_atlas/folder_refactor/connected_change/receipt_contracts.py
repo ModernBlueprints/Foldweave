@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Literal, Self
 
@@ -28,6 +29,28 @@ CONNECTED_RECEIPT_CLAIMS = (
     "Reconstruction covers in-scope relative paths and bytes within the supported "
     "Name Atlas contract.",
 )
+
+_CONNECTED_COMMON_RECEIPT_ARTIFACT_PATHS = frozenset(
+    {
+        "bag-info.txt",
+        "bagit.txt",
+        "manifest-sha256.txt",
+        "name-atlas/accepted_plan.json",
+        "name-atlas/change_ledger.json",
+        "name-atlas/execution_origin.json",
+        "name-atlas/forward_path_map.csv",
+        "name-atlas/reference_graph.json",
+        "name-atlas/reverse_path_map.csv",
+        "name-atlas/source_snapshot.json",
+        "name-atlas/user_request.json",
+        "name-atlas/verification_report.json",
+    }
+)
+_CONNECTED_ROLE_RECEIPT_ARTIFACT_PATHS = {
+    "origin": frozenset({"name-atlas/evidence_ledger.json"}),
+    "receiver": frozenset({"name-atlas/connected_change_match_report.json"}),
+}
+_ORIGINAL_CONTENT_PATH = re.compile(r"name-atlas/original-content/[a-f0-9]{64}\.bin\Z")
 
 
 class FolderReceiptCoreV2(StrictFrozenModel):
@@ -92,6 +115,23 @@ class FolderReceiptCoreV2(StrictFrozenModel):
         paths = tuple(item.path for item in self.artifact_commitments)
         if paths != tuple(sorted(paths)) or len(paths) != len(set(paths)):
             raise ValueError("Artifact commitments must be path-sorted and unique.")
+        required_paths = connected_required_receipt_artifact_paths(self.execution_role)
+        path_set = set(paths)
+        missing_paths = sorted(required_paths - path_set)
+        unsupported_paths = sorted(
+            path
+            for path in path_set - required_paths
+            if _ORIGINAL_CONTENT_PATH.fullmatch(path) is None
+        )
+        if missing_paths:
+            raise ValueError(
+                f"Receipt omits required role-specific artifacts: {missing_paths!r}."
+            )
+        if unsupported_paths:
+            raise ValueError(
+                "Receipt commits unsupported, role-incompatible, or circular "
+                f"artifacts: {unsupported_paths!r}."
+            )
         staged_paths = tuple(item.path for item in self.staged_data_members)
         if staged_paths != tuple(sorted(staged_paths)) or len(staged_paths) != len(
             set(staged_paths)
@@ -120,6 +160,17 @@ class FolderReceiptCoreV2(StrictFrozenModel):
         if self.claims != CONNECTED_RECEIPT_CLAIMS:
             raise ValueError("Receipt claim boundaries differ from the contract.")
         return self
+
+
+def connected_required_receipt_artifact_paths(
+    execution_role: Literal["origin", "receiver"],
+) -> frozenset[str]:
+    """Return the exact static raw-commitment set for one v2 receipt role."""
+
+    return (
+        _CONNECTED_COMMON_RECEIPT_ARTIFACT_PATHS
+        | _CONNECTED_ROLE_RECEIPT_ARTIFACT_PATHS[execution_role]
+    )
 
 
 class FolderReceiptEnvelopeV2(StrictFrozenModel):

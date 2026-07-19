@@ -38,7 +38,13 @@ from name_atlas.folder_refactor.markdown_contracts import (
     MarkdownReference,
 )
 from name_atlas.folder_refactor.markdown_links import MARKDOWN_SUFFIXES
-from name_atlas.folder_refactor.naming import protected_suffix
+from name_atlas.folder_refactor.naming import (
+    TargetPathError,
+    protected_suffix,
+    validate_complete_target_tree,
+    validate_result_folder_name,
+    validate_target_path,
+)
 from name_atlas.folder_refactor.portable_artifacts import (
     FolderPortableArtifactError,
     strict_json_object,
@@ -288,12 +294,63 @@ def parse_connected_change_file(data: bytes) -> ConnectedChangeFile:
     try:
         change_file = ConnectedChangeFile.model_validate_json(data, strict=True)
     except ValidationError as exc:
+        if _raw_receiver_targets_are_invalid(core_raw):
+            _reject("receiver_target_invalid", str(exc))
         _reject("change_file_schema_invalid", str(exc))
     _validated_originating_receipt(
         change_file.originating_receipt,
         core=change_file.core,
     )
+    if canonical_json_bytes(change_file) != data:
+        _reject(
+            "change_file_schema_invalid",
+            "Change File must use exact canonical JSON serialization.",
+        )
     return change_file
+
+
+def _raw_receiver_targets_are_invalid(core_raw: Mapping[str, Any]) -> bool:
+    """Classify only well-shaped receiver targets through the frozen path profile."""
+
+    result_folder_name = core_raw.get("requested_result_folder_name")
+    members = core_raw.get("members")
+    empty_directories = core_raw.get("empty_directory_requirements")
+    if (
+        not isinstance(result_folder_name, str)
+        or not isinstance(members, list)
+        or not isinstance(empty_directories, list)
+    ):
+        return False
+
+    file_targets: list[str] = []
+    try:
+        validate_result_folder_name(result_folder_name)
+        for member in members:
+            if not isinstance(member, dict):
+                return False
+            original_path = member.get("origin_relative_path")
+            target_path = member.get("target_relative_path")
+            protected = member.get("protected")
+            if (
+                not isinstance(original_path, str)
+                or not isinstance(target_path, str)
+                or not isinstance(protected, bool)
+            ):
+                return False
+            validate_target_path(
+                target_path,
+                original_path=original_path,
+                protected=protected,
+            )
+            file_targets.append(target_path)
+        if not all(isinstance(path, str) for path in empty_directories):
+            return False
+        for path in empty_directories:
+            validate_target_path(path, original_path=path, protected=True)
+        validate_complete_target_tree(file_targets, empty_directories)
+    except TargetPathError:
+        return True
+    return False
 
 
 def build_receiver_descriptors(

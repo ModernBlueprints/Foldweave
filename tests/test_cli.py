@@ -463,6 +463,53 @@ def test_folder_verify_receipt_candidate_error_returns_two(
     assert captured.err == "Receipt input error: candidate cannot be opened\n"
 
 
+def test_unknown_folder_receipt_version_blocks_without_archive_dispatch(
+    monkeypatch: Any,
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    candidate = _receipt_schema_candidate(tmp_path, "folder-change-receipt.v999")
+
+    def fail_other_dispatch(*args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+        raise AssertionError("Unknown folder receipt reached another verifier.")
+
+    monkeypatch.setattr(cli, "verify_folder_receipt", fail_other_dispatch)
+    monkeypatch.setattr(cli, "verify_receipt", fail_other_dispatch)
+
+    assert cli.run(["verify-receipt", str(candidate)], environ={}) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "BLOCKED receipt_schema_invalid\n"
+    assert captured.err == ""
+
+
+def test_unknown_folder_receipt_version_blocks_reconstruction_dispatch(
+    monkeypatch: Any,
+    tmp_path: Path,
+    capsys: Any,
+) -> None:
+    candidate = _receipt_schema_candidate(tmp_path, "folder-change-receipt.v999")
+    destination = tmp_path / "recreated-original"
+
+    def fail_other_dispatch(*args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+        raise AssertionError("Unknown folder receipt reached reconstruction.")
+
+    monkeypatch.setattr(cli, "_restore_folder_receipt", fail_other_dispatch)
+    monkeypatch.setattr(cli, "restore_receipt", fail_other_dispatch)
+
+    assert (
+        cli.run(
+            ["restore-receipt", str(candidate), str(destination)],
+            environ={},
+        )
+        == 1
+    )
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == "RESTORE BLOCKED receipt_schema_invalid\n"
+
+
 def test_damaged_folder_receipt_still_dispatches_by_portable_snapshot(
     monkeypatch: Any,
     tmp_path: Path,

@@ -84,6 +84,8 @@ class _LoadedReceiverAuthorities:
 def restore_connected_result(
     result_root: Path,
     destination: Path,
+    *,
+    source_root: Path | None = None,
 ) -> FolderRestoreReport:
     """Verify a v2 result and recreate that receiver's own original layout."""
 
@@ -100,6 +102,8 @@ def restore_connected_result(
     final_destination = _resolve_absent_destination(
         destination,
         result_root=root,
+        source_root=source_root,
+        require_result_sibling=False,
     )
     authorities = _load_receiver_authorities(root)
     _validate_receiver_authorities(

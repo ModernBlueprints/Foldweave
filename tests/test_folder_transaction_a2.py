@@ -21,6 +21,7 @@ from name_atlas.folder_refactor.markdown_links import build_reference_graph
 from name_atlas.folder_refactor.serialization import request_fingerprint
 from name_atlas.folder_refactor.transaction import (
     FolderTransactionError,
+    FolderTransactionPaths,
     execute_accepted_folder_plan,
 )
 from name_atlas.verification import BagItPackageValidator
@@ -95,6 +96,13 @@ def test_moved_note_and_target_keep_the_same_supported_link(tmp_path: Path) -> N
         reference_graph=graph,
         bag_writer=BagItWriter(),
         package_validator=BagItPackageValidator(),
+        transaction_paths=FolderTransactionPaths(
+            job_id="123e4567e89b42d3a456426614174000",
+            pending_root=(
+                output / ".name-atlas-123e4567e89b42d3a456426614174000.pending"
+            ),
+            final_root=output / "northstar-handoff",
+        ),
     )
 
     staged_note = result.data_root / "handoff" / "overview.md"

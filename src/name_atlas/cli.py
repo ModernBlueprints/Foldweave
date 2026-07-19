@@ -221,13 +221,19 @@ def run(
         received_bag = args.received_bag.expanduser()
         supplied_source = args.source.expanduser() if args.source is not None else None
         folder_receipt_schema = _folder_receipt_schema(received_bag)
+        if _unsupported_folder_receipt_schema(folder_receipt_schema):
+            print("BLOCKED receipt_schema_invalid")
+            return 1
         if folder_receipt_schema == "folder-change-receipt.v2":
             from name_atlas.folder_refactor.connected_change.verification import (
                 ConnectedReceiptVerificationStatus,
                 verify_connected_result,
             )
 
-            connected_result = verify_connected_result(received_bag)
+            connected_result = verify_connected_result(
+                received_bag,
+                source_root=supplied_source,
+            )
             if connected_result.status is ConnectedReceiptVerificationStatus.VERIFIED:
                 print(f"VERIFIED {connected_result.receipt_fingerprint}")
                 return 0
@@ -264,7 +270,11 @@ def run(
     if args.command == "restore-receipt":
         received_bag = args.received_bag.expanduser()
         restore_destination = args.restore_destination.expanduser()
-        if _folder_receipt_schema(received_bag) == "folder-change-receipt.v2":
+        folder_receipt_schema = _folder_receipt_schema(received_bag)
+        if _unsupported_folder_receipt_schema(folder_receipt_schema):
+            print("RESTORE BLOCKED receipt_schema_invalid", file=sys.stderr)
+            return 1
+        if folder_receipt_schema == "folder-change-receipt.v2":
             try:
                 connected_report = _restore_connected_receipt(
                     received_bag,
@@ -471,6 +481,17 @@ def _folder_receipt_schema(candidate: Path) -> str | None:
         return None
     schema_version = receipt.get("schema_version")
     return schema_version if isinstance(schema_version, str) else None
+
+
+def _unsupported_folder_receipt_schema(schema_version: str | None) -> bool:
+    """Reject declared folder-receipt versions outside the closed registry."""
+
+    return (
+        schema_version is not None
+        and schema_version.startswith("folder-change-receipt.")
+        and schema_version
+        not in {"folder-change-receipt.v1", "folder-change-receipt.v2"}
+    )
 
 
 def _restore_folder_receipt(result_root: Path, destination: Path) -> object:

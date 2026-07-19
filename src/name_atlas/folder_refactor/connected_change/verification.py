@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import stat
 import uuid
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
-from typing import Literal, Self
+from typing import Literal, Self, TypeVar
 
 from pydantic import (
+    BaseModel,
     Field,
     TypeAdapter,
     ValidationError,
@@ -37,10 +39,16 @@ from name_atlas.folder_refactor.connected_change.matcher import (
 from name_atlas.folder_refactor.connected_change.organized_tree import (
     scan_organized_tree,
 )
+from name_atlas.folder_refactor.connected_change.proof import (
+    render_connected_proof_html,
+)
 from name_atlas.folder_refactor.connected_change.receipt import (
     CONNECTED_CHANGE_MATCH_REPORT_PATH,
     CONNECTED_CHANGE_PATH,
     EXECUTION_ORIGIN_PATH,
+    build_connected_artifact_commitments,
+    validate_connected_evidence_ledger,
+    validate_connected_verification_report,
 )
 from name_atlas.folder_refactor.connected_change.receipt_contracts import (
     FolderReceiptEnvelopeV2,
@@ -51,6 +59,7 @@ from name_atlas.folder_refactor.contracts import (
     FolderVerificationReport,
     StrictFrozenModel,
 )
+from name_atlas.folder_refactor.inventory import FolderScanError, scan_folder
 from name_atlas.folder_refactor.markdown_contracts import FolderReferenceGraph
 from name_atlas.folder_refactor.markdown_links import (
     MARKDOWN_SUFFIXES,
@@ -62,8 +71,10 @@ from name_atlas.folder_refactor.portable_artifacts import (
     ACCEPTED_PLAN_PATH,
     CHANGE_LEDGER_PATH,
     CHANGE_RECEIPT_PATH,
+    EVIDENCE_LEDGER_PATH,
     FORWARD_PATH_MAP_PATH,
     ORIGINAL_CONTENT_ROOT,
+    PROOF_AND_RESTORE_HTML_PATH,
     REFERENCE_GRAPH_PATH,
     REVERSE_PATH_MAP_PATH,
     SOURCE_SNAPSHOT_PATH,
@@ -86,6 +97,7 @@ from name_atlas.folder_refactor.receipt_builder import (
 )
 from name_atlas.folder_refactor.receipt_contracts import (
     FolderChangeLedger,
+    FolderEvidenceLedger,
     FolderReceiptVerificationCheck,
     FolderUserRequestArtifact,
 )
@@ -96,6 +108,16 @@ from name_atlas.verification.bagit_validator import (
 )
 
 _EXECUTION_ORIGIN_ADAPTER = TypeAdapter(FolderExecutionOrigin)
+_Model = TypeVar("_Model", bound=BaseModel)
+
+
+class _VerificationBlocked(ValueError):
+    """One stable independent-verifier refusal."""
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(f"{code}: {message}")
 
 
 class ConnectedReceiptVerificationStatus(StrEnum):
@@ -149,10 +171,15 @@ class ConnectedReceiptVerification(StrictFrozenModel):
         return self
 
 
-def verify_connected_result(result_root: Path) -> ConnectedReceiptVerification:
-    """Verify a v2 result without a job, source, GPT, API key, network, or writes."""
+def verify_connected_result(
+    result_root: Path,
+    *,
+    source_root: Path | None = None,
+) -> ConnectedReceiptVerification:
+    """Verify v2 proof, optionally comparing one currently available source."""
 
     checks: list[FolderReceiptVerificationCheck] = []
+    envelope: FolderReceiptEnvelopeV2 | None = None
     try:
         root = _require_candidate_root(result_root)
         bagit = BagItPackageValidator().validate(root)
@@ -179,6 +206,13 @@ def verify_connected_result(result_root: Path) -> ConnectedReceiptVerification:
             "The v2 receipt fingerprint matches.",
         )
         core = envelope.receipt
+        if tuple(bagit.messages) != core.producer_bagit_messages:
+            return _blocked(
+                checks,
+                "receipt_summary_mismatch",
+                "The receipt's BagIt summary differs from independent validation.",
+                envelope=envelope,
+            )
 
         for commitment in core.artifact_commitments:
             size, digest = regular_file_measurement(root, commitment.path)
@@ -196,8 +230,9 @@ def verify_connected_result(result_root: Path) -> ConnectedReceiptVerification:
             f"All {len(core.artifact_commitments)} raw commitments match.",
         )
 
-        artifacts = _parse_authorities(root)
+        artifacts = _parse_authorities(root, execution_role=core.execution_role)
         _validate_authorities(root, envelope, artifacts)
+        _validate_exact_artifact_family(root, envelope, artifacts)
         _passed(
             checks,
             "portable_authorities_valid",
@@ -231,13 +266,46 @@ def verify_connected_result(result_root: Path) -> ConnectedReceiptVerification:
             "connected_change_authority_valid",
             "Change File, execution origin, and receiver bindings are exact.",
         )
+        expected_proof = render_connected_proof_html(
+            envelope.receipt_fingerprint,
+            organized.commitment,
+        )
+        if read_regular_bytes(root, PROOF_AND_RESTORE_HTML_PATH) != expected_proof:
+            raise _VerificationBlocked(
+                "offline_proof_mismatch",
+                "The human-readable proof differs from verified machine facts.",
+            )
+        _passed(
+            checks,
+            "offline_proof_valid",
+            "The human-readable proof is exactly derived from verified facts.",
+        )
+        if source_root is not None:
+            _compare_supplied_source(source_root, artifacts.inventory)
+            _passed(
+                checks,
+                "supplied_source_matches",
+                "The optional source exactly matches every committed path and byte.",
+            )
         return _result(
             checks,
             envelope=envelope,
             organized_tree_commitment=organized.commitment,
         )
+    except _VerificationBlocked as exc:
+        return _blocked(
+            checks,
+            exc.code,
+            exc.message,
+            envelope=envelope,
+        )
     except (FolderPortableArtifactError, ValidationError, ValueError, OSError) as exc:
-        return _blocked(checks, "connected_receipt_invalid", str(exc))
+        return _blocked(
+            checks,
+            "connected_receipt_invalid",
+            str(exc),
+            envelope=envelope,
+        )
     except BagItAdapterError as exc:
         return _blocked(checks, "bagit_validation_error", str(exc))
 
@@ -254,6 +322,7 @@ class _Authorities:
         ledger: FolderChangeLedger,
         report: FolderVerificationReport,
         execution_origin: FolderExecutionOrigin,
+        evidence_ledger: FolderEvidenceLedger | None,
     ) -> None:
         self.inventory = inventory
         self.request = request
@@ -263,37 +332,71 @@ class _Authorities:
         self.ledger = ledger
         self.report = report
         self.execution_origin = execution_origin
+        self.evidence_ledger = evidence_ledger
 
 
-def _parse_authorities(root: Path) -> _Authorities:
+def _parse_authorities(
+    root: Path,
+    *,
+    execution_role: Literal["origin", "receiver"],
+) -> _Authorities:
     origin_bytes = read_regular_bytes(root, EXECUTION_ORIGIN_PATH)
     strict_json_object(origin_bytes)
     origin = _EXECUTION_ORIGIN_ADAPTER.validate_json(origin_bytes, strict=True)
+    if canonical_portable_json_bytes(origin) != origin_bytes:
+        raise _VerificationBlocked(
+            "portable_artifact_schema_invalid",
+            "Execution-origin JSON is not canonical.",
+        )
+    evidence_ledger = (
+        _parse_canonical_model(root, EVIDENCE_LEDGER_PATH, FolderEvidenceLedger)
+        if execution_role == "origin"
+        else None
+    )
     return _Authorities(
-        inventory=parse_portable_model(
-            read_regular_bytes(root, SOURCE_SNAPSHOT_PATH), FolderInventory
+        inventory=_parse_canonical_model(root, SOURCE_SNAPSHOT_PATH, FolderInventory),
+        request=_parse_canonical_model(
+            root,
+            USER_REQUEST_PATH,
+            FolderUserRequestArtifact,
         ),
-        request=parse_portable_model(
-            read_regular_bytes(root, USER_REQUEST_PATH), FolderUserRequestArtifact
-        ),
-        plan=parse_portable_model(
-            read_regular_bytes(root, ACCEPTED_PLAN_PATH), FolderAcceptedPlanV2
-        ),
-        graph=parse_portable_model(
-            read_regular_bytes(root, REFERENCE_GRAPH_PATH), FolderReferenceGraph
+        plan=_parse_canonical_model(root, ACCEPTED_PLAN_PATH, FolderAcceptedPlanV2),
+        graph=_parse_canonical_model(
+            root,
+            REFERENCE_GRAPH_PATH,
+            FolderReferenceGraph,
         ),
         rows=parse_folder_path_map(
             read_regular_bytes(root, FORWARD_PATH_MAP_PATH), reverse=False
         ),
-        ledger=parse_portable_model(
-            read_regular_bytes(root, CHANGE_LEDGER_PATH), FolderChangeLedger
+        ledger=_parse_canonical_model(
+            root,
+            CHANGE_LEDGER_PATH,
+            FolderChangeLedger,
         ),
-        report=parse_portable_model(
-            read_regular_bytes(root, VERIFICATION_REPORT_PATH),
+        report=_parse_canonical_model(
+            root,
+            VERIFICATION_REPORT_PATH,
             FolderVerificationReport,
         ),
         execution_origin=origin,
+        evidence_ledger=evidence_ledger,
     )
+
+
+def _parse_canonical_model(
+    root: Path,
+    relative_path: str,
+    model_type: type[_Model],
+) -> _Model:
+    payload = read_regular_bytes(root, relative_path)
+    parsed = parse_portable_model(payload, model_type)
+    if canonical_portable_json_bytes(parsed) != payload:
+        raise _VerificationBlocked(
+            "portable_artifact_schema_invalid",
+            f"Portable JSON is not canonical: {relative_path}.",
+        )
+    return parsed
 
 
 def _validate_authorities(
@@ -331,6 +434,23 @@ def _validate_authorities(
     )
     if expected_rows != artifacts.rows or expected_ledger != artifacts.ledger:
         raise ValueError("Maps or change ledger do not recompute exactly.")
+    expected_summary = {
+        "source_file_count": len(artifacts.inventory.files),
+        "source_directory_count": artifacts.inventory.directory_count,
+        "source_bytes": artifacts.inventory.total_bytes,
+        "map_row_count": len(artifacts.rows),
+        "path_change_count": artifacts.ledger.path_change_count,
+        "supported_link_count": len(artifacts.graph.references),
+        "rewritten_link_count": artifacts.ledger.rewritten_link_count,
+    }
+    if any(
+        getattr(core, field_name) != value
+        for field_name, value in expected_summary.items()
+    ):
+        raise _VerificationBlocked(
+            "receipt_summary_mismatch",
+            "Receipt summary counts differ from independently derived facts.",
+        )
     if not (
         core.source_commitment == artifacts.inventory.source_commitment
         and core.request_fingerprint == artifacts.request.request_fingerprint
@@ -344,6 +464,41 @@ def _validate_authorities(
         and artifacts.report.staged_data_commitment == core.staged_data_commitment
     ):
         raise ValueError("Receipt fingerprints do not bind the parsed authorities.")
+    try:
+        validate_connected_verification_report(
+            inventory=artifacts.inventory,
+            accepted_plan=artifacts.plan,
+            reference_graph=artifacts.graph,
+            change_ledger=artifacts.ledger,
+            report=artifacts.report,
+            organized_tree=core.organized_tree,
+        )
+    except ValueError as exc:
+        raise _VerificationBlocked(
+            "verification_report_mismatch",
+            "The verification report differs from independently derived facts.",
+        ) from exc
+    if core.execution_role == "origin":
+        if not isinstance(artifacts.execution_origin, GptPlannedExecutionOrigin):
+            raise ValueError("Origin result lacks gpt_planned execution authority.")
+        if artifacts.evidence_ledger is None:
+            raise ValueError("Origin result lacks its exact evidence ledger.")
+        try:
+            validate_connected_evidence_ledger(
+                job_id=core.job_id,
+                inventory=artifacts.inventory,
+                user_request=artifacts.request,
+                accepted_plan=artifacts.plan,
+                execution_origin=artifacts.execution_origin,
+                evidence_ledger=artifacts.evidence_ledger,
+            )
+        except ValueError as exc:
+            raise _VerificationBlocked(
+                "origin_evidence_mismatch",
+                "Origin evidence differs from its accepted plan or execution origin.",
+            ) from exc
+    elif artifacts.evidence_ledger is not None:
+        raise ValueError("Receiver result contains fabricated GPT evidence.")
     if contains_sender_local_path(
         (
             envelope,
@@ -354,6 +509,7 @@ def _validate_authorities(
             artifacts.ledger,
             artifacts.report,
             artifacts.execution_origin,
+            artifacts.evidence_ledger,
         )
     ):
         raise ValueError("Portable v2 proof contains a sender-local absolute path.")
@@ -458,7 +614,11 @@ def _validate_connected_authority(
     ):
         raise ValueError("Imported Change File receiver bindings differ.")
     report_bytes = read_regular_bytes(root, CONNECTED_CHANGE_MATCH_REPORT_PATH)
-    report = parse_portable_model(report_bytes, ConnectedChangeMatchReport)
+    report = _parse_canonical_model(
+        root,
+        CONNECTED_CHANGE_MATCH_REPORT_PATH,
+        ConnectedChangeMatchReport,
+    )
     if (
         hashlib.sha256(report_bytes).hexdigest() != core.match_report_sha256
         or report.match_report_fingerprint != core.match_report_fingerprint
@@ -528,6 +688,101 @@ def _original_markdown_payloads(
             raise ValueError("Recovered Markdown source bytes differ from snapshot.")
         payloads[source_file.relative_path] = payload
     return payloads
+
+
+def _validate_exact_artifact_family(
+    root: Path,
+    envelope: FolderReceiptEnvelopeV2,
+    artifacts: _Authorities,
+) -> None:
+    rewritten_ids = tuple(
+        sorted(
+            entry.file_id
+            for entry in artifacts.ledger.entries
+            if entry.markdown_rewritten
+        )
+    )
+    expected_commitments = build_connected_artifact_commitments(
+        root,
+        original_content_file_ids=rewritten_ids,
+        include_match_report=envelope.receipt.execution_role == "receiver",
+    )
+    if expected_commitments != envelope.receipt.artifact_commitments:
+        raise _VerificationBlocked(
+            "artifact_set_mismatch",
+            "The exact role-specific raw artifact set differs from the receipt.",
+        )
+    expected_name_atlas_files = {
+        commitment.path
+        for commitment in expected_commitments
+        if commitment.path.startswith("name-atlas/")
+    } | {
+        CHANGE_RECEIPT_PATH,
+        CONNECTED_CHANGE_PATH,
+        PROOF_AND_RESTORE_HTML_PATH,
+    }
+    actual_name_atlas_files = _scan_name_atlas_files(root)
+    if actual_name_atlas_files != expected_name_atlas_files:
+        raise _VerificationBlocked(
+            "artifact_set_mismatch",
+            "The portable Name Atlas artifact family contains missing or extra files.",
+        )
+
+
+def _scan_name_atlas_files(root: Path) -> set[str]:
+    proof_root = root / "name-atlas"
+    files: set[str] = set()
+
+    def visit(directory: Path) -> None:
+        try:
+            entries = sorted(os.scandir(directory), key=lambda entry: entry.name)
+        except OSError as exc:
+            raise _VerificationBlocked(
+                "artifact_set_mismatch",
+                "The portable Name Atlas artifact directory cannot be enumerated.",
+            ) from exc
+        for entry in entries:
+            try:
+                metadata = entry.stat(follow_symlinks=False)
+            except OSError as exc:
+                raise _VerificationBlocked(
+                    "artifact_set_mismatch",
+                    "A portable Name Atlas artifact cannot be inspected.",
+                ) from exc
+            path = Path(entry.path)
+            relative_path = path.relative_to(root).as_posix()
+            if stat.S_ISLNK(metadata.st_mode):
+                raise _VerificationBlocked(
+                    "artifact_set_mismatch",
+                    f"A portable artifact is a symlink: {relative_path}.",
+                )
+            if stat.S_ISDIR(metadata.st_mode):
+                visit(path)
+            elif stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1:
+                files.add(relative_path)
+            else:
+                raise _VerificationBlocked(
+                    "artifact_set_mismatch",
+                    f"A portable artifact is linked or special: {relative_path}.",
+                )
+
+    visit(proof_root)
+    return files
+
+
+def _compare_supplied_source(source_root: Path, expected: FolderInventory) -> None:
+    try:
+        supplied = scan_folder(source_root).inventory
+    except (FolderScanError, OSError, ValueError) as exc:
+        raise _VerificationBlocked(
+            "supplied_source_unreadable",
+            "The optional source cannot be read under the supported folder contract.",
+        ) from exc
+    if supplied != expected:
+        raise _VerificationBlocked(
+            "supplied_source_mismatch",
+            "The optional source differs from the committed source description.",
+        )
 
 
 def _require_candidate_root(value: Path) -> Path:

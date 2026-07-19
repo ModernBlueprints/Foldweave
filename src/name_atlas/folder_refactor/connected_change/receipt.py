@@ -20,6 +20,7 @@ from name_atlas.folder_refactor.connected_change.organized_tree import (
 from name_atlas.folder_refactor.connected_change.receipt_contracts import (
     FolderReceiptCoreV2,
     FolderReceiptEnvelopeV2,
+    connected_required_receipt_artifact_paths,
 )
 from name_atlas.folder_refactor.contracts import (
     FolderInventory,
@@ -30,6 +31,7 @@ from name_atlas.folder_refactor.portable_artifacts import regular_file_measureme
 from name_atlas.folder_refactor.receipt_contracts import (
     FolderArtifactCommitment,
     FolderChangeLedger,
+    FolderEvidenceLedger,
     FolderPathMapRow,
     FolderStagedDataMember,
     FolderUserRequestArtifact,
@@ -39,6 +41,19 @@ from name_atlas.folder_refactor.serialization import canonical_sha256
 EXECUTION_ORIGIN_PATH = "name-atlas/execution_origin.json"
 CONNECTED_CHANGE_PATH = "name-atlas/connected_change_capsule.json"
 CONNECTED_CHANGE_MATCH_REPORT_PATH = "name-atlas/connected_change_match_report.json"
+
+_REQUIRED_REPORT_CHECK_IDS = frozenset(
+    {
+        "bagit_validation",
+        "complete_file_bijection",
+        "empty_directories_preserved",
+        "payload_hashes_preserved",
+        "protected_paths_preserved",
+        "result_is_separate",
+        "source_unchanged",
+        "supported_markdown_links_resolve",
+    }
+)
 
 
 def build_connected_artifact_commitments(
@@ -51,22 +66,10 @@ def build_connected_artifact_commitments(
 
     if not isinstance(pending_root, Path):
         raise ValueError("Pending result root must be a pathlib.Path.")
-    paths = {
-        "bag-info.txt",
-        "bagit.txt",
-        "manifest-sha256.txt",
-        "name-atlas/accepted_plan.json",
-        "name-atlas/change_ledger.json",
-        EXECUTION_ORIGIN_PATH,
-        "name-atlas/forward_path_map.csv",
-        "name-atlas/reference_graph.json",
-        "name-atlas/reverse_path_map.csv",
-        "name-atlas/source_snapshot.json",
-        "name-atlas/user_request.json",
-        "name-atlas/verification_report.json",
-    }
-    if include_match_report:
-        paths.add(CONNECTED_CHANGE_MATCH_REPORT_PATH)
+    execution_role: Literal["origin", "receiver"] = (
+        "receiver" if include_match_report else "origin"
+    )
+    paths = set(connected_required_receipt_artifact_paths(execution_role))
     paths.update(
         f"name-atlas/original-content/{file_id}.bin"
         for file_id in original_content_file_ids
@@ -96,6 +99,7 @@ def build_connected_receipt(
     change_ledger: FolderChangeLedger,
     report: FolderVerificationReport,
     execution_origin: FolderExecutionOrigin,
+    evidence_ledger: FolderEvidenceLedger | None = None,
     artifact_commitments: tuple[FolderArtifactCommitment, ...],
     staged_members: tuple[FolderStagedDataMember, ...],
     staged_data_commitment: str,
@@ -140,8 +144,20 @@ def build_connected_receipt(
     if execution_role == "origin":
         if not isinstance(execution_origin, GptPlannedExecutionOrigin):
             raise ValueError("An origin receipt requires gpt_planned authority.")
+        if evidence_ledger is None:
+            raise ValueError("An origin receipt requires its exact evidence ledger.")
+        validate_connected_evidence_ledger(
+            job_id=job_id,
+            inventory=inventory,
+            user_request=user_request,
+            accepted_plan=accepted_plan,
+            execution_origin=execution_origin,
+            evidence_ledger=evidence_ledger,
+        )
     elif not isinstance(execution_origin, CapsuleAppliedExecutionOrigin):
         raise ValueError("A receiver receipt requires capsule_applied authority.")
+    elif evidence_ledger is not None:
+        raise ValueError("A receiver receipt cannot fabricate a GPT evidence ledger.")
     execution_plan_fingerprint = (
         execution_origin.accepted_plan_fingerprint
         if isinstance(execution_origin, GptPlannedExecutionOrigin)
@@ -151,6 +167,14 @@ def build_connected_receipt(
         raise ValueError("Execution origin does not bind the accepted plan.")
     if staged_data_commitment != report.staged_data_commitment:
         raise ValueError("Staged commitment differs from the verification report.")
+    validate_connected_verification_report(
+        inventory=inventory,
+        accepted_plan=accepted_plan,
+        reference_graph=reference_graph,
+        change_ledger=change_ledger,
+        report=report,
+        organized_tree=organized_tree,
+    )
     core = FolderReceiptCoreV2(
         execution_role=execution_role,
         job_id=job_id,
@@ -185,3 +209,110 @@ def build_connected_receipt(
         receipt=core,
         receipt_fingerprint=canonical_sha256(core),
     )
+
+
+def validate_connected_evidence_ledger(
+    *,
+    job_id: str,
+    inventory: FolderInventory,
+    user_request: FolderUserRequestArtifact,
+    accepted_plan: FolderAcceptedPlanV2,
+    execution_origin: GptPlannedExecutionOrigin,
+    evidence_ledger: FolderEvidenceLedger,
+) -> None:
+    """Require one origin ledger and execution-origin record to agree exactly."""
+
+    expected_provider_kind = {
+        "deterministic_development": "deterministic",
+        "live": "live",
+        "recorded_replay": "recorded_replay",
+    }[execution_origin.planner_kind]
+    observable_transcript = tuple(
+        turn.model_dump(mode="json") for turn in evidence_ledger.observable_turns
+    )
+    if not (
+        evidence_ledger.job_id == job_id
+        and evidence_ledger.source_commitment == inventory.source_commitment
+        and evidence_ledger.request_fingerprint == user_request.request_fingerprint
+        and evidence_ledger.evidence_fingerprint == accepted_plan.evidence_fingerprint
+        and evidence_ledger.accepted_plan_fingerprint == canonical_sha256(accepted_plan)
+        and evidence_ledger.request_scope == accepted_plan.request_scope
+        and evidence_ledger.provider_kind == expected_provider_kind
+        and evidence_ledger.clarification_question
+        == execution_origin.clarification_question
+        and evidence_ledger.clarification_answer
+        == execution_origin.clarification_answer
+        and execution_origin.evidence_fingerprint
+        == evidence_ledger.evidence_fingerprint
+        and execution_origin.accepted_plan_fingerprint
+        == evidence_ledger.accepted_plan_fingerprint
+        and execution_origin.observable_transcript == observable_transcript
+    ):
+        raise ValueError(
+            "Origin evidence ledger, accepted plan, execution origin, and receipt "
+            "identity do not agree."
+        )
+    if execution_origin.planner_kind == "live":
+        if not (
+            execution_origin.provider_call_count == evidence_ledger.response_turn_count
+            and execution_origin.returned_model_id is not None
+            and execution_origin.returned_model_id in evidence_ledger.returned_model_ids
+            and execution_origin.store_false is True
+            and evidence_ledger.store_false is True
+        ):
+            raise ValueError("Live evidence ledger metadata is not truthful.")
+    elif not (
+        execution_origin.provider_call_count == 0
+        and execution_origin.store_false is None
+        and evidence_ledger.store_false is None
+    ):
+        raise ValueError("Keyless evidence ledger metadata is not truthful.")
+    elif execution_origin.planner_kind == "deterministic_development":
+        if execution_origin.returned_model_id is not None or (
+            evidence_ledger.returned_model_ids
+        ):
+            raise ValueError("Deterministic evidence cannot claim a returned model.")
+    elif evidence_ledger.returned_model_ids and (
+        execution_origin.returned_model_id not in evidence_ledger.returned_model_ids
+    ):
+        raise ValueError("Replay evidence does not bind its returned model identity.")
+
+
+def validate_connected_verification_report(
+    *,
+    inventory: FolderInventory,
+    accepted_plan: FolderAcceptedPlanV2,
+    reference_graph: FolderReferenceGraph,
+    change_ledger: FolderChangeLedger,
+    report: FolderVerificationReport,
+    organized_tree: OrganizedTreeSnapshot,
+) -> None:
+    """Require the human-facing verification report to equal derived facts."""
+
+    check_ids = tuple(check.check_id for check in report.checks)
+    if len(check_ids) != len(set(check_ids)) or set(check_ids) != (
+        _REQUIRED_REPORT_CHECK_IDS
+    ):
+        raise ValueError("Verification report check IDs are not exact.")
+    expected = {
+        "source_commitment": inventory.source_commitment,
+        "request_fingerprint": accepted_plan.request_fingerprint,
+        "accepted_plan_fingerprint": canonical_sha256(accepted_plan),
+        "result_folder_name": accepted_plan.result_folder_name,
+        "file_count": len(inventory.files),
+        "path_change_count": change_ledger.path_change_count,
+        "protected_file_count": change_ledger.protected_file_count,
+        "empty_directory_count": len(accepted_plan.empty_directories),
+        "supported_link_count": len(reference_graph.references),
+        "rewritten_link_count": change_ledger.rewritten_link_count,
+        "rewritten_markdown_file_count": (change_ledger.rewritten_markdown_file_count),
+    }
+    if any(
+        getattr(report, field_name) != value for field_name, value in expected.items()
+    ):
+        raise ValueError("Verification report fields differ from derived facts.")
+    if not (
+        organized_tree.file_count == len(inventory.files)
+        and organized_tree.empty_directory_count == len(accepted_plan.empty_directories)
+    ):
+        raise ValueError("Organized-tree counts differ from verified report facts.")

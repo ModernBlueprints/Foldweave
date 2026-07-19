@@ -29,13 +29,20 @@ from name_atlas.folder_refactor.connected_change.descriptors import (
     create_connected_change_file,
     parse_connected_change_file,
 )
+from name_atlas.folder_refactor.connected_change.evidence import (
+    build_deterministic_origin_evidence,
+)
 from name_atlas.folder_refactor.connected_change.matcher import (
     match_connected_change,
 )
 from name_atlas.folder_refactor.connected_change.organized_tree import (
+    OrganizedTreeCommitmentMismatch,
     OrganizedTreeSnapshot,
     require_organized_tree_commitment,
     scan_organized_tree,
+)
+from name_atlas.folder_refactor.connected_change.proof import (
+    render_connected_proof_html,
 )
 from name_atlas.folder_refactor.connected_change.receipt import (
     CONNECTED_CHANGE_MATCH_REPORT_PATH,
@@ -49,15 +56,18 @@ from name_atlas.folder_refactor.connected_change.verification import (
     verify_connected_result,
 )
 from name_atlas.folder_refactor.inventory import FolderScan, scan_folder
+from name_atlas.folder_refactor.markdown_contracts import FolderReferenceGraph
 from name_atlas.folder_refactor.markdown_links import MARKDOWN_SUFFIXES
 from name_atlas.folder_refactor.portable_artifacts import (
     CHANGE_RECEIPT_PATH,
+    EVIDENCE_LEDGER_PATH,
     PROOF_AND_RESTORE_HTML_PATH,
     canonical_portable_json_bytes,
     write_new_portable_json,
 )
 from name_atlas.folder_refactor.receipt_contracts import (
     FolderChangeLedger,
+    FolderEvidenceLedger,
     FolderPathMapRow,
     FolderStagedDataMember,
     FolderUserRequestArtifact,
@@ -67,6 +77,8 @@ from name_atlas.folder_refactor.transaction import (
     FolderBagWriter,
     FolderProofFinalizer,
     FolderRunResult,
+    FolderTransactionError,
+    FolderTransactionPaths,
     _write_portable_bytes,
     execute_accepted_folder_plan,
     scan_folder_with_references,
@@ -90,6 +102,38 @@ class ConnectedChangeRunResult:
 
 
 @dataclass(frozen=True, slots=True)
+class PreparedConnectedChangeOrigin:
+    """Source-bound origin plan prepared before any result write occurs."""
+
+    initial_scan: FolderScan
+    reference_graph: FolderReferenceGraph
+    request: str
+    accepted_plan: FolderAcceptedPlanV2
+    execution_origin: GptPlannedExecutionOrigin
+    evidence_ledger: FolderEvidenceLedger
+    markdown_payloads: Mapping[str, bytes]
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedConnectedChangeApplication:
+    """Source- and Change-File-bound receiver plan prepared before execution."""
+
+    initial_scan: FolderScan
+    reference_graph: FolderReferenceGraph
+    request: str
+    accepted_plan: FolderAcceptedPlanV2
+    execution_origin: CapsuleAppliedExecutionOrigin
+    external_change_file: _StableExternalFile
+    change_file: ConnectedChangeFile
+    match_report: ConnectedChangeMatchReport
+
+
+PreparedConnectedChange = (
+    PreparedConnectedChangeOrigin | PreparedConnectedChangeApplication
+)
+
+
+@dataclass(frozen=True, slots=True)
 class _StableExternalFile:
     path: Path
     bytes: bytes
@@ -103,10 +147,12 @@ class _OriginFinalizer(FolderProofFinalizer):
         *,
         job_id: str,
         execution_origin: GptPlannedExecutionOrigin,
+        evidence_ledger: FolderEvidenceLedger,
         markdown_payloads: Mapping[str, bytes],
     ) -> None:
         self.job_id = job_id
         self.execution_origin = execution_origin
+        self.evidence_ledger = evidence_ledger
         self.markdown_payloads = dict(markdown_payloads)
         self.change_file: ConnectedChangeFile | None = None
         self.organized_tree: OrganizedTreeSnapshot | None = None
@@ -140,6 +186,11 @@ class _OriginFinalizer(FolderProofFinalizer):
             EXECUTION_ORIGIN_PATH,
             self.execution_origin,
         )
+        write_new_portable_json(
+            pending_root,
+            EVIDENCE_LEDGER_PATH,
+            self.evidence_ledger,
+        )
         rewritten_ids = tuple(
             sorted(
                 entry.file_id
@@ -163,6 +214,7 @@ class _OriginFinalizer(FolderProofFinalizer):
             change_ledger=change_ledger,
             report=values["report"],
             execution_origin=self.execution_origin,
+            evidence_ledger=self.evidence_ledger,
             artifact_commitments=commitments,
             staged_members=staged_members,
             staged_data_commitment=cast(str, values["staged_data_commitment"]),
@@ -178,7 +230,10 @@ class _OriginFinalizer(FolderProofFinalizer):
         write_new_portable_json(pending_root, CONNECTED_CHANGE_PATH, change_file)
         _write_portable_bytes(
             Path(PROOF_AND_RESTORE_HTML_PATH),
-            _render_proof(envelope.receipt_fingerprint, organized.commitment),
+            render_connected_proof_html(
+                envelope.receipt_fingerprint,
+                organized.commitment,
+            ),
             pending_root,
         )
         _finalize_and_verify(
@@ -282,7 +337,10 @@ class _ReceiverFinalizer(FolderProofFinalizer):
         write_new_portable_json(pending_root, CHANGE_RECEIPT_PATH, envelope)
         _write_portable_bytes(
             Path(PROOF_AND_RESTORE_HTML_PATH),
-            _render_proof(envelope.receipt_fingerprint, organized.commitment),
+            render_connected_proof_html(
+                envelope.receipt_fingerprint,
+                organized.commitment,
+            ),
             pending_root,
         )
         _finalize_and_verify(
@@ -313,6 +371,33 @@ def create_connected_change_origin(
 ) -> ConnectedChangeRunResult:
     """Create one deterministic-development origin result and Change File."""
 
+    job_id = uuid.uuid4().hex
+    prepared = prepare_connected_change_origin(
+        job_id=job_id,
+        source_root=source_root,
+        request=request,
+        result_folder_name=result_folder_name,
+        target_by_original_path=target_by_original_path,
+    )
+    return execute_prepared_connected_change(
+        prepared=prepared,
+        output_parent=output_parent,
+        job_id=job_id,
+        bag_writer=bag_writer,
+        package_validator=package_validator,
+    )
+
+
+def prepare_connected_change_origin(
+    *,
+    job_id: str,
+    source_root: Path,
+    request: str,
+    result_folder_name: str,
+    target_by_original_path: Mapping[str, str],
+) -> PreparedConnectedChangeOrigin:
+    """Compile one deterministic-development origin without writing a result."""
+
     initial_scan, graph = scan_folder_with_references(source_root)
     expected_paths = {item.relative_path for item in initial_scan.inventory.files}
     if set(target_by_original_path) != expected_paths:
@@ -337,14 +422,14 @@ def create_connected_change_origin(
         for item in initial_scan.inventory.files
         if not item.protected
     }
-    evidence_fingerprint = canonical_sha256(
-        {
-            "domain": "name-atlas:c0-deterministic-development-evidence:v1",
-            "request": request,
-            "source_commitment": initial_scan.inventory.source_commitment,
-            "targets": sorted(target_by_original_path.items()),
-        }
+    from name_atlas.folder_refactor.planner_evidence import (
+        create_initial_evidence_ledger,
     )
+
+    evidence_fingerprint = create_initial_evidence_ledger(
+        initial_scan.inventory,
+        request,
+    ).evidence_fingerprint
     plan = build_connected_accepted_plan(
         inventory=initial_scan.inventory,
         request=request,
@@ -353,48 +438,65 @@ def create_connected_change_origin(
         target_by_file_id=target_by_id,
         execution_authority="gpt_plan",
     )
-    origin = GptPlannedExecutionOrigin(
-        planner_kind="deterministic_development",
-        observable_transcript=(
-            {
-                "kind": "deterministic_development_plan",
-                "request_fingerprint": plan.request_fingerprint,
-                "source_commitment": plan.source_commitment,
-            },
-        ),
-        evidence_fingerprint=evidence_fingerprint,
-        accepted_plan_fingerprint=canonical_sha256(plan),
-        provider_call_count=0,
-        api_used=False,
-        external_network_used=False,
-    )
-    finalizer = _OriginFinalizer(
-        job_id=uuid.uuid4().hex,
-        execution_origin=origin,
-        markdown_payloads=_read_markdown_payloads(initial_scan),
-    )
-    run = execute_accepted_folder_plan(
-        initial_scan=initial_scan,
-        output_parent=output_parent,
+    origin, evidence_ledger = build_deterministic_origin_evidence(
+        job_id=job_id,
+        inventory=initial_scan.inventory,
         request=request,
         accepted_plan=plan,
-        reference_graph=graph,
-        bag_writer=BagItWriter() if bag_writer is None else bag_writer,
-        package_validator=(
-            BagItPackageValidator() if package_validator is None else package_validator
-        ),
-        proof_finalizer=finalizer,
     )
-    if finalizer.change_file is None or finalizer.organized_tree is None:
-        raise AssertionError("Origin finalizer returned without complete proof.")
-    return ConnectedChangeRunResult(
-        folder_run=run,
-        change_file_path=run.result_root / CONNECTED_CHANGE_PATH,
-        change_file_fingerprint=finalizer.change_file.change_file_fingerprint,
-        receipt_fingerprint=_require_receipt_fingerprint(run),
-        organized_tree_commitment=finalizer.organized_tree.commitment,
+    return PreparedConnectedChangeOrigin(
+        initial_scan=initial_scan,
+        reference_graph=graph,
+        request=request,
+        accepted_plan=plan,
         execution_origin=origin,
-        match_report=None,
+        evidence_ledger=evidence_ledger,
+        markdown_payloads=_read_markdown_payloads(initial_scan),
+    )
+
+
+def rehydrate_prepared_connected_change_origin(
+    *,
+    source_root: Path,
+    request: str,
+    accepted_plan: FolderAcceptedPlanV2,
+    execution_origin: GptPlannedExecutionOrigin,
+    evidence_ledger: FolderEvidenceLedger,
+) -> PreparedConnectedChangeOrigin:
+    """Rebind one persisted accepted origin to its unchanged local source."""
+
+    initial_scan, graph = scan_folder_with_references(source_root)
+    from name_atlas.folder_refactor.connected_change.accepted_plan import (
+        validate_connected_accepted_plan,
+    )
+    from name_atlas.folder_refactor.connected_change.receipt import (
+        validate_connected_evidence_ledger,
+    )
+    from name_atlas.folder_refactor.receipt_builder import (
+        build_folder_user_request_artifact,
+    )
+
+    validate_connected_accepted_plan(
+        inventory=initial_scan.inventory,
+        request=request,
+        plan=accepted_plan,
+    )
+    validate_connected_evidence_ledger(
+        job_id=evidence_ledger.job_id,
+        inventory=initial_scan.inventory,
+        user_request=build_folder_user_request_artifact(request),
+        accepted_plan=accepted_plan,
+        execution_origin=execution_origin,
+        evidence_ledger=evidence_ledger,
+    )
+    return PreparedConnectedChangeOrigin(
+        initial_scan=initial_scan,
+        reference_graph=graph,
+        request=request,
+        accepted_plan=accepted_plan,
+        execution_origin=execution_origin,
+        evidence_ledger=evidence_ledger,
+        markdown_payloads=_read_markdown_payloads(initial_scan),
     )
 
 
@@ -407,6 +509,26 @@ def apply_connected_change(
     package_validator: PackageValidator | None = None,
 ) -> ConnectedChangeRunResult:
     """Apply one Change File deterministically without provider or budget access."""
+
+    prepared = prepare_connected_change_application(
+        change_file_path=change_file_path,
+        source_root=source_root,
+    )
+    return execute_prepared_connected_change(
+        prepared=prepared,
+        output_parent=output_parent,
+        job_id=uuid.uuid4().hex,
+        bag_writer=bag_writer,
+        package_validator=package_validator,
+    )
+
+
+def prepare_connected_change_application(
+    *,
+    change_file_path: Path,
+    source_root: Path,
+) -> PreparedConnectedChangeApplication:
+    """Match one receiver without provider, budget, or result mutation."""
 
     external = _read_stable_external_file(change_file_path)
     change_file = parse_connected_change_file(external.bytes)
@@ -451,36 +573,102 @@ def apply_connected_change(
         match_report_fingerprint=match_report.match_report_fingerprint,
         receiver_accepted_plan_fingerprint=canonical_sha256(plan),
     )
-    finalizer = _ReceiverFinalizer(
-        job_id=uuid.uuid4().hex,
+    return PreparedConnectedChangeApplication(
+        initial_scan=initial_scan,
+        reference_graph=graph,
+        request=change_file.core.request,
+        accepted_plan=plan,
+        execution_origin=origin,
         external_change_file=external,
         change_file=change_file,
         match_report=match_report,
-        execution_origin=origin,
     )
-    run = execute_accepted_folder_plan(
-        initial_scan=initial_scan,
-        output_parent=output_parent,
-        request=change_file.core.request,
-        accepted_plan=plan,
-        reference_graph=graph,
-        bag_writer=BagItWriter() if bag_writer is None else bag_writer,
-        package_validator=(
-            BagItPackageValidator() if package_validator is None else package_validator
-        ),
-        proof_finalizer=finalizer,
-    )
+
+
+def execute_prepared_connected_change(
+    *,
+    prepared: PreparedConnectedChange,
+    output_parent: Path,
+    job_id: str,
+    transaction_paths: FolderTransactionPaths | None = None,
+    bag_writer: FolderBagWriter | None = None,
+    package_validator: PackageValidator | None = None,
+) -> ConnectedChangeRunResult:
+    """Execute one persisted preparation through the shared copy transaction."""
+
+    if isinstance(prepared, PreparedConnectedChangeOrigin):
+        finalizer: _OriginFinalizer | _ReceiverFinalizer = _OriginFinalizer(
+            job_id=job_id,
+            execution_origin=prepared.execution_origin,
+            evidence_ledger=prepared.evidence_ledger,
+            markdown_payloads=prepared.markdown_payloads,
+        )
+    else:
+        finalizer = _ReceiverFinalizer(
+            job_id=job_id,
+            external_change_file=prepared.external_change_file,
+            change_file=prepared.change_file,
+            match_report=prepared.match_report,
+            execution_origin=prepared.execution_origin,
+        )
+    try:
+        run = execute_accepted_folder_plan(
+            initial_scan=prepared.initial_scan,
+            output_parent=output_parent,
+            request=prepared.request,
+            accepted_plan=prepared.accepted_plan,
+            reference_graph=prepared.reference_graph,
+            bag_writer=BagItWriter() if bag_writer is None else bag_writer,
+            package_validator=(
+                BagItPackageValidator()
+                if package_validator is None
+                else package_validator
+            ),
+            proof_finalizer=finalizer,
+            transaction_paths=transaction_paths,
+        )
+    except FolderTransactionError as exc:
+        connected_error = _project_connected_transaction_error(exc)
+        if connected_error is not None:
+            raise connected_error from exc
+        raise
     if finalizer.organized_tree is None:
-        raise AssertionError("Receiver finalizer returned without convergence proof.")
+        raise AssertionError("Connected Change finalizer lacks convergence proof.")
+    if isinstance(finalizer, _OriginFinalizer):
+        if finalizer.change_file is None:
+            raise AssertionError("Origin finalizer returned without a Change File.")
+        change_file = finalizer.change_file
+        match_report = None
+    else:
+        change_file = finalizer.change_file
+        match_report = finalizer.match_report
     return ConnectedChangeRunResult(
         folder_run=run,
         change_file_path=run.result_root / CONNECTED_CHANGE_PATH,
         change_file_fingerprint=change_file.change_file_fingerprint,
         receipt_fingerprint=_require_receipt_fingerprint(run),
         organized_tree_commitment=finalizer.organized_tree.commitment,
-        execution_origin=origin,
+        execution_origin=prepared.execution_origin,
         match_report=match_report,
     )
+
+
+def _project_connected_transaction_error(
+    error: FolderTransactionError,
+) -> ConnectedChangeError | None:
+    """Preserve stable Connected Change blockers across the shared transaction."""
+
+    cause: BaseException | None = error.__cause__
+    while cause is not None:
+        if isinstance(cause, ConnectedChangeError):
+            return cause
+        if isinstance(cause, OrganizedTreeCommitmentMismatch):
+            return ConnectedChangeError(
+                OrganizedTreeCommitmentMismatch.blocker_id,
+                str(cause),
+            )
+        cause = cause.__cause__
+    return None
 
 
 def _read_markdown_payloads(scan: FolderScan) -> dict[str, bytes]:
@@ -628,14 +816,3 @@ def _finalize_and_verify(
         raise ValueError(
             "Independent Connected Change verification blocked: " + failures
         )
-
-
-def _render_proof(receipt_fingerprint: str, organized_commitment: str) -> bytes:
-    return (
-        '<!doctype html><html lang="en"><meta charset="utf-8">'
-        "<title>Name Atlas proof</title><main><h1>Your new folder is verified</h1>"
-        "<p>Every in-scope file is present exactly once. The original folder was "
-        "not changed.</p><details><summary>Technical proof</summary><p>Receipt: "
-        f"<code>{receipt_fingerprint}</code></p><p>Organized tree: <code>"
-        f"{organized_commitment}</code></p></details></main></html>\n"
-    ).encode()

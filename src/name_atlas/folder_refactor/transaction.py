@@ -198,6 +198,29 @@ class FolderReceiptContext:
             raise ValueError("Pending and final result paths must differ.")
 
 
+@dataclass(frozen=True, slots=True)
+class FolderTransactionPaths:
+    """Job-owned execution paths independent of one receipt schema version."""
+
+    job_id: str
+    pending_root: Path
+    final_root: Path
+
+    def __post_init__(self) -> None:
+        try:
+            parsed_job_id = uuid.UUID(hex=self.job_id)
+        except ValueError as exc:
+            raise ValueError(
+                "Transaction owner must be a lowercase UUID4 hex ID."
+            ) from exc
+        if parsed_job_id.version != 4 or parsed_job_id.hex != self.job_id:
+            raise ValueError("Transaction owner must be a lowercase UUID4 hex ID.")
+        if not self.pending_root.is_absolute() or not self.final_root.is_absolute():
+            raise ValueError("Persisted transaction paths must be absolute.")
+        if self.pending_root == self.final_root:
+            raise ValueError("Pending and final result paths must differ.")
+
+
 class FolderProofFinalizer(Protocol):
     """Finalize one non-v1 portable proof before common no-replace promotion."""
 
@@ -427,12 +450,17 @@ def execute_accepted_folder_plan(
     progress_callback: FolderTransactionProgress | None = None,
     receipt_context: FolderReceiptContext | None = None,
     proof_finalizer: FolderProofFinalizer | None = None,
+    transaction_paths: FolderTransactionPaths | None = None,
 ) -> FolderRunResult:
     """Create one verified copy from an already mechanically accepted plan."""
 
     if receipt_context is not None and proof_finalizer is not None:
         raise FolderTransactionError(
             "A transaction cannot use both v1 and Connected Change proof authority."
+        )
+    if receipt_context is not None and transaction_paths is not None:
+        raise FolderTransactionError(
+            "A v1 receipt context already owns its persisted transaction paths."
         )
     if not isinstance(reference_graph, FolderReferenceGraph):
         raise FolderTransactionError(
@@ -479,12 +507,12 @@ def execute_accepted_folder_plan(
         rewritten_markdown_original_bytes=rewritten_original_bytes,
     )
     expected_final_root = output_parent / accepted_plan.result_folder_name
-    if receipt_context is None:
+    if receipt_context is None and transaction_paths is None:
         final_root = expected_final_root
         pending_root = output_parent / (
             f".{accepted_plan.result_folder_name}.pending-{uuid.uuid4().hex}"
         )
-    else:
+    elif receipt_context is not None:
         final_root = receipt_context.final_root
         pending_root = receipt_context.pending_root
         if final_root != expected_final_root:
@@ -508,6 +536,22 @@ def execute_accepted_folder_plan(
         ):
             raise FolderTransactionError(
                 "Portable planner evidence does not match the accepted plan."
+            )
+    else:
+        assert transaction_paths is not None
+        final_root = transaction_paths.final_root
+        pending_root = transaction_paths.pending_root
+        if final_root != expected_final_root:
+            raise FolderTransactionError(
+                "Persisted final result path does not match the accepted plan."
+            )
+        if (
+            pending_root.parent != output_parent
+            or pending_root.name in {"", ".", ".."}
+            or pending_root.name != f".name-atlas-{transaction_paths.job_id}.pending"
+        ):
+            raise FolderTransactionError(
+                "Persisted pending result is not the exact job-owned output child."
             )
     if os.path.lexists(final_root):
         raise FolderTransactionError(f"Final result already exists: {final_root}")

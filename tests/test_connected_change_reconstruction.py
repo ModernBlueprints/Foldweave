@@ -161,7 +161,9 @@ def test_recreates_receivers_own_paths_bytes_and_empty_directories(
 ) -> None:
     source, authorities = _receiver_authorities(tmp_path)
     result = tmp_path / "received-result"
-    destination = tmp_path / "receiver-original-recreated"
+    unrelated_parent = tmp_path / "unrelated-parent"
+    unrelated_parent.mkdir()
+    destination = unrelated_parent / "receiver-original-recreated"
     fingerprint = authorities.envelope.receipt_fingerprint
     verification_calls: list[Path] = []
 
@@ -194,6 +196,125 @@ def test_recreates_receivers_own_paths_bytes_and_empty_directories(
     assert (destination / "drafts" / "note.md").read_bytes() == (
         source / "drafts" / "note.md"
     ).read_bytes()
+    assert tree_state(source) == source_before
+    assert tree_state(result) == result_before
+
+
+def test_known_receiver_source_overlap_is_refused_before_copy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, authorities = _receiver_authorities(tmp_path)
+    result = tmp_path / "received-result"
+    destination = source / "must-not-exist"
+    fingerprint = authorities.envelope.receipt_fingerprint
+    monkeypatch.setattr(
+        "name_atlas.folder_refactor.connected_change.reconstruction."
+        "_verify_connected_result",
+        lambda _root: _Verification(
+            status="verified",
+            receipt_fingerprint=fingerprint,
+        ),
+    )
+    source_before = tree_state(source)
+    result_before = tree_state(result)
+
+    with pytest.raises(FolderReconstructionError) as raised:
+        restore_connected_result(
+            result,
+            destination,
+            source_root=source,
+        )
+
+    assert raised.value.code == "destination_overlaps_source"
+    assert not destination.exists()
+    assert tree_state(source) == source_before
+    assert tree_state(result) == result_before
+
+
+@pytest.mark.parametrize("parent_kind", ["missing", "symlink", "not_writable"])
+def test_invalid_unrelated_destination_parent_is_refused_before_copy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    parent_kind: str,
+) -> None:
+    _source, authorities = _receiver_authorities(tmp_path)
+    result = tmp_path / "received-result"
+    destination_parent = tmp_path / "destination-parent"
+    if parent_kind == "symlink":
+        real_parent = tmp_path / "real-parent"
+        real_parent.mkdir()
+        destination_parent.symlink_to(real_parent, target_is_directory=True)
+    elif parent_kind == "not_writable":
+        destination_parent.mkdir()
+        destination_parent.chmod(0o500)
+    destination = destination_parent / "must-not-exist"
+    fingerprint = authorities.envelope.receipt_fingerprint
+    monkeypatch.setattr(
+        "name_atlas.folder_refactor.connected_change.reconstruction."
+        "_verify_connected_result",
+        lambda _root: _Verification(
+            status="verified",
+            receipt_fingerprint=fingerprint,
+        ),
+    )
+    result_before = tree_state(result)
+
+    try:
+        with pytest.raises(FolderReconstructionError) as raised:
+            restore_connected_result(result, destination)
+    finally:
+        if parent_kind == "not_writable":
+            destination_parent.chmod(0o700)
+
+    assert raised.value.code == "destination_parent_invalid"
+    assert not destination.exists()
+    assert tree_state(result) == result_before
+
+
+def test_competing_reconstruction_destination_is_preserved_without_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, authorities = _receiver_authorities(tmp_path)
+    result = tmp_path / "received-result"
+    unrelated_parent = tmp_path / "unrelated-parent"
+    unrelated_parent.mkdir()
+    destination = unrelated_parent / "receiver-original-recreated"
+    fingerprint = authorities.envelope.receipt_fingerprint
+    monkeypatch.setattr(
+        "name_atlas.folder_refactor.connected_change.reconstruction."
+        "_verify_connected_result",
+        lambda _root: _Verification(
+            status="verified",
+            receipt_fingerprint=fingerprint,
+        ),
+    )
+    monkeypatch.setattr(
+        "name_atlas.folder_refactor.connected_change.reconstruction."
+        "_load_receiver_authorities",
+        lambda _root: authorities,
+    )
+
+    def competing_promotion(_pending: Path, final: Path) -> None:
+        final.mkdir()
+        (final / "user-data.txt").write_bytes(b"preserve me\n")
+        raise FileExistsError(final)
+
+    monkeypatch.setattr(
+        "name_atlas.folder_refactor.connected_change.reconstruction."
+        "promote_directory_no_replace",
+        competing_promotion,
+    )
+    source_before = tree_state(source)
+    result_before = tree_state(result)
+
+    with pytest.raises(FolderReconstructionError) as raised:
+        restore_connected_result(result, destination, source_root=source)
+
+    assert raised.value.code == "promotion_failed"
+    assert (destination / "user-data.txt").read_bytes() == b"preserve me\n"
+    assert tuple(unrelated_parent.glob(f".{destination.name}.pending-*")) == ()
     assert tree_state(source) == source_before
     assert tree_state(result) == result_before
 

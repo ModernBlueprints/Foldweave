@@ -268,7 +268,13 @@ def _reparsed_authorities_match_receipt(
     return True
 
 
-def _resolve_absent_destination(destination: Path, *, result_root: Path) -> Path:
+def _resolve_absent_destination(
+    destination: Path,
+    *,
+    result_root: Path,
+    source_root: Path | None = None,
+    require_result_sibling: bool = True,
+) -> Path:
     if not isinstance(destination, Path):
         raise FolderReconstructionError(
             "destination_type_invalid",
@@ -328,8 +334,31 @@ def _resolve_absent_destination(destination: Path, *, result_root: Path) -> Path
             "Reconstruction destination and received result cannot contain "
             "one another.",
         )
-    result_parent = result_root.parent.resolve(strict=True)
-    if resolved_parent != result_parent:
+    if source_root is not None:
+        try:
+            source_metadata = source_root.lstat()
+            resolved_source = source_root.resolve(strict=True)
+        except OSError as exc:
+            raise FolderReconstructionError(
+                "source_root_invalid",
+                "Known reconstruction source root cannot be inspected safely.",
+            ) from exc
+        if stat.S_ISLNK(source_metadata.st_mode) or not stat.S_ISDIR(
+            source_metadata.st_mode
+        ):
+            raise FolderReconstructionError(
+                "source_root_invalid",
+                "Known reconstruction source root must be a real directory.",
+            )
+        if _contains(resolved_source, resolved) or _contains(resolved, resolved_source):
+            raise FolderReconstructionError(
+                "destination_overlaps_source",
+                "Reconstruction destination and known source cannot contain "
+                "one another.",
+            )
+    if require_result_sibling and resolved_parent != result_root.parent.resolve(
+        strict=True
+    ):
         raise FolderReconstructionError(
             "destination_must_share_result_parent",
             "Reconstruction destination must be next to the received result.",

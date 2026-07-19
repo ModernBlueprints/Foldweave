@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Sole Connected Change Implementation Plan
 
-Status: **EXECUTION ACTIVE; C1 IN PROGRESS**
+Status: **EXECUTION ACTIVE; C2 IN PROGRESS**
 
-Phase: **C1_COMPLETE_CONNECTED_CHANGE_ENGINE**
+Phase: **C2_COMPLETE_BROWSER_AND_NATIVE_EXPERIENCE**
 
 Submission hold: **ACTIVE**
 
@@ -68,7 +68,8 @@ The former A4, plugin gate, and A5–A7 are:
 Before C+0, Connected Change, native-picker expansion, shared MCP, plugin
 packaging, budget migration, new provider calls, promotion, video, and
 submission had not begun. C0 subsequently selected `CONNECTED_CHANGE_GO`; C1
-now owns final engine hardening while every later surface remains deferred.
+completed the full engine and durable-service boundary. C2 now owns the browser
+and bounded native experience while C3 and later surfaces remain deferred.
 
 ## 2. C+0 activation, timing, and profile decision
 
@@ -497,12 +498,42 @@ downstream consumer, owner, allowed cut, actual status, and actual verification.
 - **Owner:** primary integrator with bounded schema/matcher/verifier reviews.
 - **Allowed cut:** extra diagnostic presentation and redundant negative
   permutations only.
-- **Actual status:** `IN PROGRESS` from Sunday 19 July 2026 at 00:48:01 CEST.
-- **Actual verification:** the complete C0 transaction is the verified engine
-  foundation. C1 still owns final v2 job/restart/staleness authority, exact
-  role-specific portable artifact sets, optional v2 `--source` comparison,
-  unrestricted valid reconstruction destinations, strict format/version
-  negatives, and the complete final mismatch matrix.
+- **Actual status:** `COMPLETE` on Sunday 19 July 2026 at 02:18:19 CEST.
+- **Actual verification:** strict v2 jobs now provide canonical atomic
+  persistence, process locking, expected revisions, restart recovery,
+  idempotent creation, exact source and Change File staleness, terminal
+  immutability, and job-owned no-replace pending/final paths. Origin and receiver
+  results contain exact role-specific artifact families and distinct acyclic
+  receipts; v1 receipts remain independently verifiable and reconstructable,
+  while nonterminal v1 jobs fail with fresh-job guidance. The receiver command
+  dispatches before the legacy CLI, planner, provider, credential, budget, and
+  network modules, and repeated installed-console invocation returns one durable
+  job and one result. The independent verifier recomputes authority bindings,
+  maps, Markdown rewrites, BagIt findings, all receipt summaries, staged data,
+  and organized-tree convergence; six BagIt-valid reissued false summaries fail
+  with `receipt_summary_mismatch`. Output collisions persist exact terminal
+  blockers, source-free reconstruction remains possible after the historical
+  source path disappears, and unrelated-location application, verification,
+  and reconstruction pass. The final product-native checkpoint is
+  `.name-atlas/c1-checkpoint-20260719T021453+0200/c1-evidence.json`: origin
+  receipt `42649498847955afb166b5933cfd900b210e208ec6d98b5273fa059e7e7fdad2`,
+  receiver and unrelated-copy receipt
+  `3da5beee3c57f25c639990831f9c81500c401084ff36477a32ab635ecaa19975`,
+  organized-tree commitment
+  `1b63bc5bfafea89086fb0aa05e120f647cdd7f27096738279dd13a0505d9bc09`,
+  and receiver reconstruction commitment
+  `dbcfb34ed34683bd4498d7cd002a311faaa4da600b65469b75512fb4bd441dd4`.
+  Both sources and the Change File remained unchanged; receiver provider calls
+  were `0`; API and external-network use were false; the sole budget ledger
+  remained byte-identical at SHA-256
+  `4d76febd4c8e967445e6691a85d2d8cca5cda2f1908d018baa8c2c62cd509328`.
+  Expanded portable proof was visually inspected at 1280×720 and 390×844 with
+  complete readable identities and no horizontal overflow. The final root run
+  passed **40 focused tests and 707 full-suite tests**; `uv lock --check`, Ruff
+  lint, Ruff format over 129 files, and `git diff --check` passed. Bounded
+  independent audits returned final `GO`; all material findings were corrected,
+  and no provider call, budget migration, MCP, plugin, promotion, or submission
+  operation occurred.
 
 ### C2 — Complete browser and native experience
 
@@ -532,8 +563,12 @@ downstream consumer, owner, allowed cut, actual status, and actual verification.
 - **Owner:** primary integrator; bounded visual/accessibility reviewer permitted.
 - **Allowed cut:** decorative motion, native completion notification,
   nonessential metrics, advanced filters, and expanded evidence presentation.
-- **Actual status:** `NOT STARTED`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `IN PROGRESS` from Sunday 19 July 2026 at 02:18:19 CEST.
+- **Actual verification:** C1 established the shared durable service and
+  responsive portable proof consumed by this milestone. Browser routes, native
+  picker behavior, truthful Organize/Apply progress, final Done actions, and the
+  complete C2 viewport/accessibility acceptance remain to be implemented and
+  verified.
 
 ### C3 — Final GPT-5.6 evidence and fixtures
 

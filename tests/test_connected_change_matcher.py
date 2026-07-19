@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from itertools import permutations
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 
@@ -67,7 +68,7 @@ def test_matcher_is_sequence_order_invariant(tmp_path: Path) -> None:
         markdown_payloads=payloads,
     )
 
-    forward = _match_descriptors(
+    expected = _match_descriptors(
         core,
         descriptors,
         receiver_source_commitment=inventory.source_commitment,
@@ -75,15 +76,22 @@ def test_matcher_is_sequence_order_invariant(tmp_path: Path) -> None:
             item.relative_path for item in inventory.empty_directories
         ),
     )
-    reversed_result = _match_descriptors(
-        core,
-        tuple(reversed(descriptors)),
-        receiver_source_commitment=inventory.source_commitment,
-        receiver_empty_directories=tuple(
-            reversed(tuple(item.relative_path for item in inventory.empty_directories))
-        ),
-    )
-    assert reversed_result == forward
+    permutation_count = 0
+    for descriptor_order in permutations(descriptors):
+        actual = _match_descriptors(
+            core,
+            descriptor_order,
+            receiver_source_commitment=inventory.source_commitment,
+            receiver_empty_directories=tuple(
+                reversed(
+                    tuple(item.relative_path for item in inventory.empty_directories)
+                )
+            ),
+        )
+        assert actual == expected
+        permutation_count += 1
+
+    assert permutation_count == 720
 
 
 def test_matcher_blocks_symmetric_duplicate_group(tmp_path: Path) -> None:
