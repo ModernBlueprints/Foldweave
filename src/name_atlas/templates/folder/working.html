@@ -111,6 +111,10 @@
             const response = await window.fetch("/status", {cache: "no-store"});
             const status = await response.json();
             updateNameAtlasProgress(status);
+            if (status.lifecycle === "reviewing") {
+              window.location.assign("/review");
+              return;
+            }
             if (status.lifecycle === "verified") {
               window.location.assign("/done");
               return;

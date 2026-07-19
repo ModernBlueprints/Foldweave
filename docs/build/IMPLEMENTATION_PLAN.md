@@ -1,9 +1,9 @@
 # Foldweave — Sole Native-Review Implementation Plan
 
-Status: **FOLDWEAVE EXECUTION INACTIVE; CONNECTED-CHANGE C0–C7 BASELINE
-COMPLETE; SUBMISSION HOLD ACTIVE**
+Status: **FOLDWEAVE EXECUTION ACTIVE; F0A REVIEW AUTHORITY COMPLETE; F0B NATIVE APPLICATION IN PROGRESS;
+CONNECTED-CHANGE C0–C7 BASELINE COMPLETE; SUBMISSION HOLD ACTIVE**
 
-Phase: **WAITING_FOR_FOLDWEAVE_GOAL_ACTIVATION**
+Phase: **F0B_NATIVE_APPLICATION_IN_PROGRESS**
 
 Submission hold: **ACTIVE**
 
@@ -1150,12 +1150,12 @@ The release material produced by C6–C7 is:
 
 `STALE FOR THE FOLDWEAVE RELEASE — PRESERVED VERIFIED NAME ATLAS PREDECESSOR MATERIAL; MUST BE REGENERATED AFTER FOLDWEAVE FEATURE FREEZE`
 
-The complete amended `GOAL.md` remains inactive until the user explicitly
-activates it in the current primary Codex task. The resulting Europe/Oslo
-timestamp is F+0. Meta-plan approval, branch creation, scaffold implementation,
-commit, push, handoff, reproduction, or a readiness verdict does not create
-F+0. The 44-hour envelope began with the user's decision and is not reset or
-extended by delayed activation.
+The user explicitly activated the complete amended goal in this primary Codex
+task on **Sunday 19 July 2026 at 17:18:14 CEST**. That timestamp is F+0.
+The controlling activation artifact is the complete objective attachment with
+SHA-256 `479351e01ca385a05fa306b229af32ba3ea695d3f8d4623731b302d5f91905a6`.
+The 44-hour envelope began with the user's earlier decision and was not reset or
+extended by activation.
 
 At F+0 calculate, using `oslo_tz = ZoneInfo("Europe/Oslo")`:
 
@@ -1179,6 +1179,29 @@ At F+0 calculate, using `oslo_tz = ZoneInfo("Europe/Oslo")`:
 | F5 feature freeze | 35/44, capped at Tuesday 21 July 2026 01:00 CEST |
 | F6 release candidate | 40/44, capped at Tuesday 21 July 2026 06:00 CEST |
 | F7 recording readiness | 44/44, capped at Tuesday 21 July 2026 10:00 CEST |
+
+Observed F+0 calculation:
+
+- available to feature freeze: **31 hours, 41 minutes, 45 seconds**;
+- available to release candidate: **36 hours, 41 minutes, 45 seconds**;
+- available to recording readiness: **40 hours, 41 minutes, 45 seconds**;
+- available to submission: **56 hours, 41 minutes, 45 seconds**;
+- `planned_foldweave_hours`: **40.695998997**;
+- `scale`: **0.924909068106**.
+
+| Milestone | Effective target |
+|---|---|
+| F0a review authority | Sunday 19 July 2026 at 21:55:42 CEST |
+| F0b native transaction | Sunday 19 July 2026 at 22:51:12 CEST |
+| F0c ChatGPT developer transaction | Sunday 19 July 2026 at 23:46:42 CEST |
+| F0d consumer gateway transaction | Monday 20 July 2026 at 00:42:11 CEST |
+| F1 complete review/revision engine | Monday 20 July 2026 at 04:24:10 CEST |
+| F2 serial collaboration proof | Monday 20 July 2026 at 10:52:38 CEST |
+| F3 complete product experience | Monday 20 July 2026 at 17:21:05 CEST |
+| F4 MCP, Codex, and live qualification | Monday 20 July 2026 at 21:58:34 CEST |
+| F5 feature freeze | Tuesday 21 July 2026 at 01:00:00 CEST |
+| F6 release candidate | Tuesday 21 July 2026 at 06:00:00 CEST |
+| F7 recording readiness | Tuesday 21 July 2026 at 10:00:00 CEST |
 
 Targets force early integration, simplification, and optional cuts. They are
 not completion evidence and do not terminate unfinished required work.
@@ -1284,8 +1307,38 @@ completed Foldweave.
 - **Downstream consumer:** F0b, F0c, F0d, F1, and every execution surface.
 - **Owner:** primary integrator; bounded independent lifecycle reviewer.
 - **Allowed cut:** visual decoration only; no review, preview, or authority cut.
-- **Actual status:** `NOT STARTED`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `COMPLETE — GO`; started Sunday 19 July 2026 at 17:18:14
+  CEST and qualified Sunday 19 July 2026 at 18:46:52 CEST.
+- **Actual verification:** one strict `folder-refactor-job.v3`, immutable
+  `folder-plan-preview.v1`, origin and receiver review services, exact durable
+  authorization, browser API, focused React review island, and real
+  `foldweave app --browser --mode development` launch path are integrated.
+  Origin and receiver jobs stop in `reviewing`; no pending/final output,
+  receipt, proof, or Change File authority exists before acceptance. Sofia sees
+  Original/Proposed; Martin sees his complete receiver-local current tree and
+  the imported shared proposal without GPT. Exact fingerprint-bound acceptance
+  persists before copy, creates one separate result, verifies it independently,
+  preserves both sources, returns the correct origin/receiver receipt identity,
+  and reconstructs Martin's selected source. Stale inputs, stale tabs,
+  mismatched candidates/previews/destinations, double clicks, conflicting
+  retries, invalid lifecycle moves, post-promotion interruption, and a
+  different self-consistent proposal substituted directly at the durable
+  `reviewing -> executing` boundary all fail closed. The corrected store-level
+  bypass returned `BYPASS_REJECTED`, left the checkpoint unchanged and output
+  empty, while the unchanged reviewed proposal reached `verified`.
+  `uv lock --check` passed with 48 packages; the focused Python surface passed
+  33/33; the complete regression passed 855/855 in 64.18 seconds; strict
+  TypeScript checking passed; Vitest passed 6/6; the Vite production build
+  passed; Ruff lint passed; Ruff format covered 164 files; staged and unstaged
+  diff checks passed. Actual browser QA covered automatic Working-to-Review,
+  exact acceptance through Done, 1280 x 720 review/decision surfaces, and a
+  390-pixel responsive surface without horizontal overflow. Evidence captures:
+  `docs/screenshots/08-foldweave-review.png`,
+  `docs/screenshots/09-foldweave-review-narrow.png`, and
+  `docs/screenshots/10-foldweave-review-decision.png`. The bounded independent
+  audits exposed the durable transition and receiver portable-binding defects;
+  two bounded correction rounds closed both, and final independent reproduction
+  returned F0a `GO`.
 
 ### F0b — Native application gate
 
@@ -1323,8 +1376,10 @@ completed Foldweave.
 - **Owner:** primary integrator; bounded packaging and visual reviewers.
 - **Allowed cut:** decoration and notification only; py2app is the authorized
   packaging fallback after two serious PyInstaller corrections.
-- **Actual status:** `NOT STARTED`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `IN PROGRESS` from Sunday 19 July 2026 at 18:46:52 CEST.
+- **Actual verification:** F0a dependency returned independently audited `GO`;
+  native, Keychain, direct-provider, ledger-migration, and packaging work has
+  not yet qualified. No F0b provider call or budget reservation has occurred.
 
 ### F0c — ChatGPT developer-mode gate
 

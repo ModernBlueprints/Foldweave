@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import os
 import secrets
 from collections.abc import AsyncIterator, Callable, Coroutine
@@ -70,6 +71,8 @@ class FolderWebLifecycle(StrEnum):
     IDLE = "idle"
     PLANNING = "planning"
     AWAITING_CLARIFICATION = "awaiting_clarification"
+    REVIEWING = "reviewing"
+    EXECUTING = "executing"
     VERIFIED = "verified"
     BLOCKED = "blocked"
 
@@ -169,7 +172,41 @@ class FolderClarificationRequest:
             raise ValueError("Clarification continuation token contains NUL.")
 
 
-FolderRunOutcome = FolderRunPresentation | FolderClarificationRequest
+@dataclass(frozen=True, slots=True)
+class FolderReviewHandle:
+    """Safe browser projection of one complete persisted review preview."""
+
+    job_id: str
+    job_revision: int
+    proposal_revision: int
+    candidate_fingerprint: str
+    preview_fingerprint: str
+    source_root: Path
+    output_parent: Path
+    result_folder_name: str
+    journey: FolderJourney
+
+    def __post_init__(self) -> None:
+        if len(self.job_id) != 32 or any(
+            character not in "0123456789abcdef" for character in self.job_id
+        ):
+            raise ValueError("Review handle requires a lowercase UUID4 hex job ID.")
+        for value in (self.candidate_fingerprint, self.preview_fingerprint):
+            if len(value) != 64 or any(
+                character not in "0123456789abcdef" for character in value
+            ):
+                raise ValueError("Review handle fingerprints must be SHA-256 text.")
+        if self.job_revision < 0 or not 0 <= self.proposal_revision <= 2:
+            raise ValueError("Review handle revision is outside its bounded range.")
+        if not self.source_root.is_absolute() or not self.output_parent.is_absolute():
+            raise ValueError("Review handle local paths must be absolute.")
+        if not self.result_folder_name.strip():
+            raise ValueError("Review handle requires its result-folder name.")
+
+
+FolderRunOutcome = (
+    FolderRunPresentation | FolderClarificationRequest | FolderReviewHandle
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +219,7 @@ class FolderWebCheckpoint:
     request: str
     journey: FolderJourney = FolderJourney.ORGANIZE
     clarification: FolderClarificationRequest | None = None
+    review: FolderReviewHandle | None = None
     blocker: str | None = None
     result: FolderRunPresentation | None = None
     resume_required: bool = False
@@ -196,6 +234,11 @@ class FolderWebCheckpoint:
                 raise ValueError("Clarification checkpoint requires only its question.")
         elif self.clarification is not None:
             raise ValueError("Only clarification state may carry a question.")
+        if self.lifecycle is FolderWebLifecycle.REVIEWING:
+            if self.review is None or self.resume_required:
+                raise ValueError("Reviewing checkpoint requires one persisted preview.")
+        elif self.review is not None:
+            raise ValueError("Only reviewing state may carry a review handle.")
         if self.lifecycle is FolderWebLifecycle.BLOCKED:
             if not self.blocker or self.resume_required:
                 raise ValueError("Blocked checkpoint requires only an exact blocker.")
@@ -242,8 +285,31 @@ class ConnectedFolderRunService(FolderRunService, Protocol):
         change_file_path: Path,
         source_root: Path,
         output_parent: Path,
+    ) -> FolderRunPresentation | FolderReviewHandle:
+        """Return a reviewed receiver candidate or one verified legacy result."""
+        ...
+
+
+@runtime_checkable
+class ReviewableFolderRunService(FolderRunService, Protocol):
+    """Expose one persisted preview and exact acceptance through the browser."""
+
+    def get_plan_preview(self, job_id: str) -> Any:
+        """Return the complete renderer-facing preview DTO."""
+        ...
+
+    async def accept_review(
+        self,
+        *,
+        job_id: str,
+        expected_revision: int,
+        preview_fingerprint: str,
+        candidate_fingerprint: str,
+        output_parent: Path,
+        result_folder_name: str,
+        idempotency_key: str,
     ) -> FolderRunPresentation:
-        """Return only a fully verified receiver result."""
+        """Accept only the exact visible preview and return verified facts."""
         ...
 
 
@@ -421,10 +487,12 @@ class _FolderWebState:
     journey: FolderJourney | None = None
     evidence_disclosure_required: bool = False
     outbound_evidence_will_be_sent: bool = False
+    foldweave_active: bool = False
     current_stage: int = 0
     completed_stage_count: int = 0
     result: FolderRunPresentation | None = None
     clarification: FolderClarificationRequest | None = None
+    review: FolderReviewHandle | None = None
     clarification_answer: str | None = None
     clarification_answer_count: int = 0
     clarification_error: str | None = None
@@ -457,6 +525,7 @@ def create_folder_app(
     """Create one loopback UI around the injected durable transaction service."""
 
     connected_enabled = isinstance(service, ConnectedFolderRunService)
+    review_enabled = isinstance(service, ReviewableFolderRunService)
     if connected_enabled:
         planner_label = service.planner_label
         planner_note = service.planner_note
@@ -490,6 +559,7 @@ def create_folder_app(
     state.outbound_evidence_will_be_sent = bool(
         getattr(service, "outbound_evidence_will_be_sent", False)
     )
+    state.foldweave_active = review_enabled
     default_request = getattr(service, "default_request", None)
     if (
         connected_enabled
@@ -521,9 +591,11 @@ def create_folder_app(
                         await state.worker
 
     app = FastAPI(
-        title="Reversible Name Atlas",
+        title="Foldweave" if review_enabled else "Reversible Name Atlas",
         description=(
-            "Describe the change. Keep supported Markdown links. Prove the result."
+            "Change the structure. Keep the connections."
+            if review_enabled
+            else "Describe the change. Keep supported Markdown links. Prove the result."
         ),
         version="0.4.0-c2",
         docs_url=None,
@@ -532,6 +604,7 @@ def create_folder_app(
     )
     app.state.folder_web_state = state
     app.state.folder_run_service = service
+    app.state.review_enabled = review_enabled
     app.state.native_path_bridge = desktop_bridge
     app.add_middleware(
         TrustedHostMiddleware,
@@ -710,6 +783,8 @@ def create_folder_app(
         await _refresh_terminal_checkpoint(state, service)
         if state.lifecycle is FolderWebLifecycle.IDLE:
             return _redirect("/")
+        if state.lifecycle is FolderWebLifecycle.REVIEWING:
+            return _redirect("/review")
         if state.lifecycle is FolderWebLifecycle.VERIFIED:
             return _redirect("/done")
         return TEMPLATES.TemplateResponse(
@@ -735,12 +810,144 @@ def create_folder_app(
             "done_url": (
                 "/done" if state.lifecycle is FolderWebLifecycle.VERIFIED else None
             ),
+            "review_url": (
+                "/review" if state.lifecycle is FolderWebLifecycle.REVIEWING else None
+            ),
             "blocked": state.lifecycle is FolderWebLifecycle.BLOCKED,
             "clarification_required": (
                 state.lifecycle is FolderWebLifecycle.AWAITING_CLARIFICATION
             ),
         }
-        return JSONResponse(payload)
+        return _no_store_json(payload)
+
+    @app.get("/review", response_class=HTMLResponse, include_in_schema=False)
+    async def review(request: Request) -> Response:
+        if not review_enabled:
+            return HTMLResponse("Plan review is unavailable.", status_code=404)
+        if state.lifecycle is not FolderWebLifecycle.REVIEWING or state.review is None:
+            return _redirect(_next_path(state))
+        return TEMPLATES.TemplateResponse(
+            request=request,
+            name="folder/review.html",
+            context={
+                **_base_context(
+                    state=state,
+                    planner_label=planner_label,
+                    planner_note=planner_note,
+                ),
+                "review": state.review,
+            },
+        )
+
+    @app.get(
+        "/api/jobs/{job_id}/preview",
+        include_in_schema=False,
+    )
+    async def review_preview(job_id: str) -> JSONResponse:
+        if (
+            not review_enabled
+            or state.review is None
+            or not hmac.compare_digest(job_id, state.review.job_id)
+        ):
+            return _no_store_json(
+                {"error": "review_job_not_found"},
+                status_code=404,
+            )
+        assert isinstance(service, ReviewableFolderRunService)
+        try:
+            preview = service.get_plan_preview(job_id)
+            payload = preview.model_dump(mode="json")
+        except Exception as exc:  # noqa: BLE001 - exact job blocker is returned
+            return _no_store_json(
+                {"error": "preview_unavailable", "detail": _safe_error_text(exc)},
+                status_code=409,
+            )
+        return _no_store_json(payload)
+
+    @app.get(
+        "/api/jobs/{job_id}/status",
+        include_in_schema=False,
+    )
+    async def review_status(job_id: str) -> JSONResponse:
+        if (
+            not review_enabled
+            or state.review is None
+            or not hmac.compare_digest(job_id, state.review.job_id)
+        ):
+            return _no_store_json(
+                {"error": "review_job_not_found"},
+                status_code=404,
+            )
+        return _no_store_json(
+            {
+                "job_id": state.review.job_id,
+                "lifecycle": state.lifecycle.value,
+                "job_revision": state.review.job_revision,
+                "proposal_revision": state.review.proposal_revision,
+                "candidate_fingerprint": state.review.candidate_fingerprint,
+                "preview_fingerprint": state.review.preview_fingerprint,
+                "output_parent": str(state.review.output_parent),
+                "result_folder_name": state.review.result_folder_name,
+                "done_url": (
+                    "/done" if state.lifecycle is FolderWebLifecycle.VERIFIED else None
+                ),
+            }
+        )
+
+    @app.post(
+        "/api/jobs/{job_id}/accept",
+        include_in_schema=False,
+    )
+    async def accept_review(job_id: str, request: Request) -> JSONResponse:
+        if not review_enabled or not isinstance(
+            service,
+            ReviewableFolderRunService,
+        ):
+            return _no_store_json(
+                {"error": "plan_review_unavailable"},
+                status_code=404,
+            )
+        async with state.submission_gate:
+            handle = state.review
+            if (
+                handle is None
+                or not hmac.compare_digest(job_id, handle.job_id)
+                or state.lifecycle is not FolderWebLifecycle.REVIEWING
+            ):
+                return _no_store_json(
+                    {"error": "review_not_current"},
+                    status_code=409,
+                )
+            try:
+                acceptance = await _parse_review_acceptance_json(
+                    request,
+                    expected_csrf_token=state.csrf_token,
+                    expected_handle=handle,
+                )
+            except FolderFormError as exc:
+                return _no_store_json(
+                    {"error": "acceptance_invalid", "detail": str(exc)},
+                    status_code=422,
+                )
+            state.lifecycle = FolderWebLifecycle.EXECUTING
+            try:
+                result = await _invoke_service(
+                    service,
+                    lambda: service.accept_review(**acceptance),
+                )
+            except Exception as exc:  # noqa: BLE001 - durable refusal is visible
+                state.notice = _safe_error_text(exc)
+                await _refresh_terminal_checkpoint(state, service)
+                if state.lifecycle is FolderWebLifecycle.EXECUTING:
+                    _block_browser_result(state, state.notice)
+                return _no_store_json(
+                    {"error": "acceptance_blocked", "detail": state.notice},
+                    status_code=409,
+                )
+            _complete_job(state, result)
+            return _no_store_json(
+                {"lifecycle": FolderWebLifecycle.VERIFIED.value, "done_url": "/done"}
+            )
 
     @app.post("/clarify", include_in_schema=False)
     async def clarify(request: Request) -> Response:
@@ -1059,7 +1266,7 @@ async def _run_apply_job(
         return
     finally:
         clear_progress()
-    _complete_job(state, result)
+    _apply_outcome(state, result)
 
 
 async def _continue_job(
@@ -1096,6 +1303,7 @@ def _complete_job(state: _FolderWebState, result: FolderRunPresentation) -> None
     state.clarification = None
     state.clarification_error = None
     state.blocker = None
+    state.review = None
     stages = _working_stages(state)
     state.current_stage = len(stages) - 1
     state.completed_stage_count = len(stages)
@@ -1103,7 +1311,7 @@ def _complete_job(state: _FolderWebState, result: FolderRunPresentation) -> None
 
 
 def _apply_outcome(state: _FolderWebState, outcome: FolderRunOutcome) -> None:
-    """Apply only the two declared service outcomes to server-owned state."""
+    """Apply only declared service outcomes to server-owned state."""
 
     if isinstance(outcome, FolderClarificationRequest):
         if state.clarification_answer_count != 0 or state.clarification is not None:
@@ -1112,6 +1320,12 @@ def _apply_outcome(state: _FolderWebState, outcome: FolderRunOutcome) -> None:
             return
         state.clarification = outcome
         state.lifecycle = FolderWebLifecycle.AWAITING_CLARIFICATION
+        return
+    if isinstance(outcome, FolderReviewHandle):
+        state.review = outcome
+        state.result = None
+        state.blocker = None
+        state.lifecycle = FolderWebLifecycle.REVIEWING
         return
     if not isinstance(outcome, FolderRunPresentation):
         state.blocker = "invalid_folder_run_outcome"
@@ -1260,6 +1474,7 @@ def _state_from_checkpoint(
         journey=checkpoint.journey,
         blocker=checkpoint.blocker,
         clarification=checkpoint.clarification,
+        review=checkpoint.review,
         result=checkpoint.result,
     )
     if checkpoint.lifecycle in {
@@ -1512,6 +1727,81 @@ async def _parse_result_action_form(
     return destination
 
 
+async def _parse_review_acceptance_json(
+    request: Request,
+    *,
+    expected_csrf_token: str,
+    expected_handle: FolderReviewHandle,
+) -> dict[str, object]:
+    """Parse one exact browser authorization without inferring any authority."""
+
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
+    if content_type != "application/json":
+        raise FolderFormError("Review acceptance must use JSON.")
+    csrf = request.headers.get("x-foldweave-csrf", "")
+    if not hmac.compare_digest(csrf, expected_csrf_token):
+        raise FolderFormError("Review acceptance token is invalid or expired.")
+    body = await request.body()
+    if not body or len(body) > MAX_FORM_BODY_BYTES:
+        raise FolderFormError("Review acceptance is empty or too large.")
+    try:
+        pairs = json.loads(
+            body.decode("utf-8", errors="strict"),
+            object_pairs_hook=lambda value: value,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                ValueError(f"Invalid JSON constant: {value}")
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise FolderFormError("Review acceptance is not strict UTF-8 JSON.") from exc
+    if not isinstance(pairs, list) or any(
+        not isinstance(item, tuple) or len(item) != 2 for item in pairs
+    ):
+        raise FolderFormError("Review acceptance must be one JSON object.")
+    keys = tuple(key for key, _value in pairs)
+    expected_keys = (
+        "candidate_fingerprint",
+        "expected_revision",
+        "idempotency_key",
+        "output_parent",
+        "preview_fingerprint",
+        "result_folder_name",
+    )
+    if len(set(keys)) != len(keys) or set(keys) != set(expected_keys):
+        raise FolderFormError("Review acceptance fields are incomplete or duplicated.")
+    fields = dict(pairs)
+    revision = fields["expected_revision"]
+    if isinstance(revision, bool) or not isinstance(revision, int):
+        raise FolderFormError("Review revision must be an integer.")
+    text_fields = tuple(key for key in expected_keys if key != "expected_revision")
+    if any(not isinstance(fields[key], str) for key in text_fields):
+        raise FolderFormError("Review acceptance text fields must be strings.")
+    if (
+        revision != expected_handle.job_revision
+        or fields["candidate_fingerprint"] != expected_handle.candidate_fingerprint
+        or fields["preview_fingerprint"] != expected_handle.preview_fingerprint
+        or fields["output_parent"] != str(expected_handle.output_parent)
+        or fields["result_folder_name"] != expected_handle.result_folder_name
+    ):
+        raise FolderFormError("Review acceptance does not match the visible preview.")
+    idempotency_key = fields["idempotency_key"]
+    if (
+        not idempotency_key
+        or idempotency_key != idempotency_key.strip()
+        or len(idempotency_key.encode("utf-8")) > 256
+    ):
+        raise FolderFormError("Review idempotency key is invalid.")
+    return {
+        "job_id": expected_handle.job_id,
+        "expected_revision": revision,
+        "preview_fingerprint": fields["preview_fingerprint"],
+        "candidate_fingerprint": fields["candidate_fingerprint"],
+        "output_parent": expected_handle.output_parent,
+        "result_folder_name": fields["result_folder_name"],
+        "idempotency_key": idempotency_key,
+    }
+
+
 def _base_context(
     *,
     state: _FolderWebState,
@@ -1535,6 +1825,7 @@ def _base_context(
         ),
         "evidence_disclosure_required": state.evidence_disclosure_required,
         "notice": state.notice,
+        "foldweave_active": state.foldweave_active,
     }
 
 
@@ -1564,6 +1855,8 @@ def _next_path(state: _FolderWebState) -> str:
         return "/"
     if state.lifecycle is FolderWebLifecycle.VERIFIED:
         return "/done"
+    if state.lifecycle is FolderWebLifecycle.REVIEWING:
+        return "/review"
     return "/working"
 
 
@@ -1573,11 +1866,22 @@ def _block_browser_result(state: _FolderWebState, blocker: str) -> None:
     state.lifecycle = FolderWebLifecycle.BLOCKED
     state.blocker = blocker
     state.result = None
+    state.review = None
     state.notice = None
 
 
 def _redirect(path: str) -> RedirectResponse:
     return RedirectResponse(path, status_code=303)
+
+
+def _no_store_json(
+    payload: object,
+    *,
+    status_code: int = 200,
+) -> JSONResponse:
+    response = JSONResponse(payload, status_code=status_code)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def _safe_error_text(exc: Exception) -> str:
@@ -1787,6 +2091,13 @@ async def _refresh_terminal_checkpoint(
         state.lifecycle = FolderWebLifecycle.BLOCKED
         state.journey = checkpoint.journey
         state.blocker = checkpoint.blocker
+        state.review = None
+        state.result = None
+    elif checkpoint.lifecycle is FolderWebLifecycle.REVIEWING:
+        state.lifecycle = FolderWebLifecycle.REVIEWING
+        state.journey = checkpoint.journey
+        state.review = checkpoint.review
+        state.blocker = None
         state.result = None
 
 

@@ -16,6 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
+foldweave = "name_atlas.foldweave_launcher:main"
 name-atlas = "name_atlas.launcher:main"
 
 [dependency-groups]

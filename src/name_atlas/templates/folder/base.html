@@ -4,18 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#101317">
-    <title>{% block title %}Reversible Name Atlas{% endblock %}</title>
+    <title>{% block title %}{% if foldweave_active %}Foldweave{% else %}Reversible Name Atlas{% endif %}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/vendor/blueprint/blueprint.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='/folder.css') }}?v=20260719-c2b">
   </head>
   <body class="bp6-dark folder-app">
     <a class="folder-skip-link" href="#main-content">Skip to main content</a>
     <header class="folder-header">
-      <a class="folder-wordmark" href="/" aria-label="Reversible Name Atlas home">
-        <span class="folder-mark" aria-hidden="true">NA</span>
+      <a class="folder-wordmark" href="/" aria-label="{% if foldweave_active %}Foldweave{% else %}Reversible Name Atlas{% endif %} home">
+        <span class="folder-mark" aria-hidden="true">{% if foldweave_active %}FW{% else %}NA{% endif %}</span>
         <span>
-          <strong>Reversible Name Atlas</strong>
-          <small>Describe the change once. Apply it wherever the same project exists.</small>
+          <strong>{% if foldweave_active %}Foldweave{% else %}Reversible Name Atlas{% endif %}</strong>
+          <small>{% if foldweave_active %}Change the structure. Keep the connections.{% else %}Describe the change once. Apply it wherever the same project exists.{% endif %}</small>
         </span>
       </a>
       {% if planner_label|default("") %}<span class="folder-mode">{{ planner_label }}</span>{% endif %}

@@ -1,0 +1,25 @@
+{% extends "folder/base.html" %}
+{% block title %}Review structure · Foldweave{% endblock %}
+{% block content %}
+  <section class="foldweave-review-shell" aria-labelledby="review-title">
+    <header class="foldweave-review-heading">
+      <div>
+        <div class="folder-kicker">Review before execution</div>
+        <h1 id="review-title">Review the structure</h1>
+        <p class="folder-lede">Nothing has been copied yet. Compare every member and supported connection, then accept this exact proposal or describe a change.</p>
+      </div>
+    </header>
+    <div
+      id="foldweave-review-root"
+      data-job-id="{{ review.job_id }}"
+      data-csrf-token="{{ state.csrf_token }}"
+      data-journey="{{ review.journey.value }}"
+      aria-live="polite"
+    >
+      <div class="foldweave-review-loading" role="status">Loading the verified preview…</div>
+    </div>
+    <noscript>Foldweave plan review requires JavaScript in this local application window.</noscript>
+  </section>
+  <link rel="stylesheet" href="{{ url_for('static', path='/review/review.css') }}?v=20260719-f0a">
+  <script type="module" src="{{ url_for('static', path='/review/review.js') }}?v=20260719-f0a"></script>
+{% endblock %}
