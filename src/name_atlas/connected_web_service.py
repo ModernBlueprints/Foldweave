@@ -94,6 +94,7 @@ class ConnectedBrowserRunService:
         planner_note: str | None = None,
         outbound_evidence_will_be_sent: bool | None = None,
         default_request: str | None = None,
+        change_file_download_name: str | None = None,
     ) -> None:
         self._job_path = job_path.expanduser().resolve(strict=False)
         self._service = service or ConnectedChangeJobService()
@@ -107,6 +108,7 @@ class ConnectedBrowserRunService:
             self.outbound_evidence_will_be_sent = outbound_evidence_will_be_sent
         if default_request is not None:
             self.default_request = default_request
+        self._change_file_download_name = change_file_download_name
 
     @property
     def run_in_worker_thread(self) -> bool:
@@ -369,7 +371,10 @@ class ConnectedBrowserRunService:
         )
         return ConnectedChangeDownload(
             payload=payload,
-            filename=f"{result_name}.nameatlas-change.json",
+            filename=(
+                self._change_file_download_name
+                or f"{result_name}.nameatlas-change.json"
+            ),
             change_file_fingerprint=expected_fingerprint,
             originating_receipt_fingerprint=expected_originating_receipt,
         )

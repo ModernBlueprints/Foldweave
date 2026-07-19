@@ -161,8 +161,15 @@ class _ConcurrentConnectedService:
     planner_label = "Deterministic concurrency acceptance"
     planner_note = "No provider call is made by this route-level test double."
 
-    def __init__(self, root: Path) -> None:
+    def __init__(
+        self,
+        root: Path,
+        *,
+        planner_label: str | None = None,
+    ) -> None:
         self.root = root
+        if planner_label is not None:
+            self.planner_label = planner_label
         self.plan_started = asyncio.Event()
         self.release_plan = asyncio.Event()
         self.apply_started = asyncio.Event()
@@ -448,6 +455,50 @@ async def test_apply_working_state_is_truthful_and_never_invokes_planning(
     assert "Show in Finder" in done.text
     assert "Verify again" in done.text
     assert "Recreate original layout" in done.text
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "planner_label",
+    [
+        "Recorded GPT-5.6 planning run",
+        "Live GPT-5.6 planning",
+    ],
+)
+async def test_gpt_origin_working_stage_is_truthful_for_live_and_replay(
+    tmp_path: Path,
+    planner_label: str,
+) -> None:
+    service = _ConcurrentConnectedService(
+        tmp_path,
+        planner_label=planner_label,
+    )
+    transport = httpx.ASGITransport(app=create_folder_app(service))
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as client:
+        csrf_token = _csrf(await client.get("/start"))
+        started = await client.post(
+            "/start",
+            data={
+                "source_root": str(tmp_path / "source"),
+                "user_request": "Organize this project once.",
+                "output_parent": str(tmp_path / "results"),
+                "csrf_token": csrf_token,
+            },
+        )
+        await asyncio.wait_for(service.plan_started.wait(), timeout=1)
+        working = await client.get("/working")
+        service.release_plan.set()
+        await _wait_for_lifecycle(client, "verified")
+
+    assert started.status_code == 303
+    assert planner_label in working.text
+    assert "GPT-5.6 is planning" in working.text
+    assert "Deterministic planning — no API call" not in working.text
+    assert "Matching the shared change" not in working.text
 
 
 @pytest.mark.anyio

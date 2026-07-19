@@ -1,148 +1,154 @@
 # Reversible Name Atlas
 
-**Refactor the collection. Hand over the proof.**
+**Describe the change once. Apply it wherever the same project exists.**
 
-Reversible Name Atlas is a local migration workbench for linked digital
-collections. It turns a risky rename or structural migration into a persistent,
-human-reviewed **Migration Case**, then creates a copy-only BagIt handoff with a
-portable **Change Receipt** that another person can verify without the original
-workbench, case file, API key, or network connection.
+*AI planning once. Deterministic execution everywhere.*
 
-The first user is a digital-preservation specialist or processing archivist
-preparing a collection for preservation or repository ingest. The problem is
-larger than changing filenames: one identity may also appear in metadata,
-derivative relationships, paths, and manifests. Name Atlas makes the complete
-supported change visible, isolates the exceptions that require judgment,
-propagates each human decision through declared links, and blocks the whole
-handoff if any required invariant remains unresolved.
+Reversible Name Atlas is a local-first application for reorganizing connected
+project folders. You describe the result you want in plain English. GPT-5.6
+plans the complete rename and folder move once; fixed code checks that every
+file admitted by the supported folder contract is accounted for, creates a
+separate verified result, and keeps the supported Markdown links working.
 
-The end-to-end transaction is:
+Name Atlas then creates a **Name Atlas Change File**. Another person who has an
+equivalent copy of the same project—even if their copy starts under different
+local names and folders—can apply that file without another GPT call, without
+an API key, and without transferring the project files themselves.
 
-```text
-linked source package
-  → persistent Migration Case
-  → mechanical path proposals and risk detection
-  → bounded GPT-5.6 evidence where Meaning review is required
-  → explicit human decisions
-  → copy-only staged BagIt package
-  → portable Change Receipt
-  → independent receiver verification
-  → optional bounded logical restore
-```
+## The problem
 
-## What the product proves
+A project folder is often more than a pile of unrelated files. Notes link to
+presentations, briefings link to research, and delivery instructions point to
+approved material. A normal bulk rename can move the files while silently
+breaking those connections. Asking an AI assistant to perform the same cleanup
+twice can also produce two different arrangements.
 
-Name Atlas separates four kinds of authority:
+Consider a small agency handing a project from Sofia to Martin:
 
-| Surface | Authority |
-|---|---|
-| Migration Case | The sole mutable authority while a migration is being reviewed |
-| Decision ledger | The complete portable record of proposals, GPT evidence where applicable, and explicit human actions |
-| Verification report | The producer's deterministic findings for the staged transaction |
-| Change Receipt | The immutable envelope, fingerprints, artifact commitments, counts, and claim boundaries handed to a receiver |
+- Sofia has the Apollo project organized around `approved/`, `working/`,
+  `research/`, and `notes/`.
+- Martin has the same logical files, but his local copy uses different names
+  such as `ready/`, `drafts/`, `evidence/`, and `conversations/`.
+- Both copies contain Markdown notes whose relative links reflect their own
+  starting layouts.
+- They want one consistent Northstar handoff without uploading the project to
+  each other or asking AI to reinterpret the task twice.
 
-The human-readable Markdown summary and offline HTML receipt are committed,
-non-authoritative views of those machine records.
+A list of shell moves is not enough: it is tied to one starting layout. A copy
+of Sofia's finished folder is also not enough when Martin must keep and verify
+his own local source. Name Atlas records the *logical change* and the proof
+needed to apply it to an equivalent copy within the supported contract, without
+guessing.
 
-A successful handoff also passes Library of Congress `bagit` validation, but
-BagIt and Name Atlas answer different questions:
+## The Sofia-to-Martin story
 
-- **BagIt validation** checks the bag's declared payload and tag-file fixity and
-  completeness.
-- **Name Atlas verification** checks that the receipt, source description,
-  original controls, decision ledger, path maps, staged controls, payloads, and
-  producer report describe one internally consistent supported migration.
+### 1. Sofia organizes the project
 
-The controlled negative demonstration makes this distinction visible: changing
-one resolved target in the decision ledger and rebuilding the ordinary BagIt tag
-manifest can leave BagIt validation passing, while `verify-receipt` blocks on
-`artifact_digest_mismatch:decision_ledger` because the ledger no longer matches
-the immutable receipt commitment.
+Sofia opens the local browser application, chooses **Organize a folder**, and
+enters:
 
-This is an integrity and internal-consistency proof within one supported package
-contract. It is not semantic-correctness, sender-authentication, compliance,
-historical-source-authenticity, or universal-reversibility proof.
+> Prepare this Apollo client-project folder for handoff as Northstar. Keep every file. Use the briefing and project notes to organize approved deliverables, working material, research, and meeting notes into clear folders. Rename Apollo-labelled paths to Northstar and keep every supported link working.
 
-## Authority model
-
-| Actor | What it does | What it cannot do |
-|---|---|---|
-| Deterministic engine | Scans declared structure, proposes paths, detects mechanical risk, propagates decisions, stages copies, and verifies invariants | Infer semantic intent |
-| GPT-5.6 | Turns bounded, visible text evidence for a mechanically flagged Meaning risk into a neutral, evidence-linked decision card | Approve, edit, verify, select a final target, or make a package exportable |
-| Human | Approves, edits, refuses, or leaves each family unresolved | Bypass mechanical blockers or verification failures |
-
-Green is reserved for deterministic verification after all required human
-decisions. Amber means human judgment remains. Red means a mechanical blocker or
-failed invariant. GPT prose is displayed neutrally.
-
-The loopback application sends no source payload bytes to GPT-5.6. In live mode,
-it shows the complete bounded outbound text and waits for the user to request a
-card. The exact card presented, its evidence and fingerprints, and the later
-human action are persisted together. GPT output never becomes human approval.
-
-## Supported package contract
-
-Name Atlas intentionally supports one package shape and one transformation
-profile:
+The origin transaction is:
 
 ```text
-<selected-root>/
-├── objects/
-│   └── ... original regular files ...
-├── manualNormalization/
-│   ├── access/
-│   │   └── ... optional access derivatives ...
-│   └── preservation/
-│       └── ... optional preservation derivatives ...
-├── metadata/
-│   └── metadata.csv
-└── normalization.csv  # optional when no derivatives exist
+local folder
+  → plain-English request
+  → bounded GPT-5.6 investigation
+  → complete proposed plan
+  → deterministic compilation
+  → optional one-question clarification
+  → separate verified result
+  → Name Atlas Change File
 ```
 
-Core rules:
+GPT-5.6 may inspect only the bounded relative-path and eligible text evidence
+made available by Name Atlas. It cannot write, move, delete, verify, or approve
+files. Fixed code rejects incomplete, duplicate, invented, stale, colliding, or
+otherwise invalid plans before any final result is accepted.
 
-- every source-package member is an in-scope regular file; symlinks, special
-  files, path traversal, absolute references, and unexpected members fail
-  closed;
-- `metadata/metadata.csv` is required UTF-8 CSV with `filename` first and
-  exactly one `dc.identifier` column;
-- each identifier is non-empty, NFC-normalized, unique, at most 64 characters,
-  and matches `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`;
-- metadata contains exactly one row for every original below `objects/`;
-- optional `normalization.csv` is headerless UTF-8 CSV with exactly the fields
-  `original,access derivative,preservation derivative`;
-- an original has at most one access and one preservation derivative, and every
-  derivative is declared exactly once;
-- only declared path-reference fields are rewritten in the staged control
-  files; other supported metadata values remain unchanged; and
-- malformed, ambiguous, orphaned, colliding, refused, unresolved, changed, or
-  unsupported input blocks the complete package before promotion.
+For the included hero, Name Atlas keeps all 24 files exactly once, changes 23
+paths, rewrites and verifies 23 supported Markdown links, keeps the protected
+`.env.example` at its original relative path, and creates a separate Northstar
+result. Sofia's original folder remains unchanged.
 
-The fixed **Repository-ready identity profile** derives one descriptor from the
-original filename, adopts the family's `dc.identifier`, adds an explicit role,
-and proposes leaves of the form:
+### 2. Sofia shares the Change File
+
+The generated `northstar.nameatlas-change.json` is a strict, fingerprinted JSON
+file containing the change and its originating proof—not a copy of the project.
+
+> The Change File contains no project payload bytes. It does contain project names and structure, file sizes and hashes, supported link relationships, the original instruction, target names, and proof identifiers.
+
+Therefore the accurate privacy statement is **No project payload bytes are
+transferred.** Name Atlas does not claim that nothing about the project is
+shared.
+
+### 3. Martin applies the same change
+
+Martin chooses **Apply a shared change**, selects Sofia's Change File and his
+differently arranged equivalent project folder, then chooses **Apply change and
+create copy**.
+
+The receiver transaction is:
 
 ```text
-{identifier}__{descriptor}__{role}{lowercase_extension}
+Name Atlas Change File
+  + differently arranged equivalent local project
+  → keyless deterministic matching
+  → receiver-local complete plan
+  → separate verified result
+  → independent verification
+  → receiver-specific reconstruction
 ```
 
-Targets are checked independently under exact, NFC, and Unicode-casefold
-comparison. The staging transaction never renames, edits, or deletes the source
-package.
+This receiver path makes no GPT or provider call, reads no API key, reserves no
+AI budget, makes no external network request, and transfers no project payload
+bytes. The browser still communicates with its own loopback server on the same
+computer.
 
-See the exact contract in
-[`docs/build/BUILD_SPEC.md`](docs/build/BUILD_SPEC.md) and the bounded exclusions
-in [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
+Name Atlas matches ordinary files from intrinsic payload facts and the
+supported Markdown relationship graph, never by guessing from Sofia's or
+Martin's ordinary source path or from arbitrary filesystem order. Protected
+members and explicit empty directories keep their exact-path requirements. If
+duplicates remain indistinguishable, a payload changed, a relationship changed,
+or any file is extra or missing, the entire application blocks. When it
+succeeds, Sofia and Martin receive the same organized-tree commitment while
+each original folder remains unchanged.
 
-## Quick start
+## What the application looks like
+
+The standard release is a server-rendered FastAPI/Jinja application on the
+local loopback interface. It uses locally packaged Blueprint assets and minimal
+JavaScript.
+
+- **Home** offers **Organize a folder** and **Apply a shared change**.
+- **Organize** provides a macOS native folder picker, editable path fallback,
+  plain-English request, derived result location, exact GPT evidence disclosure,
+  and **Plan and create copy**.
+- **Apply** provides Change File and project pickers, editable path fallback,
+  result location, the no-GPT/no-key/no-external-network statement, and **Apply
+  change and create copy**.
+- **Working** shows truthful origin-specific stages. Organize identifies live or
+  recorded GPT-5.6 planning; Apply shows deterministic matching and never a fake
+  GPT stage.
+- **Done** leads with **Your new folder is ready**, plain counts and verification
+  facts, then offers **Show in Finder**, **Download Change File**, **See
+  changes**, **View proof**, **Verify again**, and **Recreate original layout**.
+
+The native picker and Finder bridge are bounded macOS conveniences. Manual paths
+remain the supported fallback and judge-automation path. Responsive narrow
+layout does not mean that Name Atlas is a mobile application or provides remote
+phone access.
+
+## Quick start: bundled keyless demonstration
 
 Prerequisites:
 
 - Python 3.11; and
 - [`uv`](https://docs.astral.sh/uv/).
 
-The tested Build Week judge path is macOS with Python 3.11. Linux and Windows are
-not release-test claims.
+The tested Build Week judge path is macOS with Python 3.11. Native Windows is not
+a tested release claim.
 
 From a clean clone:
 
@@ -153,226 +159,262 @@ uv sync --frozen
 uv run name-atlas demo --mode replay
 ```
 
-Open <http://127.0.0.1:8000>. Replay mode needs no API key and uses the included
-sanitized record from one real, validated `gpt-5.6` response. The UI labels it
-**Recorded GPT-5.6 response**. The record is bound to the exact hero evidence
-fingerprint and is never reused for a different source.
+Open <http://127.0.0.1:8000>. The first clean run opens Home with the bundled
+Sofia/Martin fixture. Choose **Organize a folder** to run the exact recorded hero
+planning transaction. Replay mode needs no API key and makes no provider call.
+The UI labels it **Recorded GPT-5.6 planning run**.
 
-For live mode, configure `OPENAI_API_KEY` in the launching environment. Do not
-put the key in this repository, command history, screenshots, logs, or chat.
-Then run:
+The replay is bound to the exact fixture, request, schemas, evidence, tool
+sequence, and accepted plan. It fails closed for another source. The durable job
+is stored under `.name-atlas/connected-demo/replay`; restarting the same command
+resumes that exact job and may open directly on its current or completed state.
+
+## Live planning for another local folder
+
+Live origin planning requires `OPENAI_API_KEY` in the launching environment. Do
+not place a key in this repository, shell history, screenshots, logs, receipts,
+Change Files, MCP arguments, or chat.
+
+Run the bundled live hero:
 
 ```text
 uv run name-atlas demo --mode live
 ```
 
-Live mode uses the exact `gpt-5.6` alias and has no silent fallback. Without a
-nonblank local key it exits before the server starts. A provider request occurs
-only when the user explicitly requests the mechanically flagged Meaning card.
-
-## Migration Cases and restart
-
-`demo` creates an absent Migration Case or resumes an existing one. It prints the
-exact local case path at startup.
-
-By default, the case is stored under `.name-atlas/cases/` with a deterministic
-16-hex-character filename derived from the resolved source root. Select an exact
-path with `--case`:
+Or prepopulate a local folder, output parent, and durable job:
 
 ```text
-uv run name-atlas demo --mode replay \
-  --source "/absolute/path/to/supported-package" \
-  --output "/absolute/path/to/staging-parent" \
-  --case "/absolute/path/to/migration.case.json"
+uv run name-atlas run \
+  --mode live \
+  --source "/absolute/path/to/project" \
+  --output "/absolute/path/to/output-parent" \
+  --job "/absolute/path/to/jobs/project.json" \
+  --port 8000
 ```
 
-Use the same source, output parent, and case path to resume. The case retains its
-stable ID, proposals, any exact evidence and card records, human decisions,
-resolved targets, revision, lifecycle, and local handoff pointer. It is saved
-atomically, revision-checked, and held by one process writer; a second writer
-fails closed.
+Live mode uses the exact `gpt-5.6` alias through the Responses API, strict tool
+schemas, `store=false`, no provider retry, and no fallback model. `store=false`
+means Name Atlas does not ask the Responses API to retain the response for later
+application retrieval; OpenAI's standard abuse-monitoring and prompt-caching
+retention may still apply.
 
-Before a non-finalized case loads or mutates, Name Atlas re-scans the source and
-rebuilds deterministic authority. An added, removed, renamed, resized, or
-content-changed source member makes the case terminally `stale`, records the
-exact difference, and blocks decisions, staging, and receipt generation.
-Preserve the stale case and start again with a different, absent `--case` path;
-there is no destructive reset or automatic decision carry-forward.
+Name Atlas sends only the disclosed instruction, relative paths and folder
+structure, local-binding metadata, selected excerpts from eligible UTF-8 text
+and Markdown files, and supported Markdown-link context. It does not send every
+file's bytes, absolute local paths, protected contents, opaque binary contents,
+or hidden reasoning.
 
-A finalized `handoff_ready` case is read-only historical evidence. Later source
-changes do not rewrite it. Use `verify-receipt --source` when you need to compare
-the committed source description with a source tree that is available now.
+## Apply a Change File from the CLI
 
-## Five-state workbench
-
-The application is server-rendered and loopback-only. The five routes remain
-directly inspectable even when their prerequisites are incomplete:
-
-1. **Atlas — `/atlas`**: source commitment, object families, original and
-   derivative relationships, before/after paths, risks, and affected references.
-2. **Decide — `/decide`**: unresolved exceptions, collision edits, bounded
-   Meaning evidence, neutral GPT card, and explicit human actions.
-3. **Stage — `/stage`**: readiness and blockers, source and destination,
-   source-untouched statement, and the one copy-only staging action.
-4. **Verify — `/verify`**: one `VERIFIED`, `BLOCKED`, or `INCOMPLETE` verdict
-   across Source, Payloads, References, Paths, Decisions, Package, and Receipt.
-5. **Handoff — `/handoff`**: receipt identity, offline receipt, copyable verifier
-   and restore commands, and a receiver-oriented rerun of verification.
-
-`GET /` computes the next state from durable server authority: a stale or
-unavailable case goes to Atlas; unresolved or refused required decisions go to
-Decide; resolved decisions go to Stage; the completed staging action redirects
-to Verify; and a finalized handoff goes to Handoff. The release requires no
-client-side JavaScript: every state and transition is owned by the
-server-rendered application.
-
-The dark visual layer uses locally packaged assets from Blueprint core `6.17.2`
-and Blueprint icons `6.13.0`. There is no CDN, React, Vite, Node runtime, or Node
-judge step. Attribution, upstream fingerprints, selected assets, and the
-Apache-2.0 license pointer are in
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-
-## Release tour
-
-The revised release captures show the same supported hero transaction from
-source inspection through receiver handoff:
-
-![Atlas showing the linked collection, deterministic proposals, and exception-first family inspection](docs/screenshots/01-atlas.png)
-
-![Decide showing bounded evidence, a visibly labeled Recorded GPT-5.6 response, and separate human authority](docs/screenshots/02-decide.png)
-
-![Stage showing resolved readiness, the unchanged source, and the copy-only transaction](docs/screenshots/03-stage.png)
-
-![Verify showing the grouped deterministic receipt, package, path, decision, reference, payload, and source checks](docs/screenshots/04-verify.png)
-
-![Handoff showing the receipt fingerprint, offline view, independent verifier, and bounded restore command](docs/screenshots/05-handoff.png)
-
-![The self-contained offline receipt identifying itself as a non-authoritative view of committed machine records](docs/screenshots/06-offline-receipt.png)
-
-![The controlled altered-ledger handoff blocked on the exact decision-ledger receipt commitment mismatch](docs/screenshots/07-negative-block.png)
-
-## Hero walkthrough
-
-The included [`sample_data/hero`](sample_data/hero) fixture is synthetic and
-redistributable. It contains 12 object families, 28 content objects, and 30
-source-package members.
-
-1. Start the hero in replay mode and inspect **Atlas**. It shows stable families,
-   declared derivative links, the fixed profile, proposed moves, and Policy,
-   Collision, Links, and Meaning risk counts.
-2. In **Decide**, batch-approve the nine initially eligible low-risk families.
-   This deterministic path makes no GPT call.
-3. Resolve the casefold collision between `CASE-010` and `case-010` by editing one
-   family descriptor, for example to `harbor-map-north`, then batch-approve the
-   now-unblocked counterpart.
-4. Inspect the exact `NA-0001` Meaning evidence and the card labeled **Recorded
-   GPT-5.6 response**. Answer the question yourself and edit the descriptor to
-   `campaign-poster`. GPT-5.6 did not select or populate this target.
-5. In **Stage**, run the complete copy-only transaction. The source remains
-   untouched; a pending package is promoted only after producer proof, final
-   BagIt validation, and independent receiver verification all pass.
-6. Inspect the grouped deterministic result in **Verify**, then use **Handoff**
-   to open the offline receipt and copy the keyless receiver command.
-7. Verify the copied handoff from another location. Optionally restore it to a
-   new, absent destination and compare the reconstructed supported package.
-
-The separate
-[`sample_data/negative_unresolved_meaning`](sample_data/negative_unresolved_meaning)
-fixture contains one family and proves that an unresolved Meaning decision
-produces no staged handoff.
-
-## Portable handoff artifacts
-
-A completed handoff stores the transformed logical collection below `data/`,
-standard BagIt files, and these receipt-bound tag artifacts:
-
-- `name-atlas/source_snapshot.json` — path-neutral committed source description;
-- `name-atlas/original-control/metadata/metadata.csv` — byte-exact original
-  metadata control;
-- `name-atlas/original-control/normalization.csv` — byte-exact original
-  normalization control when the source had one;
-- `name-atlas/decision_ledger.json` — complete proposal, evidence/card where
-  applicable, and human-decision authority;
-- `name-atlas/forward_path_map.csv` and `reverse_path_map.csv`;
-- `name-atlas/verification_report.json` — deterministic producer findings;
-- `name-atlas/verification_summary.md` — committed human-readable summary;
-- `name-atlas/change_receipt.json` — immutable machine receipt envelope;
-- `name-atlas/change_receipt.html` — self-contained offline view; and
-- `bagit.txt`, `bag-info.txt`, `manifest-sha256.txt`, and
-  `tagmanifest-sha256.txt`.
-
-The receipt fingerprint is SHA-256 over a canonical receipt core that does not
-contain its own fingerprint. It commits the exact authoritative artifact bytes
-and a complete staged-data commitment; the final BagIt tag manifest then
-protects the receipt JSON and HTML.
-
-The phrase **Verified round-trip integrity within the supported package
-contract** appears only after every required source, payload, control-file,
-reference, profile, collision, path-map, reverse-dry-run, human-decision, report,
-and BagIt check passes. It is deliberately narrower than semantic correctness,
-historical-source authenticity, full filesystem preservation, or universal
-reversibility.
-
-## Independent receiver verification
-
-Verify a received bag without a case file, original source, API key, GPT call,
-network, or browser:
+Change File application dispatches before planner, credential, provider, and AI
+budget initialization:
 
 ```text
-uv run name-atlas verify-receipt RECEIVED_BAG
+uv run name-atlas apply-change \
+  "/absolute/path/northstar.nameatlas-change.json" \
+  --source "/absolute/path/to/martin-project" \
+  --output "/absolute/path/to/result-parent" \
+  --job "/absolute/path/to/jobs/martin.json"
 ```
 
-The verifier performs no writes. It re-runs BagIt validation, validates strict
-artifact schemas and raw commitments, recomputes staged-data and receipt
-fingerprints, and reconstructs the supported transaction from portable evidence.
+`--output` and `--job` are optional. The default output is
+`.name-atlas/folder-results`, and the default job is a new UUID-named file below
+`.name-atlas/jobs/`. An identical retry against the same job returns the same
+durable result; conflicting reuse blocks.
 
-Exit behavior:
-
-- `0`: prints `VERIFIED <receipt-fingerprint>`;
-- `1`: prints `BLOCKED <stable-failed-check-ids>`; and
-- `2`: usage error, or the input cannot be opened as a candidate handoff.
-
-Source-free verification proves internal transaction consistency against the
-source description committed by the receipt. It does **not** prove that this
-description is an authentic historical source. If the original source is
-available, compare it separately:
+A successful command prints:
 
 ```text
-uv run name-atlas verify-receipt RECEIVED_BAG \
+VERIFIED <receiver-receipt-fingerprint>
+JOB <durable-job-path>
+RESULT <verified-result-path>
+CHANGE_FILE <verified-change-file-path>
+CHANGE_FILE_FINGERPRINT <fingerprint>
+ORIGINATING_RECEIPT <origin-receipt-fingerprint>
+```
+
+## Verify a result independently
+
+Verify an origin or receiver result without its local job, browser, source
+folder, GPT, API key, or external network:
+
+```text
+uv run name-atlas verify-receipt RESULT_BAG
+```
+
+The verifier writes nothing. Exit `0` prints `VERIFIED <receipt-fingerprint>`;
+exit `1` prints `BLOCKED <stable-failed-check-ids>`; exit `2` indicates usage or
+candidate-input failure.
+
+If the corresponding source is available, add a current byte-and-path
+comparison:
+
+```text
+uv run name-atlas verify-receipt RESULT_BAG \
   --source "/absolute/path/to/source-root"
 ```
 
-The optional comparison passes only when every supported source path, role,
-size, and SHA-256 equals the committed portable snapshot.
+Source-free verification proves internal consistency against the source
+description committed by the receipt. It does not prove historical
+authenticity, sender identity, authorship, or institutional authorization.
 
-## Bounded logical restore
+## Recreate the original layout
 
-Restore has passed its release gate and ships as a verify-first, copy-only
-command:
+Reconstruction first verifies the result and requires an absent destination:
 
 ```text
-uv run name-atlas restore-receipt RECEIVED_BAG RESTORE_DESTINATION
+uv run name-atlas restore-receipt \
+  RESULT_BAG \
+  "/absolute/path/to/absent-original-layout"
 ```
 
-`RESTORE_DESTINATION` must not already exist and cannot be inside the received
-bag. The command verifies the receipt, reconstructs content through the reverse
-map, restores byte-exact original control files, reimports the pending directory
-through the strict package parser, proves exact portable-snapshot equality,
-verifies the unchanged handoff again, and then promotes the pending directory
-without replacement.
+The origin result reconstructs Sofia's source layout. A receiver result
+reconstructs that receiver's own original paths and exact in-scope bytes—so
+Martin gets Martin's starting layout, not Sofia's. The command leaves the source,
+verified result, and Change File unchanged and promotes only after complete
+proof.
 
-Exit behavior:
+The bounded claim covers in-scope relative paths and bytes. It does not restore
+timestamps, ownership, ACLs, extended attributes, resource forks, symlink or
+hard-link identity, undeclared references, or arbitrary filesystem state.
 
-- `0`: prints `RESTORED <receipt-fingerprint> <absolute-destination>`;
-- `1`: prints a transaction or integrity blocker; and
-- `2`: usage error, or the input cannot be opened as a candidate handoff.
+## What is supported
 
-The restore result is external to the immutable bag; the command does not edit
-the receipt or handoff. Its bounded claim is exactly that it reconstructs every
-in-scope source-package member byte-for-byte within the supported Name Atlas
-package contract. It does not restore ACLs, ownership, timestamps, extended
-attributes, resource forks, undeclared references, embedded links, or arbitrary
-filesystem state.
+The selected folder must contain 1–500 readable regular files and at most 1,000
+directories. Name Atlas includes hidden files and explicit empty directories,
+but blocks before planning on symlinks, special files, unreadable members,
+hard-linked regular files, changing input, unsafe overlap, or inadequate free
+space.
+
+Every admitted source file maps to exactly one result file:
+
+- no deletion or omission;
+- no merge or deduplication;
+- no duplicate output copy;
+- no invented user file;
+- no extraction or conversion; and
+- no direct source mutation.
+
+Dotfiles, members below dot-directories or version-control directories, common
+credential filenames, and key/certificate/password-vault suffixes are protected.
+They remain in the complete inventory, stay at their exact original relative
+path, and never expose their contents to GPT.
+
+Name Atlas uses a bounded cross-platform-safe naming profile, not a claim of
+universal filesystem portability. Renameable files keep their exact protected
+suffix. Exact, NFC, and Unicode-casefold collisions and file/directory ancestor
+conflicts block.
+
+### Supported Markdown connections
+
+The release rewrites only a narrow, testable subset in UTF-8 `.md` and
+`.markdown` files:
+
+- inline links and inline images;
+- relative local file targets, including lexically safe in-root `../` paths;
+- optional fragments; and
+- UTF-8 percent encoding.
+
+It ignores external URLs and anchor-only links. It blocks unsupported local
+constructs, reference-style local links, query strings, absolute/root-relative
+paths, root escape, dangling or case-mismatched targets, malformed escapes,
+directory targets, and ambiguous relationships. Exact-span rewriting preserves
+all bytes outside accepted destination spans.
+
+PDF, Office, spreadsheet, image, audio, video, archive, and other opaque files
+can be carried byte-for-byte, but Name Atlas does not claim to understand their
+content or update embedded references inside them.
+
+## Portable verified result
+
+An accepted result is a BagIt-backed portable folder:
+
+```text
+<verified-result>/
+├── data/          # the reorganized project the user opens
+└── name-atlas/    # plan, Change File, maps, proof, receipt, and restore data
+```
+
+Portable artifacts use relative paths only. They include the complete source
+description, request, observable planning or capsule-application origin,
+accepted plan, supported relationship graph, forward/reverse maps, change
+ledger, verification report, receipt, offline proof page, exact original bytes
+for rewritten Markdown files, and the Change File. Receiver results also contain
+their deterministic match report.
+
+Origin and receiver receipts are different because they prove different local
+transactions. Their final organized-tree commitments are identical when the
+same Change File is successfully applied to an equivalent project.
+
+The Change File and receipt use canonical SHA-256 fingerprints and acyclic
+commitments. This supports integrity and internal-consistency checks. It is not a
+digital signature, sender authentication, tamper-proofing, or proof that the
+producer's historical source was authentic.
+
+## Shared MCP server
+
+Start the required local STDIO MCP server with:
+
+```text
+uv run name-atlas mcp
+```
+
+STDOUT is MCP protocol only; diagnostics go to STDERR. The server exposes exactly
+seven high-level tools, all backed by the same job, planner, compiler, copy,
+receipt, verifier, and reconstruction services used by the browser and CLI:
+
+| Tool | Purpose |
+|---|---|
+| `plan_and_create_copy` | Start one bounded GPT-planned origin job |
+| `job_status` | Read durable progress, clarification, result, staleness, or blocker |
+| `answer_clarification` | Submit the sole answer to the exact waiting job |
+| `get_change_file` | Return the verified local Change File and proof identity |
+| `apply_change_file` | Start one keyless deterministic receiver job |
+| `verify_result` | Run the source-free independent verifier |
+| `recreate_original` | Create and verify an absent reconstruction destination |
+
+Planning requires literal acknowledgement of the outbound-evidence and retention
+disclosure. Mutation tools require caller idempotency keys and bind retries to
+the exact request. The server exposes no arbitrary filesystem read/write/move/
+delete, shell, raw evidence, compiler bypass, receipt construction, or proof
+override tool. Credentials come only from the local environment, never tool
+arguments.
+
+## Codex plugin
+
+The optional thin Codex plugin passed its objective gate and clean-clone installed
+copy acceptance. It packages the same MCP server; it does not copy or replace
+the product implementation.
+
+Install from a clean clone:
+
+```text
+uv sync --frozen
+CODEX_BIN="/Applications/ChatGPT.app/Contents/Resources/codex"
+"$CODEX_BIN" plugin marketplace add .
+"$CODEX_BIN" plugin add name-atlas@personal
+```
+
+Refresh or restart Codex, then open a **new Codex task whose working directory
+is that clean repository clone**. The discovered Name Atlas tools use
+`uv run --frozen name-atlas mcp` from the task checkout. Live planning reads a
+local `OPENAI_API_KEY`; replay, Change File application, verification, and
+reconstruction remain keyless.
+
+The explicit `CODEX_BIN` is the tested macOS command from the ChatGPT desktop
+bundle and avoids an unrelated or stale `codex` shim earlier on `PATH`. A bare
+`codex` command is equivalent only when `codex plugin --help` resolves to a
+current installation that supports the plugin subcommand.
+
+Uninstall with:
+
+```text
+"$CODEX_BIN" plugin remove name-atlas@personal
+"$CODEX_BIN" plugin marketplace remove personal
+```
+
+Codex is the tested plugin/MCP client for this release. Other MCP hosts are not
+called tested unless separately exercised.
 
 ## Exact judge and maintainer commands
 
@@ -382,106 +424,121 @@ Run from the repository root:
 uv sync --frozen
 uv run name-atlas demo --mode replay
 uv run name-atlas demo --mode live
-uv run name-atlas verify-receipt RECEIVED_BAG
-uv run name-atlas verify-receipt RECEIVED_BAG --source SOURCE_ROOT
-uv run name-atlas restore-receipt RECEIVED_BAG RESTORE_DESTINATION
+uv run name-atlas run --mode live --source SOURCE_ROOT --output OUTPUT_PARENT --job JOB_FILE --port 8000
+uv run name-atlas apply-change CHANGE_FILE --source SOURCE_ROOT --output OUTPUT_PARENT --job JOB_FILE
+uv run name-atlas verify-receipt RESULT_BAG
+uv run name-atlas verify-receipt RESULT_BAG --source SOURCE_ROOT
+uv run name-atlas restore-receipt RESULT_BAG RESTORE_DESTINATION
+uv run name-atlas mcp
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 ```
 
-The replay application, receiver verifier, and restore command are keyless.
-Only live card generation uses the OpenAI API.
+## Feature-freeze checkpoint evidence
 
-## Troubleshooting
+At feature-freeze checkpoint
+`0dc4776495cd708278d835c8394dcd9529be981e` on
+`revision/ai-first-folder-refactor`:
 
-### Replay reports an unavailable or mismatched record
+- the selected profile is `CONNECTED_CHANGE_GO`;
+- the 24-file zero-question hero used one real exact `gpt-5.6` planning run,
+  returned `gpt-5.6-sol`, used three response turns and 16 bounded evidence
+  calls, and produced an exact sanitized replay;
+- the four-file ambiguity case used one real exact `gpt-5.6` planning run,
+  asked exactly one concise question, accepted one answer, and produced an exact
+  sanitized replay;
+- the keyless Sofia-to-Martin transaction verified both results, made zero
+  receiver provider/API/budget/external-network calls, converged to organized
+  tree `a11ab49b9b48151aae4343c189c2eecae8c0a67a91cac45144656eb0ece02f7e`,
+  and reconstructed Martin's source exactly;
+- the refusal matrix blocked changed payload, changed Markdown prose, changed
+  supported relationship, protected-member disagreement, symmetric duplicates,
+  invalid Change File fingerprint, and a BagIt-valid receipt inconsistency;
+- the shared MCP server passed direct integration and a real Codex invocation;
+- the thin plugin passed official validation, clean-clone install, fresh-task
+  discovery, real `verify_result` invocation from the installed copy, keyless
+  replay, reconstruction, missing-live-key behavior, and uninstall;
+- 16 focused plugin/MCP tests and the complete **811-test** regression suite
+  passed; lock, Ruff lint, Ruff format over 153 files, and Git whitespace checks
+  passed; and
+- the cumulative project ledger remained under its USD 10 authority: 9 of 13
+  request attempts, USD 9.736060 conservative committed exposure, and USD
+  0.605515 reported estimated cost.
 
-The included record is valid only for the pristine hero evidence fingerprint.
-Use the unmodified hero package for the recorded card. A different source with a
-Meaning risk requires live mode and a locally configured key; Name Atlas does not
-fabricate or reuse a mismatched card.
+These are checkpoint facts, not claims of production readiness, universal model
+reliability, or performance on every admitted folder.
 
-### Live mode exits before the server starts
+## Claim boundaries
 
-Configure a nonblank `OPENAI_API_KEY` in the same local environment that launches
-the command. No fallback provider is selected when it is absent.
+The demonstrated central claim is:
 
-### Startup reports an invalid package
+> GPT-5.6 plans the connected-folder change once, and Name Atlas can deterministically apply and verify the same change on a differently arranged equivalent copy without another GPT call or transfer of project payload bytes.
 
-Compare the selected root with the strict package contract above. The importer
-identifies the offending path, row, column, relationship, or invariant and starts
-no copy transaction.
+Name Atlas may also state, for the demonstrated supported contract, that every
+in-scope file is accounted for exactly once, protected files remain fixed,
+supported Markdown links reach the same logical files, originals remain
+unchanged, ambiguous duplicates block instead of being guessed, origin and
+receiver results converge, and each receiver can reconstruct its own starting
+layout.
 
-### Startup says the case source or output does not match
+Name Atlas does **not** claim:
 
-Resume with the same `--source`, `--output`, and `--case` values used to create
-the case. To begin a separate migration, choose a different absent case path.
+- semantic equivalence or reconciliation of independently edited copies;
+- reconciliation when a receiver has extra or missing files;
+- general graph isomorphism or semantic-similarity matching;
+- universal format understanding, connection preservation, portability, or
+  reversibility;
+- image, audio, video, PDF, Office, or spreadsheet semantic understanding;
+- source-code, import, database, or application-aware refactoring;
+- native Windows testing, a mobile application, or remote phone access;
+- zero API retention, full privacy, or that nothing about the project is
+  disclosed;
+- sender identity, authorship, signatures, institutional authorization,
+  historical authenticity, tamper-proofing, compliance, or production
+  readiness;
+- universal zero-question behavior, unmeasured time savings, broad adoption,
+  support for untested MCP clients, competitor nonexistence, or a probability of
+  winning.
 
-### The case is locked
+The complete frozen contract is [docs/build/BUILD_SPEC.md](docs/build/BUILD_SPEC.md),
+and the public limitation surface is [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
-Only one process may hold mutation authority for a case. Close the other running
-Name Atlas process, then resume the same case. Do not delete the lock or case
-file while a process may still own it.
+## How GPT-5.6 and Codex are used
 
-### The case is stale
+Runtime GPT-5.6 is central to origin planning. It investigates bounded evidence,
+submits a complete structured plan, repairs mechanically rejected plans within
+fixed limits, and may ask one tightly scoped clarification when user intent is
+genuinely missing. It never mutates files, approves its own result, bypasses
+fixed checks, or participates in receiver application and verification.
 
-The source no longer matches the immutable case snapshot. Preserve the stale
-case for evidence and create a fresh case at a different absent `--case` path.
-Name Atlas intentionally has no reset, rebase, reconciliation, or decision
-carry-forward command.
+Deterministic Name Atlas code owns scanning, stable identities, protected-file
+rules, exact Markdown parsing and rewriting, complete plan compilation, naming
+and collision checks, persistent jobs, copy-only staging, Change Files,
+receipts, independent verification, and reconstruction.
 
-### Staging is disabled
+Codex with GPT-5.6 was the primary development environment and integrator. One
+primary task translated frozen contracts into vertical product slices, built and
+tested the application, reproduced proof failures, delegated bounded independent
+reviews, inspected browser behavior, and qualified the shared MCP server and
+installed plugin. This is a factual development account, not an unmeasured speed
+claim. See [docs/CODEX_BUILD_LOG.md](docs/CODEX_BUILD_LOG.md) for the chronological
+record.
 
-Inspect Decide and Stage. Every family needs an explicit approved or edited
-target. A refusal, unresolved Meaning question, collision, invalid target,
-stale case, or unsupported input blocks the whole package.
+## Fixtures, provenance, and licenses
 
-### `verify-receipt` prints `BLOCKED`
+The primary release fixtures are under
+[sample_data/connected_change](sample_data/connected_change). Sofia and Martin
+contain synthetic equivalent 24-file projects in different layouts; the
+ambiguity fixture is a separate four-file one-question case. Opaque examples
+are synthetic and demonstrate byte-preserving carriage only.
 
-Treat the listed stable check IDs as handoff-integrity blockers. A BagIt-valid
-result alone is insufficient: regenerate the handoff from an unchanged source
-and resolved case rather than editing receipt-bound artifacts in place.
+Fixture provenance is recorded in [sample_data/README.md](sample_data/README.md).
+The boundary between pre-existing feasibility work and this implementation is
+recorded in [docs/PREEXISTING_WORK.md](docs/PREEXISTING_WORK.md). The application
+has no runtime or test dependency on the earlier ephemeral spike and does not
+reuse its semantic/evaluator machinery.
 
-### Restore is blocked
-
-First run `verify-receipt` against the same bag. Use a new absent destination
-outside the handoff. The command deliberately refuses overwrite, partial
-promotion, invalid receipt authority, and changed handoff bytes.
-
-### A port or staging destination is already in use
-
-Choose another loopback port with `--port` or another staging parent with
-`--output`. Name Atlas does not delete an existing handoff to reuse its path.
-
-## Provenance and pre-existing work
-
-All hero and negative-fixture payloads are synthetic; exact fixture provenance
-is recorded in [`sample_data/README.md`](sample_data/README.md).
-
-An earlier feasibility spike informed selected mechanical behaviors. The product
-has no runtime or test dependency on that ephemeral spike, and its tournament
-semantic/evaluator machinery was rejected. Source hashes, adaptation boundaries,
-and destination disclosures are recorded in
-[`docs/PREEXISTING_WORK.md`](docs/PREEXISTING_WORK.md).
-
-## Built with Codex
-
-Codex with GPT-5.6 is the primary development environment for this Build Week
-project. The primary Codex task froze the product contract, implemented and
-integrated the Python application, added acceptance and regression tests,
-inspected browser behavior, corrected reproduced proof defects, and prepared the
-release. Runtime GPT-5.6 has the narrower advisory role described above and is
-not the source of human approval or deterministic verification.
-
-Codex accelerated dependency-ordered vertical implementation and parallel,
-bounded review. This is a qualitative development-workflow account, not an
-unmeasured speed or time-saving claim. The factual development chronology and
-live/replay evidence are recorded in
-[`docs/CODEX_BUILD_LOG.md`](docs/CODEX_BUILD_LOG.md).
-
-## License
-
-Reversible Name Atlas is distributed under the [MIT License](LICENSE). Read
-[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) before evaluating or adapting the
-supported transaction.
+Reversible Name Atlas is distributed under the [MIT License](LICENSE). Locally
+packaged Blueprint assets retain their Apache-2.0 notice and exact provenance in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

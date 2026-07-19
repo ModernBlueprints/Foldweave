@@ -1,7 +1,7 @@
 [project]
 name = "reversible-name-atlas"
 version = "0.1.0"
-description = "A local-first workbench for verified linked-collection migrations."
+description = "AI-planned, deterministic changes for connected project folders."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11,<3.12"

@@ -1,207 +1,209 @@
 # Limitations and claim boundaries
 
-Reversible Name Atlas is a Build Week MVP with one strict linked-package
-contract and one repository-ready transformation profile. Its verification and
-restore claims apply only to the supported transaction in
-[`build/BUILD_SPEC.md`](build/BUILD_SPEC.md). They are not production-readiness,
-compliance, semantic-correctness, historical-source-authenticity, or universal
-preservation claims.
+Reversible Name Atlas is a local-first Build Week project for one precise job:
+rename and reorganize files in a connected project folder while accounting for
+every admitted file, preserve the supported relative Markdown links between
+those files, and create a separate result that can be checked and reconstructed.
+It is not a universal file manager, content-understanding system,
+synchronization service, or production backup product.
 
-## Local Migration Case versus portable handoff
+## What Name Atlas changes
 
-The local `migration-case.v1` file is the sole mutable workflow authority. It may
-contain sender-local absolute source, output, case, and handoff paths. It is not
-portable or executable on another machine.
+Name Atlas can:
 
-The completed bag contains a path-neutral `portable-change-receipt.v1` and its
-receipt-bound machine artifacts. The receipt describes one finalized historical
-transaction; it does not provide `apply-case`, cross-machine case execution,
-source reconciliation, case rebasing, or decision carry-forward.
+- rename files;
+- move files into a new folder structure;
+- preserve every admitted source file exactly once;
+- preserve protected members at their original relative paths;
+- update the supported relative Markdown links when a note, its target, or both
+  move; and
+- create a separate verified result while leaving the selected source folder
+  unchanged.
 
-Before finalization, an added, removed, renamed, resized, content-changed, or
-unreadable source makes the case terminally stale and blocks mutation and
-staging. The supported recovery is to preserve that case and create a fresh one
-at a different absent path. A `handoff_ready` case is read-only and is not
-silently rewritten when the sender's source later changes.
+It does not delete, omit, merge, deduplicate, extract, convert, or edit the
+general contents of files. It does not refactor source code or repair imports,
+configuration, databases, application references, spreadsheets, Office/PDF
+links, or media-library catalogs. A request that requires those operations is
+outside the supported contract and must not produce an accepted result.
 
-## BagIt and Name Atlas prove different things
+The demonstrated JPG, PNG, WAV, MP3, PDF, XLSX, and other opaque formats are
+copied byte-for-byte. GPT-5.6 does not inspect or semantically understand their
+contents; it can use only their admitted path and basic metadata as planning
+evidence.
 
-Library of Congress `bagit` validation checks the bag's declared payload and tag
-fixity and completeness. It does not reconstruct or validate Name Atlas's
-proposal, evidence, decision, map, profile, and original-control semantics.
+## Admitted folder boundary
 
-The independent receiver verifier additionally validates the receipt-core
-fingerprint, raw artifact commitments, staged-data commitment, strict schemas,
-path neutrality, deterministic proposal authority, evidence/card/human bindings,
-declared control rewrites, payload and map relationships, producer findings, and
-non-authoritative derived views.
+One job accepts an existing readable local directory containing:
 
-A handoff can therefore pass ordinary BagIt validation while Name Atlas blocks
-it. The release demonstrates this with a disposable copy whose decision ledger
-is changed and whose BagIt tag manifest is regenerated: BagIt passes, while Name
-Atlas reports `artifact_digest_mismatch:decision_ledger` because the ledger no
-longer matches the immutable receipt.
+- 1 to 500 regular files;
+- at most 1,000 directories;
+- regular files and directories only; and
+- at most 10,000 supported local Markdown references.
 
-This does not provide cryptographic sender identity, signatures, human-authorship
-authentication, institutional authorization, or resistance to an actor who
-rewrites every artifact and issues a new internally consistent receipt.
+Each `.md` or `.markdown` file is limited to 16 MiB. Symlinks, hard-linked
+regular files, special files, unreadable members, changing sources, overlapping
+source/result locations, insufficient free space, or an existing final result
+block the transaction. Hidden files are included rather than silently skipped.
+Empty directories are preserved explicitly at the same relative path.
 
-## Source-free verification boundary
+This release defines a conservative Name Atlas naming profile: Unicode NFC,
+bounded component/path lengths, no Windows-reserved basenames or forbidden
+characters, exact/NFC/casefold uniqueness, and no file/directory ancestor
+conflicts. That is an application rule set, not a claim of native operation on
+every filesystem or a tested native Windows runtime.
 
-`verify-receipt RECEIVED_BAG` requires no original source, local case, API key,
-GPT call, network, or browser. It proves internal transaction consistency
-against the source description committed by the receipt. It does **not** prove
-that this description represents an authentic historical source.
+A Name Atlas Change File is limited to 16 MiB of strict UTF-8 JSON. Invalid
+UTF-8, duplicate JSON keys, non-finite values, unknown fields, unsupported
+schema versions, and invalid canonical fingerprints block before the receiver
+folder is scanned.
 
-`verify-receipt RECEIVED_BAG --source SOURCE_ROOT` adds a current, exact
-path/role/size/SHA-256 comparison between the supplied supported source and the
-portable snapshot. Even that comparison does not authenticate who supplied the
-source or when it existed.
+## Protected members
 
-## Restore boundary
+Dotfiles, members below dot-directories or version-control directories, and
+common credential/key filenames are protected. They remain in the complete
+inventory and result, keep their exact original relative paths, and their
+contents are not offered to GPT-5.6 as planning evidence.
 
-`restore-receipt` is a verify-first, copy-only **logical package restore**. It
-reconstructs every in-scope source-package member through the reverse map and
-byte-exact original declared controls, strictly reimports the pending directory,
-proves equality with the portable snapshot, and promotes only to a new absent
-destination.
+A protected Markdown file containing a supported local link is outside this
+release contract, because preserving the relationship could require exposing or
+rewriting content that the product deliberately keeps out of planning.
 
-The bounded permitted claim is:
+## Supported Markdown links
 
-> Reconstructs every in-scope source-package member byte-for-byte within the
-> supported Name Atlas package contract.
+Name Atlas handles a deliberately narrow, testable Markdown subset:
 
-It does not restore or claim preservation of:
+- UTF-8 `.md` and `.markdown` files;
+- inline links and inline images;
+- a destination inside angle brackets, or an unquoted destination without
+  literal whitespace or unescaped parentheses;
+- relative local file targets, including lexically safe in-root `../` paths;
+- optional fragments; and
+- UTF-8 percent encoding.
 
-- filesystem access-control lists;
-- ownership or permissions beyond what is needed to create the new local copy;
-- file creation or modification timestamps;
-- extended attributes;
-- resource forks;
-- undeclared external references;
-- arbitrary embedded links;
-- every filesystem's byte-level filename representation; or
-- arbitrary filesystem state outside the supported package members.
+It preserves every byte outside the exact accepted destination spans and proves
+that a rewritten link still resolves to the same logical file.
 
-Restore does not edit the received handoff, overwrite an existing destination,
-or place its `restore-report.v1` result into the immutable bag.
+External schemes and anchor-only links are left unchanged. Root-relative or
+absolute paths, `file:` URLs, query strings, root escape, malformed escapes,
+encoded slash/backslash ambiguity, directory or dangling targets,
+case-mismatched targets, and local reference-style links/definitions are not
+supported. Name Atlas does not claim to preserve arbitrary links embedded in
+Office documents, PDFs, source code, databases, design files, or media catalogs.
 
-## GPT-5.6 evidence boundary
+## GPT-5.6 planning boundary
 
-One real `gpt-5.6` card was generated from the exact visible hero packet and
-persisted as a sanitized replay record. The record is bound to its model alias,
-schema version, and complete evidence fingerprint; it cannot be used for another
-source. This proves one bounded live response and deterministic replay for the
-included fixture. It does not establish general model reliability, semantic
-correctness, workflow coverage, or scalability.
+GPT-5.6 is used only for the origin planning transaction. It receives the
+plain-English instruction, relative names and folder structure, basic file
+metadata needed to bind the plan, selected excerpts from eligible text and
+Markdown files, and supported-link context. It does not receive absolute local
+paths, protected contents, or arbitrary opaque file bytes.
 
-GPT-5.6 receives only the bounded text evidence displayed before a live request;
-it receives no source payload bytes. Its card can explain possible
-interpretations, possible meaning loss, uncertainty, and one discriminating
-question. It cannot:
+GPT-5.6 proposes a complete rename/move plan. Fixed code then requires every
+eligible file exactly once, injects protected files and empty directories,
+checks names and relationships, derives link rewrites, copies the data, and
+verifies the result. GPT-5.6 cannot directly write, rename, delete, promote, or
+verify files. A mechanical defect may be repaired within a fixed limit; genuinely
+missing user intent can produce at most one question and one answer.
 
-- determine the correct name;
-- establish semantic truth;
-- approve, edit, refuse, or resolve a family;
-- select or set a final target;
-- resolve a collision;
-- verify safety or correctness;
-- make a package exportable; or
-- override a deterministic blocker.
+The live integration uses exact model alias `gpt-5.6`, the Responses API,
+strict tools, no model fallback, no provider retry, and `store=false`.
+`store=false` means the application does not ask OpenAI to retain the generated
+response for later API retrieval. Standard abuse-monitoring and prompt-caching
+retention may still apply. The project does not claim zero retention, complete
+privacy, or that nothing leaves the computer during an origin planning run.
 
-Only an explicit human action creates decision authority. Missing credentials,
-unknown evidence, malformed output, API failure, model unavailability,
-cost-cap exhaustion, or a mismatched replay record leaves the family unresolved.
+The recorded demonstration replays two exact successful GPT-5.6 planning runs
+and makes no provider call. Its interface labels that mode **Recorded GPT-5.6
+planning run**.
 
-## Supported scope only
+## Name Atlas Change File boundary
 
-The MVP supports regular files inside one selected local root, required UTF-8
-`metadata/metadata.csv`, optional UTF-8 `normalization.csv`, at most one access
-and one preservation derivative per original, one fixed identifier-based path
-profile, explicit whole-family human decisions, and all-or-nothing copy-only
-BagIt staging.
+A Name Atlas Change File records a verified change so another person can apply
+it to a differently arranged equivalent copy without another GPT call.
 
-The MVP does not support:
+It contains no project payload bytes. It does contain sensitive project
+metadata: names and structure, file sizes and hashes, supported link
+relationships, the original instruction, target names, and proof identifiers.
+“No project payload bytes are transferred” is accurate; “nothing about the
+project is shared” is not.
 
-- `path_plan.csv`, arbitrary schema mapping, or a general policy/profile builder;
-- spreadsheets other than the two declared CSV contracts;
-- many-to-many derivative relationships;
-- external catalogs, databases, or repository connectors;
-- ArchivesSpace, AtoM, or live Archivematica integration;
-- embedded-link discovery in PDFs, office files, databases, or media;
-- legacy raw filename-byte recovery;
-- source mutation or partial package export;
-- case reconciliation, rebasing, destructive reset, or decision carry-forward;
-- `apply-case` or another cross-machine executable case;
-- signatures, sender authentication, or institutional authorization;
-- accounts, collaboration, permissions, hosted deployment, or cloud storage;
-- a Codex plugin or MCP runtime interface;
-- NER, ReFinED, entity linking, AI-training-data, JSONL, Parquet, Hugging Face,
-  or generic adapter work;
-- direct repository integration, RO-Crate, or another metadata platform;
-- React, Vite, a client-side state framework, or a Node judge path;
-- Linux or Windows as tested judge platforms;
-- multiple polished collections; or
-- million-file scalability.
+Receiver matching is deterministic and intentionally conservative. Ordinary
+files must match exact size and SHA-256 descriptors. Markdown prose, labels,
+line endings, fragments, link count/order, and supported relationship structure
+must match; only the supported destination text may differ. Protected files
+also require the same original relative path and bytes. Empty-directory
+requirements must agree.
 
-Unsupported, malformed, ambiguous, orphaned, colliding, refused, unresolved,
-or changed input blocks the complete package. The product does not attempt a
-best-effort partial migration.
+An extra or missing member, changed payload, changed Markdown prose, changed
+supported relationship, incompatible suffix, protected-member disagreement,
+empty-directory disagreement, invalid Change File, or unresolved symmetric
+duplicate group blocks instead of being guessed. Name Atlas does not reconcile
+independently edited copies, infer semantic equivalence, or solve general graph
+isomorphism.
 
-## Exact integrity claim boundary
+Applying a Change File initializes no GPT provider, requires no API key, makes
+no budget reservation, and makes no external network request. The local browser
+still uses loopback HTTP between the browser and the application, so the project
+does not make the broader claim that the browser uses no networking at all.
 
-The phrase **Verified round-trip integrity within the supported package
-contract** is permitted only when every requirement in `VER-002` passes. It
-means that:
+## What verification proves
 
-- the source snapshot remained equal through staging;
-- content-object hashes match;
-- only the supported declared reference fields changed;
-- declared links resolve;
-- targets satisfy the one profile without exact, NFC, or casefold collisions;
-- forward and reverse maps are complete inverses;
-- the reverse dry run reconstructs original logical paths and declared values;
-- every required decision is approved or edited by the human;
-- no unsupported input or failed invariant remains;
-- producer and receiver machine records agree; and
-- BagIt validation passes.
+`name-atlas verify-receipt` is read-only, keyless, source-free, and independent
+of the live job, browser, GPT provider, and network. It validates the portable
+result, strict artifact schemas, exact recorded commitments, complete file
+accounting, accepted paths, supported link rewrites, inverse maps, preserved
+original Markdown bytes, and reported findings.
 
-It does not prove semantic correctness, universal or mathematical
-reversibility, full filesystem preservation, authentic historical provenance,
-live Archivematica acceptance, downstream repository acceptance, archival or
-legal-record assurance, or regulatory compliance.
+Without `--source`, verification proves internal consistency against the source
+description committed inside the result. It does not prove that the producer's
+historical source was authentic. With `--source`, it additionally compares the
+supplied current folder with that committed description.
 
-## Claims this project does not make
+The receipt and Change File are not signatures. They do not authenticate a
+sender, establish authorship or institutional authorization, prevent a party
+from deliberately issuing a wholly new self-consistent receipt, or provide
+compliance certification. The controlled altered-result example demonstrates
+receipt-bound inconsistency detection, not tamper-proofing.
 
-Reversible Name Atlas does not claim:
+## Reconstruction boundary
 
-- that the problem is a critical or universal crisis;
-- that archivists constantly experience it;
-- 50% or any other unmeasured time saving;
-- faster recurring work;
-- that GPT-5.6 determines the correct name;
-- that AI verifies semantic correctness or safety;
-- that wrong transformations cannot occur;
-- mathematical or universal reversibility;
-- sender identity, human authorship, institutional authorization, signatures,
-  or cryptographic authentication;
-- full filesystem preservation;
-- compliance certification or legal-record assurance;
-- Archivematica certification, compatibility, or live integration;
-- that Archivematica expects clean input or lacks filename handling;
-- that all bulk renamers break metadata;
-- support for arbitrary schemas or every archival workflow;
-- production readiness;
-- institutional acceptance or adoption;
-- that OpenAI or another AI lab uses or needs this workflow;
-- AI-training-data or model-curation readiness;
-- proven superiority over ordinary Codex;
-- a proven high probability of winning; or
-- that nothing else exists.
+`name-atlas restore-receipt` and **Recreate original layout** verify the result
+first, refuse an existing destination, and create another folder matching that
+job's admitted original relative paths and bytes. A receiver result reconstructs
+the receiver's own starting layout, not the producer's different layout.
 
-No practitioner-prevalence, institutional-adoption, time-saving, recurring-speed,
-or large-scale performance claim has been measured. Public descriptions
-should report only observed transaction facts such as families, objects,
-references, moves, decisions, risk triggers, calls, cache hits, collisions,
-rewrites, fingerprints, validation outcomes, reported token usage, latency, and
-estimated model cost.
+The reconstruction does not change the source, organized result, or Change
+File. It does not preserve timestamps, ownership, access-control lists,
+extended attributes, resource forks, hard-link or symlink identity, undeclared
+references, or arbitrary filesystem state. “Recreates every in-scope source
+member's relative path and bytes within the supported Name Atlas folder
+contract” is the complete supported claim.
+
+## Browser, macOS bridge, CLI, MCP, and plugin
+
+The standard product is a loopback FastAPI/Jinja browser application. Manual
+absolute path fields work on every supported judge path. On macOS, fixed
+application-controlled AppleScript opens native folder/file selection and
+Finder for verified job-owned results. The product is not a native desktop or
+mobile application and does not provide remote phone file access.
+
+The shared STDIO MCP server exposes exactly seven high-level Name Atlas tools.
+It does not expose arbitrary file reads/writes, shell commands, direct compiler
+bypass, receipt construction, or proof override. Mutation retries use the
+existing durable job authority so an identical request returns the same job or
+result instead of duplicating work.
+
+The Codex plugin is a thin package around that same MCP server. It was qualified
+through a clean-clone marketplace installation, a fresh Codex task, real tool
+discovery and invocation, keyless replay/verification/reconstruction, and clear
+missing-key live behavior. Codex is the tested plugin client. The project does
+not claim tested compatibility with Claude, Cursor, OpenCode, Grok, or other
+hosts that were not exercised.
+
+## Release status
+
+This is a hackathon release, not a production-readiness claim. The evidence
+demonstrates the exact bundled fixtures and supported contract. It does not
+establish universal zero-question behavior, measured time savings, market
+adoption, native Windows support, legal compliance, or a universal organizer
+for every file format and relationship.

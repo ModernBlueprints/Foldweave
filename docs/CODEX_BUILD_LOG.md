@@ -2,14 +2,19 @@
 
 This is the factual development record for Reversible Name Atlas. Codex with
 GPT-5.6 was the primary development environment and integrator. The user chose
-the product direction, authorized the frozen build contracts, retained human
-authority over semantic decisions, and owns the submission voice-over,
-eligibility attestations, `/feedback`, and final submission-hold release.
+the product direction, authorized the frozen build contracts and plain-English
+requests, supplies the sole clarification answer when required, and owns the
+submission voice-over, eligibility attestations, `/feedback`, and final
+submission-hold release.
 
-The runtime use of GPT-5.6 is separate and deliberately narrower: it may create
-one bounded, evidence-linked advisory card for a mechanically detected Meaning
-risk. It cannot approve, edit, verify, select a final path, stage a collection,
-or make a handoff exportable.
+The current runtime use of GPT-5.6 is central but bounded: it creates a complete
+rename/move plan from the instruction, relative structure, basic metadata,
+selected eligible text excerpts, and supported Markdown-link context. Fixed
+code still requires every admitted file exactly once, injects protected files,
+derives link rewrites, copies into a separate result, and independently verifies
+the outcome. GPT-5.6 has no source-mutation, promotion, or proof authority. The
+older advisory-card role below is preserved as explicitly historical evidence;
+it does not qualify the current planner.
 
 ## First product cycle — 17 July 2026
 
@@ -77,7 +82,7 @@ revision was built on `revision/portable-change-receipt`.
 | `eb54f3a2b3ab60bc690d3151e7f5bce0ad28aa0c` | Hardened the revised release candidate, packaged the hero in the wheel, corrected durable replay restart and installed-wheel source selection, replaced the first-cycle release copy, and installed the seven revised screenshots. | 265 tests; two final independent audits; exact detached clean-clone, build, installed-wheel, complete receipt, controlled-failure, restore, link, license, path, secret, and screenshot checks all returned `GO`. |
 | `6591d57e254a21944fb0c4bdfb2f7a4eec18eda4` | Selected the recording-ready release checkpoint with the rehearsed transaction, final R7 package, seven screenshots, and 3:2 thumbnail. | Exact detached local clone and credential-disabled public HTTPS clone each passed frozen install, 265 tests, build, wheel, receipt verification, and keyless five-route replay startup. |
 
-### Current verified checkpoint
+### Historical second-cycle verified checkpoint
 
 Freshly rerun on the revision branch during R6 documentation work:
 
@@ -222,7 +227,11 @@ They remain recoverable byte-for-byte from Git history at the known-good
 first-cycle release `827b0f6`; no product evidence or non-regenerable user data
 was destroyed.
 
-## How Codex contributed
+## Historical second-cycle Codex contribution
+
+This section records the superseded archive-centered second cycle. The current
+release division of work is documented later under **Division of work: GPT-5.6,
+deterministic code, and Codex**.
 
 The primary Codex task translated the frozen contracts into dependency-ordered
 vertical slices, kept one integrated application runnable, delegated bounded
@@ -247,21 +256,20 @@ Codex accelerated implementation, integration, adversarial review, and
 regression work. This is a qualitative development-process account. It is not a
 percentage, recurring-speed, productivity, or superiority measurement.
 
-## Provenance and claim boundary
+## Historical second-cycle provenance and claim boundary
 
 Selected mechanical ideas from a pre-Build-Week feasibility spike were adapted
 under the disclosures in [`PREEXISTING_WORK.md`](PREEXISTING_WORK.md). Its
 tournament semantic/evaluator machinery was rejected, and the product has no
 runtime dependency on the ephemeral spike.
 
-This log does not claim semantic correctness, sender authentication,
-compliance, production readiness, universal archival support, universal
-reversibility, or measured time savings. The recording-ready release commit and
-public-repository alignment are complete. Video, `/feedback` ID, personal
-attestations, explicit hold release, and Devpost submission remain pending.
-The submission hold remains active.
+This historical checkpoint did not claim semantic correctness, sender
+authentication, compliance, production readiness, universal archival support,
+universal reversibility, or measured time savings. Its recording-ready state was
+subsequently superseded by the AI-first and Connected Change cycles below. The
+submission hold remained active.
 
-## Devpost pre-submission preparation — 18 July 2026
+## Historical Devpost pre-submission preparation — 18 July 2026
 
 The authenticated Devpost connector identified the existing Reversible Name
 Atlas project as software ID `1344382`, slug `reversible-name-atlas`. The
@@ -300,7 +308,7 @@ pre-submission preparation only. The user's voice recording, `/feedback`,
 personal attestations, explicit submission-hold release, and final Devpost
 submission remain pending; the hold remains active.
 
-## Video-capture preflight — 18 July 2026
+## Historical video-capture preflight — 18 July 2026
 
 The protected submission-reserve work verified the final capture path without
 creating or publishing a final video. FFmpeg `8.0.1` detected the macOS screen
@@ -333,3 +341,121 @@ still be timed against the user's actual narration, checked with audio, exported
 under three minutes, and watched locally and after public YouTube upload. No
 video was uploaded, no provider call was made, and the submission hold remains
 active.
+
+## AI-first ordinary-folder cycle — 18 July 2026
+
+The user replaced the manual archive workflow with an automatic ordinary-folder
+transaction: describe the change, let GPT-5.6 plan a complete rename/move map,
+compile it through fixed rules, ask at most one question, create a separate
+result, preserve supported Markdown links, verify it independently, and recreate
+the original layout.
+
+| Commit | Outcome | Verified checkpoint |
+|---|---|---|
+| `ee66128` | Froze the AI-first folder specification and vertical A1–A7 operating scaffold on `revision/ai-first-folder-refactor`. | Governance only; the preceding release stayed intact at `4baec1e`. |
+| `5609ca6` | Delivered A1 generic inventory, protected members, stable identities, complete-file compiler, separate copy transaction, and Start/Working/Done shell. | 108 focused and 359 full tests; desktop/narrow browser QA; source unchanged. |
+| `04f6b89` | Delivered A2 exact-span Markdown relationships, bounded evidence tools, planner repair/clarification rules, staleness, restart, and one mutation-owning worker boundary. | 242 focused and 502 full tests; zero-question and one-question development transactions; no provider call. |
+| `e3803d2` | Completed A3 durable `FolderRefactorJob.v1`, path-neutral artifacts, acyclic receipt, original Markdown bytes, source-free verifier, exact BagIt-valid alteration refusal, and reconstruction. | 129 focused and 590 full tests; receipt `52b4e3f5c15946d4c6940e585cdaec9264f11ab0dc4139afec2129716995f3ce`; exact reconstruction. |
+
+A3 remains the immutable fallback. Its predecessor behavior was preserved rather
+than reset or relabeled when the user authorized the Connected Change extension.
+
+## Connected Change cycle — 18–19 July 2026
+
+The final selected profile adds one transferable Name Atlas Change File. Sofia
+can plan and verify a connected-folder reorganization once. Martin can apply the
+same change to a differently arranged equivalent project without another GPT
+call or transfer of project payload bytes. The Change File still discloses
+project names and structure, sizes and hashes, supported relationships, the
+instruction, targets, and proof identifiers.
+
+| Commit | Outcome | Verified checkpoint |
+|---|---|---|
+| `4d4f078` | Established the inactive Connected Change operating scaffold. | Governance parent `e3803d2`; no product work. |
+| `121789a` | Recorded and pushed the pre-activation preservation checkpoint. | Remote revision branch backed up; `main` remained at `4baec1e`. |
+| `92ac783` | Activated C+0 at Saturday 18 July 2026 at 23:31:39 CEST. | Exact branch, timing, and C0 gate recorded. |
+| `a5ea342` | Proved C0 and selected `CONNECTED_CHANGE_GO`. | Complete two-layout origin/receiver transaction, deterministic refusals, equal organized-tree commitment, receiver reconstruction, and zero receiver provider/API/budget/external-network use; 636 full tests. |
+| `c94c26b` | Completed C1 strict Change File, deterministic matcher, v2 job/receipt provenance, receiver application, source-free verification, convergence, and receiver-specific reconstruction. | 707 full tests plus unrelated-location, restart, staleness, false-summary, and immutability proof. |
+| `852fc55` | Completed C2 Home/Organize/Apply/Working/Done, bounded native macOS picker, verified Finder bridge, and truthful receiver journey. | 34 focused and 759 full tests; 1280×720 and 390×844 visual/accessibility QA. |
+| `9e8d3db` | Completed C3 final fixtures, two real GPT-5.6 planner transactions, exact sanitized replays, Sofia/Martin convergence, and the final refusal matrix. | 13 focused and 795 full tests; exact live receipts and keyless replay/reconstruction. |
+| `bc1898e` | Completed C4 shared seven-tool STDIO MCP server with consent, durable idempotency, restart recovery, and actual Codex invocation. | 12 focused and 807 full tests; Codex task `019f78e6-06d3-72f0-9258-be362118ea2f` invoked `verify_result`. |
+| `7314c58` | Added the thin Codex plugin and repository marketplace around the same MCP server. | Clean-clone install, isolated cache equality, fresh-task discovery/invocation, keyless replay, verification, reconstruction, missing-key behavior, and uninstall passed. |
+| `0dc4776` | Closed C5 and entered feature freeze early. | 16 focused and 811 full tests; installed-plugin task `019f7916-02e0-7910-a5a6-f190cd21ec21`; release materials marked for regeneration. |
+
+### Current real GPT-5.6 planner evidence
+
+The final 24-file hero used exact model alias `gpt-5.6` and returned
+`gpt-5.6-sol`. It completed in three response turns and 16 bounded evidence
+calls without a question, with `store=false`, receipt
+`e3e15fb57f396760a53aecf1549cd3ecb0937cf85039e90113d29b4b1f88f9b1`,
+and organized-tree commitment
+`a11ab49b9b48151aae4343c189c2eecae8c0a67a91cac45144656eb0ece02f7e`.
+
+The four-file ambiguity transaction completed in three turns and four evidence
+calls, asked exactly one question, accepted exactly one answer, retained both
+presentations, and produced receipt
+`9eba5c8d670106641dec8d6f6dc4366ea12454db2bd7eb8a86f27c2ca7c3b2a7`.
+
+The exact sanitized recordings are:
+
+- `src/name_atlas/recordings/folder_hero_zero_question.json`, SHA-256
+  `75a4ab5f6bc41068c666659fb671bfbd1dcee6a24dcbbe67ba16250dca81d6a1`;
+- `src/name_atlas/recordings/folder_ambiguity_one_question.json`, SHA-256
+  `cf8dc1ad3ad99ed99a2a10d273c713245584c89a34cf547d0a5dd9c23fdd623f`.
+
+Neither recording contains a credential, provider response ID, absolute local
+path, protected content, or hidden reasoning. Recorded mode makes no provider
+call and fails closed if its fixture, request, schemas, evidence, or replay
+fingerprint differs.
+
+The sole cumulative budget ledger is at 9 of 13 provider requests/attempts, USD
+9.736060 conservative committed exposure, USD 0.605515 reported estimated cost,
+and the unchanged USD 10 cap. The earlier advisory-card request remains included
+in those totals. No further live request is required for the release.
+
+### Division of work
+
+Codex was the primary implementation and integration environment. It read the
+frozen contracts, implemented the Python modules and tests, maintained the one
+branch and state checkpoint, ran the vertical transactions, performed browser
+and clean-clone checks, coordinated bounded independent audits, corrected
+adversarial findings, generated release documentation, and qualified the shared
+MCP and installed plugin. Agent messages and passing unit tests were never used
+as completion by themselves; each milestone required its specified
+product-native and downstream evidence, relevant regression coverage, visual
+checks where applicable, and a coherent commit.
+
+Runtime GPT-5.6 planned the two exact demonstrated origin transactions from
+bounded evidence. It did not mutate the source, decide whether its plan passed,
+derive byte offsets, write the Change File, apply a receiver change, verify a
+result, or reconstruct a folder. Those operations remained deterministic Name
+Atlas services.
+
+The receiver-side Change File transaction made no GPT call, required no API key,
+made no budget reservation, and made no external network request. The browser
+itself still uses loopback HTTP.
+
+## C6 release status — 19 July 2026
+
+Selected profile `CONNECTED_CHANGE_GO` entered feature freeze on Sunday 19 July
+2026 at 08:36:26 CEST. C6 is regenerating the stale README, limitations,
+provenance, build log, screenshots, thumbnail, narration, Devpost copy, and
+submission package, and will requalify the actual wheel and exact public clean
+clone before selecting a release candidate.
+
+The release-media replacement removed seven superseded second-cycle PNGs from
+the current gallery because they showed the archive workflow rather than the
+selected Connected Change product: `01-atlas.png` (345,430 bytes),
+`02-decide.png` (422,841), `03-stage.png` (200,943), `04-verify.png` (348,416),
+`05-handoff.png` (341,384), `06-offline-receipt.png` (334,009), and
+`07-negative-block.png` (365,283), for 2,358,306 bytes total. They remain
+byte-for-byte recoverable from feature-freeze commit `0dc4776`; the current
+release replaces them with the visually audited seven-frame Connected Change
+gallery and Sofia→Change File→Martin thumbnail recorded in the submission
+package.
+
+The historical Devpost text and gallery identity described above are stale and
+must be replaced before submission. Public `main` remains the preserved
+second-cycle fallback until the Connected Change release passes its final
+fast-forward acceptance. No final video has been published, `/feedback` remains
+user-owned, and the submission hold is active.

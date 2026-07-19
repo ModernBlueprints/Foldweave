@@ -100,3 +100,44 @@ No code, prompt, executable, scoring rule, or transport behavior from
 `pathatlas/semantic.py` was inspected, imported, executed, or adapted. The
 product has no runtime, test, or judge-path dependency on the ephemeral spike
 root.
+
+## Current release provenance
+
+The table above is the complete adaptation record for the disclosed feasibility
+spike. No additional source fragment, prompt, executable, scoring rule,
+evaluation harness, or transport implementation from that spike was copied or
+imported during the later product cycles.
+
+The current Connected Change release evolved from work already written in this
+same repository during Build Week. That internal evolution is disclosed here so
+the final product is not presented as if every subsystem appeared for the first
+time in the last revision.
+
+| Build Week checkpoint | Reused repository-owned foundation | New or materially rewritten work at that checkpoint |
+|---|---|---|
+| Public archive baseline `4baec1e` | Source scanning and hashing; copy-only pending/final promotion; canonical JSON; BagIt packaging; receiver receipt verification; reconstruction; FastAPI/Jinja shell; locally packaged Blueprint assets | Archive-specific Migration Case, portable receipt, verifier, five-state workbench, and release infrastructure |
+| A1 `5609ca6` | The mechanical scanner, hashing, copy, BagIt, browser, and packaging lessons already implemented in the repository | Generic ordinary-folder inventory and identities; protected-member classification; complete-file planner schema; deterministic compiler; separate result transaction; Start/Working/Done surface |
+| A2 `04f6b89` | A1 generic-folder contracts and repository persistence patterns | Exact-span Markdown parser and link graph; bounded evidence tools; planner turn/repair/clarification authority; source-staleness and restart-safe browser transaction |
+| A3 `e3803d2` | Existing BagIt, atomic-write, receipt, verification, and reconstruction mechanics, adapted to the generic folder schemas | Strict `FolderRefactorJob.v1`; complete path-neutral folder artifact family; preserved original Markdown bytes; source-free verifier; exact altered-result refusal; exact folder reconstruction |
+| Connected Change C0 `a5ea342` and C1 `c94c26b` | A1–A3 scanner, compiler, link rewriter, copy transaction, job, receipt, verifier, and reconstruction services | Name Atlas Change File; path-independent member descriptors; deterministic fixed-point receiver matcher; safe in-root parent links; `gpt_planned`/`capsule_applied` provenance; v2 job/plan/receipt contracts; receiver-specific result, receipt, verification, convergence, and reconstruction |
+| C2 `852fc55` | The same server-owned job and transaction services | Home/Organize/Apply/Working/Done release surface; bounded native macOS picker; verified Finder bridge; truthful receiver progress and Change File download/application experience |
+| C3 `9e8d3db` | The bounded planner/provider and fixture machinery created in A1–A3 | Final 24-file Sofia/Martin fixtures; two new real GPT-5.6 planner records; exact sanitized replays; final convergence and refusal evidence; monotonic migration of the sole budget ledger |
+| C4 `bc1898e` | The existing browser/CLI domain services and durable v2 job | One shared seven-tool STDIO MCP server, consent and job-bound idempotency, restart recovery, and actual Codex tool qualification |
+| C5 `7314c58` / feature-freeze checkpoint `0dc4776` | The verified shared MCP server | Thin Codex plugin and repository marketplace metadata; clean-clone installation, fresh-task discovery/invocation, installed-cache proof, and uninstall instructions |
+
+The Connected Change matcher, Change File contracts, v2 provenance and receipt
+semantics, receiver application, current browser journeys, shared MCP server,
+and Codex plugin were implemented in this repository for the current Build Week
+submission. They are not wrappers around the old spike and do not import it at
+runtime or during tests.
+
+The Codex plugin's initial manifest structure was created through OpenAI's
+official plugin-creator workflow after its product gate returned `GO`. The
+committed plugin contains only marketplace metadata and a relative MCP
+configuration around the same Name Atlas server; it contains no copied product
+implementation.
+
+The historical archive release and A1–A3 checkpoints remain in ordinary Git
+history as traceable predecessors. The selected release-facing product is the
+feature-frozen `CONNECTED_CHANGE_GO` profile, and the public documentation must
+not present the superseded archive workflow as its current experience.

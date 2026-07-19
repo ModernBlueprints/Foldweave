@@ -1006,9 +1006,12 @@ Matching uses this terminating fixed-point algorithm:
 7. Accept only singleton class mappings.
 8. Block every remaining non-singleton class as ambiguous.
 
-Matching never uses origin path, receiver path, accepted target path, lexical
-ordering, filesystem iteration order, or arbitrary tie-breaking. It does not
-attempt general graph isomorphism or semantic-similarity matching.
+Matching ordinary members never uses an origin path, receiver path, accepted
+target path, lexical ordering, filesystem iteration order, or arbitrary
+tie-breaking. Protected members retain the exact-path requirement defined
+above, and explicit empty-directory requirements retain their exact-path
+agreement rule. Matching does not attempt general graph isomorphism or
+semantic-similarity matching.
 
 Receiver application blocks on any extra/missing member, ordinary payload
 change, Markdown non-destination change, supported relationship change,

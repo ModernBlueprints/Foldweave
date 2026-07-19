@@ -11,6 +11,7 @@ import pytest
 from connected_change_fixtures import make_symmetric_fixture
 
 from name_atlas import connected_browser_cli
+from name_atlas.connected_web_service import ConnectedBrowserRunService
 from name_atlas.folder_refactor.connected_change.contracts import ConnectedChangeError
 from name_atlas.folder_refactor.connected_change.job_service import (
     ConnectedChangeJobService,
@@ -151,6 +152,50 @@ def test_bundled_demo_keeps_job_state_outside_source_and_results(
     assert job.parent not in output.parents
 
 
+@pytest.mark.parametrize("mode", ["live", "replay"])
+def test_bundled_demo_configures_frozen_change_file_download_name(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class CapturedBrowserService:
+        planner_label = "Captured planner"
+
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+    monkeypatch.setattr(
+        connected_browser_cli,
+        "ConnectedBrowserRunService",
+        CapturedBrowserService,
+    )
+    monkeypatch.setattr(
+        connected_browser_cli,
+        "create_folder_app",
+        lambda *_args, **_kwargs: object(),
+    )
+    monkeypatch.setattr(
+        connected_browser_cli.uvicorn,
+        "run",
+        lambda *_args, **_kwargs: None,
+    )
+
+    assert (
+        connected_browser_cli._run_connected_browser(
+            mode=mode,
+            source=None,
+            output=None,
+            job=tmp_path / f"{mode}.json",
+            port=8765,
+            demo=True,
+        )
+        == 0
+    )
+    assert captured["change_file_download_name"] == "northstar.nameatlas-change.json"
+
+
 @pytest.mark.anyio
 async def test_browser_refuses_cross_mode_label_for_persisted_replay_job(
     tmp_path: Path,
@@ -230,6 +275,32 @@ async def test_recorded_hero_converges_with_keyless_receiver_and_restore(
     assert _tree(restored.destination) == martin_before
     assert _tree(fixture.sofia_root) == sofia_before
     assert _tree(fixture.martin_root) == martin_before
+
+
+@pytest.mark.anyio
+async def test_bundled_hero_change_file_download_uses_frozen_name(
+    tmp_path: Path,
+) -> None:
+    _fixture, origin, _change_path = await _create_recorded_hero_origin(tmp_path)
+    service = ConnectedBrowserRunService(
+        job_path=origin.job_path,
+        change_file_download_name=(
+            connected_browser_cli.HERO_CHANGE_FILE_DOWNLOAD_NAME
+        ),
+    )
+
+    download = service.get_change_file_download()
+
+    assert download.filename == "northstar.nameatlas-change.json"
+    assert download.filename != (
+        f"{origin.accepted_plan.result_folder_name}.nameatlas-change.json"
+    )
+    general_download = ConnectedBrowserRunService(
+        job_path=origin.job_path,
+    ).get_change_file_download()
+    assert general_download.filename == (
+        f"{origin.accepted_plan.result_folder_name}.nameatlas-change.json"
+    )
 
 
 @pytest.mark.anyio

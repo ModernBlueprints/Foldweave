@@ -163,7 +163,7 @@ async def test_server_owned_start_working_done_transaction(tmp_path: Path) -> No
     assert working.status_code == 200
     for stage in (
         "Reading folder",
-        "Name Atlas is planning",
+        "Deterministic planning — no API call",
         "Checking every file and destination",
         "Creating the new folder",
         "Updating supported links",

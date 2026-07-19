@@ -2,14 +2,46 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
 from collections.abc import Sequence
+
+COMMAND_HELP = (
+    ("demo", "Run the bundled live or recorded Connected Change demonstration."),
+    ("run", "Run the local Connected Change browser application."),
+    ("apply-change", "Apply a Name Atlas Change File without GPT or an API key."),
+    ("verify-receipt", "Independently verify a portable Name Atlas result."),
+    ("restore-receipt", "Recreate the original layout from a verified result."),
+    ("mcp", "Run the shared seven-tool Name Atlas STDIO MCP server."),
+)
+
+
+def build_root_parser() -> argparse.ArgumentParser:
+    """Build the complete provider-free top-level command index."""
+
+    parser = argparse.ArgumentParser(
+        prog="name-atlas",
+        description=(
+            "Plan, apply, verify, and reconstruct connected-folder changes "
+            "without modifying the selected source folder."
+        ),
+    )
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+    for command, help_text in COMMAND_HELP:
+        subparsers.add_parser(command, add_help=False, help=help_text)
+    return parser
 
 
 def run(argv: Sequence[str] | None = None) -> int:
     """Dispatch commands before importing unrelated runtime authorities."""
 
     arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments:
+        build_root_parser().print_help(sys.stderr)
+        return 2
+    if arguments[0] in {"-h", "--help"}:
+        build_root_parser().print_help()
+        return 0
     if arguments and arguments[0] == "mcp":
         from name_atlas.mcp_server import run_mcp_server
 

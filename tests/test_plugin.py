@@ -69,9 +69,10 @@ def test_plugin_documents_install_use_and_uninstall_from_a_clean_clone() -> None
 
     for required_text in (
         "uv sync --frozen",
-        "codex plugin marketplace add .",
-        "codex plugin add name-atlas@personal",
-        "codex plugin remove name-atlas@personal",
+        "/Applications/ChatGPT.app/Contents/Resources/codex",
+        '"$CODEX_BIN" plugin marketplace add .',
+        '"$CODEX_BIN" plugin add name-atlas@personal',
+        '"$CODEX_BIN" plugin remove name-atlas@personal',
         "plan_and_create_copy",
         "apply_change_file",
         "OPENAI_API_KEY",

@@ -24,6 +24,7 @@ from name_atlas.folder_refactor.connected_change.job_service import (
 )
 
 LOGGER = logging.getLogger(__name__)
+HERO_CHANGE_FILE_DOWNLOAD_NAME = "northstar.nameatlas-change.json"
 
 
 def build_connected_browser_parser() -> argparse.ArgumentParser:
@@ -149,6 +150,9 @@ def _run_connected_browser(
             planner_note=mode_config.planner_note,
             outbound_evidence_will_be_sent=(mode_config.outbound_evidence_will_be_sent),
             default_request=mode_config.default_request,
+            change_file_download_name=(
+                HERO_CHANGE_FILE_DOWNLOAD_NAME if demo else None
+            ),
         )
         app = create_folder_app(
             service,

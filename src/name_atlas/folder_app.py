@@ -38,7 +38,15 @@ MAX_REQUEST_CHARACTERS = 8_000
 PLANNER_LABEL = "Deterministic A3 planner — no API call"
 ORGANIZE_WORKING_STAGES = (
     "Reading folder",
-    "Name Atlas is planning",
+    "GPT-5.6 is planning",
+    "Checking every file and destination",
+    "Creating the new folder",
+    "Updating supported links",
+    "Verifying the result",
+)
+DEVELOPMENT_WORKING_STAGES = (
+    "Reading folder",
+    "Deterministic planning — no API call",
     "Checking every file and destination",
     "Creating the new folder",
     "Updating supported links",
@@ -1514,7 +1522,7 @@ def _base_context(
     return {
         "state": state,
         "journey": journey.value,
-        "stages": _working_stages(state),
+        "stages": _visible_working_stages(state, planner_label),
         "planner_label": (
             "Change File application — no GPT or API"
             if journey is FolderJourney.APPLY
@@ -1602,6 +1610,19 @@ def _reconstruction_failure_invalidates_result(exc: Exception) -> bool:
 def _working_stages(state: _FolderWebState) -> tuple[str, ...]:
     if state.journey is FolderJourney.APPLY:
         return APPLY_WORKING_STAGES
+    return ORGANIZE_WORKING_STAGES
+
+
+def _visible_working_stages(
+    state: _FolderWebState,
+    planner_label: str,
+) -> tuple[str, ...]:
+    """Project exact origin-specific language without changing job authority."""
+
+    if state.journey is FolderJourney.APPLY:
+        return APPLY_WORKING_STAGES
+    if "no api call" in planner_label.casefold():
+        return DEVELOPMENT_WORKING_STAGES
     return ORGANIZE_WORKING_STAGES
 
 
