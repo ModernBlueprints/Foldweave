@@ -130,15 +130,15 @@ FIXED_PICKER_SCRIPTS = MappingProxyType(
         ),
         NativePathRole.OUTPUT_PARENT: _picker_script(
             chooser="choose folder",
-            prompt="Choose where Name Atlas should create the result",
+            prompt="Choose where Foldweave should create the result",
         ),
         NativePathRole.CHANGE_FILE: _picker_script(
             chooser="choose file",
-            prompt="Choose a Name Atlas Change File",
+            prompt="Choose a Foldweave Change File",
         ),
         NativePathRole.RESTORE_DESTINATION: _picker_script(
             chooser="choose folder",
-            prompt="Choose where Name Atlas should recreate the original layout",
+            prompt="Choose where Foldweave should recreate the original layout",
         ),
     }
 )

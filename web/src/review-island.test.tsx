@@ -2,7 +2,11 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { FolderPlanPreviewV1, ReviewStatus } from "./contracts";
+import type {
+  AcceptancePayload,
+  FolderPlanPreviewV1,
+  ReviewStatus,
+} from "./contracts";
 import { ReviewIsland } from "./review-island";
 
 const A = "a".repeat(64);
@@ -123,21 +127,28 @@ const status: ReviewStatus = {
   preview_fingerprint: C,
   output_parent: "/tmp/foldweave-output",
   result_folder_name: "northstar-organized",
+  revision_available: true,
+  revision_attempts_remaining: 2,
+  revision_failure: null,
   done_url: null,
 };
 
 function renderReview(journey: "organize" | "apply" = "organize") {
   const acceptPlan = vi.fn(async () => undefined);
+  const revisePlan = vi.fn(async () => undefined);
+  const keepPrevious = vi.fn(async () => undefined);
   render(
     <ReviewIsland
       acceptPlan={acceptPlan}
       idempotencyKeyFactory={() => "test-idempotency-key"}
       journey={journey}
+      keepPrevious={keepPrevious}
       preview={preview}
+      revisePlan={revisePlan}
       status={status}
     />,
   );
-  return acceptPlan;
+  return { acceptPlan, keepPrevious, revisePlan };
 }
 
 afterEach(cleanup);
@@ -189,7 +200,7 @@ describe("Foldweave review island", () => {
 
   it("submits the exact fingerprint-bound acceptance only after the explicit click", async () => {
     const user = userEvent.setup();
-    const acceptPlan = renderReview();
+    const { acceptPlan } = renderReview();
     expect(acceptPlan).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Accept this structure and create copy" }));
@@ -204,13 +215,89 @@ describe("Foldweave review island", () => {
     });
   });
 
-  it("shows revision honestly without sending unavailable work", async () => {
+  it("reuses the exact acceptance key after an uncertain response", async () => {
     const user = userEvent.setup();
-    const acceptPlan = renderReview();
+    const acceptPlan = vi
+      .fn<(payload: AcceptancePayload) => Promise<void>>()
+      .mockRejectedValueOnce(new Error("The response was not observed."))
+      .mockResolvedValueOnce(undefined);
+    const idempotencyKeyFactory = vi
+      .fn<() => string>()
+      .mockReturnValueOnce("stable-accept-key")
+      .mockReturnValueOnce("must-not-be-used");
+    render(
+      <ReviewIsland
+        acceptPlan={acceptPlan}
+        idempotencyKeyFactory={idempotencyKeyFactory}
+        journey="organize"
+        keepPrevious={vi.fn(async () => undefined)}
+        preview={preview}
+        revisePlan={vi.fn(async () => undefined)}
+        status={status}
+      />,
+    );
+
+    const accept = screen.getByRole("button", {
+      name: "Accept this structure and create copy",
+    });
+    await user.click(accept);
+    expect(await screen.findByText("The response was not observed.")).toBeInTheDocument();
+    await user.click(accept);
+
+    expect(acceptPlan).toHaveBeenCalledTimes(2);
+    expect(acceptPlan.mock.calls[0]?.[0].idempotency_key).toBe("stable-accept-key");
+    expect(acceptPlan.mock.calls[1]?.[0].idempotency_key).toBe("stable-accept-key");
+    expect(idempotencyKeyFactory).toHaveBeenCalledTimes(1);
+  });
+
+  it("submits one exact bounded revision after nonblank user input", async () => {
+    const user = userEvent.setup();
+    const { acceptPlan, revisePlan } = renderReview();
     const input = screen.getByLabelText("Describe a change to this proposal");
-    await user.type(input, "Keep the notes together");
     expect(screen.getByRole("button", { name: "Send changes" })).toBeDisabled();
-    expect(screen.getByText(/No instruction will be sent yet/)).toBeInTheDocument();
+    await user.type(input, "Keep the notes together");
+    await user.click(screen.getByRole("button", { name: "Send changes" }));
+    expect(revisePlan).toHaveBeenCalledWith({
+      candidate_fingerprint: B,
+      expected_revision: 3,
+      idempotency_key: "test-idempotency-key",
+      instruction: "Keep the notes together",
+      preview_fingerprint: C,
+    });
     expect(acceptPlan).not.toHaveBeenCalled();
+  });
+
+  it("preserves a failed proposal and exposes retry or keep actions", async () => {
+    const user = userEvent.setup();
+    const keepPrevious = vi.fn(async () => undefined);
+    render(
+      <ReviewIsland
+        acceptPlan={vi.fn(async () => undefined)}
+        idempotencyKeyFactory={() => "keep-idempotency-key"}
+        journey="organize"
+        keepPrevious={keepPrevious}
+        preview={preview}
+        revisePlan={vi.fn(async () => undefined)}
+        status={{
+          ...status,
+          revision_attempts_remaining: 1,
+          revision_failure: "Two files would use the same target path.",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Two files would use the same target path."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Accept this structure and create copy" }),
+    ).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Keep previous proposal" }));
+    expect(keepPrevious).toHaveBeenCalledWith({
+      candidate_fingerprint: B,
+      expected_revision: 3,
+      idempotency_key: "keep-idempotency-key",
+      preview_fingerprint: C,
+    });
   });
 });

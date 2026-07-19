@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from typing import Annotated, Literal, Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from name_atlas.folder_refactor.connected_change.receipt_contracts import (
     FolderReceiptEnvelopeV2,
+)
+from name_atlas.folder_refactor.foldweave_planning_contracts import (
+    GptPlannedExecutionOriginV2,
 )
 from name_atlas.folder_refactor.naming import (
     validate_complete_target_tree,
@@ -323,10 +326,12 @@ class CapsuleAppliedExecutionOrigin(StrictFrozenConnectedModel):
     external_network_used: Literal[False] = False
 
 
-FolderExecutionOrigin = Annotated[
-    GptPlannedExecutionOrigin | CapsuleAppliedExecutionOrigin,
-    Field(discriminator="kind"),
-]
+GptExecutionOrigin = GptPlannedExecutionOrigin | GptPlannedExecutionOriginV2
+FolderExecutionOrigin = (
+    GptPlannedExecutionOrigin
+    | GptPlannedExecutionOriginV2
+    | CapsuleAppliedExecutionOrigin
+)
 
 
 def connected_change_member_id(member: ConnectedChangeMember) -> str:

@@ -259,8 +259,8 @@ async def test_f0a_browser_origin_receiver_review_restart_accept_and_receipts(
             json=origin_acceptance,
         )
 
-        assert duplicate.status_code == 409
-        assert duplicate.json()["error"] == "review_not_current"
+        assert duplicate.status_code == 200
+        assert duplicate.json() == {"lifecycle": "verified", "done_url": "/done"}
         assert origin_job.read_bytes() == origin_job_before_retry
         assert tree_state(origin_result.result_root) == origin_result_before_retry
         assert tuple(origin_output.iterdir()) == (origin_result.result_root,)
@@ -466,8 +466,8 @@ async def test_f0a_browser_rejects_nonvisible_acceptance_without_output(
         status = await client.get("/status")
         review = await client.get("/review")
 
-    assert refused.status_code == 422
-    assert refused.json()["error"] == "acceptance_invalid"
+    assert refused.status_code == 409
+    assert refused.json()["error"] == "acceptance_blocked"
     assert status.json()["lifecycle"] == "reviewing"
     assert review.status_code == 200
     assert tuple(output.iterdir()) == ()

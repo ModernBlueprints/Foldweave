@@ -5,11 +5,14 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
 import pytest
+from openai import AsyncOpenAI
 
 from name_atlas.decision_cards.budget import PersistentBudgetLedger
 from name_atlas.folder_refactor.live_planner_provider import (
     LiveFolderPlannerProvider,
+    LiveFolderPlanRevisionProvider,
 )
 from name_atlas.folder_refactor.planner_contracts import (
     FolderPlannerTurnInput,
@@ -22,6 +25,7 @@ from name_atlas.folder_refactor.planner_contracts import (
 from name_atlas.folder_refactor.planner_prompt import PLANNER_RESPONSE_TOOLS
 from name_atlas.folder_refactor.planner_provider import (
     PlannerProviderTimeoutError,
+    PlannerProviderTransportError,
 )
 from name_atlas.folder_refactor.serialization import (
     canonical_json_bytes,
@@ -201,3 +205,67 @@ def test_every_function_schema_requires_every_object_property() -> None:
 
     for tool in PLANNER_RESPONSE_TOOLS:
         inspect(tool["parameters"])
+
+
+@pytest.mark.anyio
+async def test_direct_provider_clients_never_follow_http_redirects() -> None:
+    budget = PersistentBudgetLedger(path=None, live_call_cap=13, cost_cap_usd=40)
+    initial = LiveFolderPlannerProvider.from_api_key(
+        "test-only-placeholder",
+        budget=budget,
+    )
+    revision = LiveFolderPlanRevisionProvider.from_api_key(
+        "test-only-placeholder",
+        budget=budget,
+    )
+
+    try:
+        assert initial._client._client.follow_redirects is False
+        assert revision._client._client.follow_redirects is False
+    finally:
+        await initial._client.close()
+        await revision._client.close()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("status_code", (301, 302, 303, 307, 308))
+async def test_direct_provider_never_follows_redirect_response(
+    status_code: int,
+) -> None:
+    requested_urls: list[str] = []
+
+    async def redirect(request: httpx.Request) -> httpx.Response:
+        requested_urls.append(str(request.url))
+        return httpx.Response(
+            status_code,
+            headers={"location": "https://redirect-target.invalid/responses"},
+            request=request,
+        )
+
+    http_client = httpx.AsyncClient(
+        transport=httpx.MockTransport(redirect),
+        follow_redirects=False,
+    )
+    client = AsyncOpenAI(
+        api_key="test-only-placeholder",
+        base_url="https://api.openai.com/v1",
+        max_retries=0,
+        http_client=http_client,
+    )
+    budget = PersistentBudgetLedger(path=None, live_call_cap=13, cost_cap_usd=40)
+    provider = LiveFolderPlannerProvider(client, budget=budget)
+
+    try:
+        with pytest.raises(
+            PlannerProviderTransportError,
+            match="failed without a retry",
+        ) as raised:
+            await provider.exchange(_turn())
+    finally:
+        await client.close()
+
+    assert requested_urls == ["https://api.openai.com/v1/responses"]
+    assert "test-only-placeholder" not in str(raised.value)
+    assert provider.usage == ()
+    assert budget.snapshot.live_requests_reserved == 1
+    assert budget.snapshot.provider_attempts_reserved == 1

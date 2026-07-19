@@ -111,17 +111,17 @@ def executable_utilities(monkeypatch: pytest.MonkeyPatch) -> None:
         (
             NativePathRole.OUTPUT_PARENT,
             "choose folder",
-            "Choose where Name Atlas should create the result",
+            "Choose where Foldweave should create the result",
         ),
         (
             NativePathRole.CHANGE_FILE,
             "choose file",
-            "Choose a Name Atlas Change File",
+            "Choose a Foldweave Change File",
         ),
         (
             NativePathRole.RESTORE_DESTINATION,
             "choose folder",
-            "Choose where Name Atlas should recreate the original layout",
+            "Choose where Foldweave should recreate the original layout",
         ),
     ),
 )

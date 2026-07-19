@@ -1,9 +1,9 @@
 # Foldweave — Sole Native-Review Implementation Plan
 
-Status: **FOLDWEAVE EXECUTION ACTIVE; F0A REVIEW AUTHORITY COMPLETE; F0B NATIVE APPLICATION IN PROGRESS;
+Status: **FOLDWEAVE EXECUTION ACTIVE; F0A REVIEW AUTHORITY AND F0B NATIVE APPLICATION COMPLETE; F0C CHATGPT DEVELOPER MODE IN PROGRESS;
 CONNECTED-CHANGE C0–C7 BASELINE COMPLETE; SUBMISSION HOLD ACTIVE**
 
-Phase: **F0B_NATIVE_APPLICATION_IN_PROGRESS**
+Phase: **F0C_CHATGPT_DEVELOPER_MODE_IN_PROGRESS**
 
 Submission hold: **ACTIVE**
 
@@ -1376,10 +1376,65 @@ completed Foldweave.
 - **Owner:** primary integrator; bounded packaging and visual reviewers.
 - **Allowed cut:** decoration and notification only; py2app is the authorized
   packaging fallback after two serious PyInstaller corrections.
-- **Actual status:** `IN PROGRESS` from Sunday 19 July 2026 at 18:46:52 CEST.
-- **Actual verification:** F0a dependency returned independently audited `GO`;
-  native, Keychain, direct-provider, ledger-migration, and packaging work has
-  not yet qualified. No F0b provider call or budget reservation has occurred.
+- **Actual status:** `COMPLETE — GO`; started Sunday 19 July 2026 at 18:46:52
+  CEST and qualified Sunday 19 July 2026 at 22:01:53 CEST.
+- **Actual verification:** one PyInstaller 6 `onedir --windowed` Apple-Silicon
+  `Foldweave.app` now composes the existing FastAPI control plane, production
+  React review island, health-gated ephemeral loopback server, narrow native
+  bridge, and durable external job authority. The 53 MiB app has bundle ID
+  `com.modernblueprints.foldweave`, minimum macOS 13, an arm64 entry point with
+  SHA-256 `ab9cab6ca8cc941cd1e184d751f4aa0ca4540aaab7686ca16332b0df06c09da5`,
+  a verified ad-hoc signature, and no runtime Node executable. The exact bundle
+  launched from
+  `/tmp/foldweave-f0b-corrected.0V24sg/Foldweave.app`, not the developer build
+  directory. The frozen F0b composite contract is
+  `178aa4aa084ed459726e165acb51edc2c36c16aad9c4020cc49c7542e22feec9`.
+  Before provider use, the sole ledger migrated atomically from USD 10 to USD
+  40 while preserving the cumulative call cap 13 and every historical count.
+  The final live origin job requested exact `gpt-5.6`, observed returned model
+  `gpt-5.6-sol`, used `store=false` with zero provider retries, and preserved
+  four contiguous provider turns: one complete initial plan, one mechanically
+  rejected sparse revision, and one corrected accepted sparse revision. The
+  rejected turn and exact `unknown_evidence_id` failure remain append-only
+  evidence under the original contract freeze; the accepted correction binds
+  the final F0b freeze. Exact native-channel acceptance bound candidate
+  `89a0208fe122c1c50b9e98e780de9a90613f02f293239d4edf460526d985a62b`
+  and preview
+  `300254a2b651f838162a5b28c215b9c0b9976482f7a6059c67645e84ca60163c`,
+  created one separate result, and reached durable job revision 43 in
+  `verified`. Independent proof returned receipt
+  `116616c0b6fd857c9885177ef80e02e4e574f82d5ec82e00ef2b773ffa005fdd`,
+  organized-tree commitment
+  `245fe210507151e3f4c3c4ba66745ba7891c66cf1b230ae39d3ceab0ade8e835`,
+  Change File fingerprint
+  `d83bd2844ffae7d852b2b733e373dd928ef977e2fe9cb1de608a00f419fb53ec`,
+  and verification fingerprint
+  `a005950edc0bdea2049d2871a794c4a6a7c50f921d8317935c5352fc35aba78f`.
+  The source and reconstruction match exactly by path and bytes, including the
+  explicit empty directory. The final ledger is USD 40.000000 cap, call cap 13,
+  13 requests/attempts, USD 12.734470 conservative exposure, and USD 0.874860
+  reported cost; its SHA-256 is
+  `7f4142aaee9bc6bb14f88c91541d9d611ef5abd1d7f4f958cd3434d401f75f0a`.
+  The unrelated bundle rehydrated the same verified Done job without changing
+  the job or ledger bytes, then quit with no Foldweave/Uvicorn survivor. The
+  real packaged Settings UI opened `NSSecureTextField`, configured a disposable
+  non-provider value in macOS Keychain, rendered status only, removed it, and
+  ended not configured; a separate real Security.framework round trip proved
+  trusted read equality without exposing a value. The packaged native picker
+  truthfully exercised its 120-second timeout and then selected the in-scope
+  Sofia fixture, populating only the form and derived result parent without a
+  scan, job, output, provider call, or budget change. Packaged Settings/picker
+  were inspected at 1440 x 900 and Settings at 1280 x 720; the shared review
+  component retains the audited 1280 x 720 evidence and the complete live
+  review/revision/Done transaction ran at 1440 x 900. `uv lock --check` passed
+  with 62 packages; the complete Python regression passed 918/918 in 69.30
+  seconds; strict TypeScript passed; Vitest passed 8/8; the Vite production
+  build passed; Ruff lint passed; Ruff format covered 181 files; receipt
+  verification and source/reconstruction comparison passed; secret/path and
+  Git diff checks passed. Two independent bounded audits found no remaining
+  F0b defect and returned final `GO`. The unsigned/ad-hoc judge instructions,
+  final icon, complete active branding, and broader accessibility polish remain
+  assigned to F3/F6 rather than being misrepresented as F0b evidence.
 
 ### F0c — ChatGPT developer-mode gate
 
@@ -1413,8 +1468,11 @@ completed Foldweave.
 - **Owner:** primary integrator; independent transport/provenance reviewer.
 - **Allowed cut:** no ChatGPT capability cut; developer tunnel is qualification,
   not the consumer topology.
-- **Actual status:** `NOT STARTED`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `IN PROGRESS` from Sunday 19 July 2026 at 22:01:53 CEST.
+- **Actual verification:** F0a review authority and F0b packaged native/direct
+  planning both returned independently audited `GO`. No ChatGPT-hosted model
+  request, Secure MCP Tunnel, companion transaction, gateway deployment, or
+  direct-ledger mutation has yet been performed for F0c.
 
 ### F0d — Consumer gateway gate
 

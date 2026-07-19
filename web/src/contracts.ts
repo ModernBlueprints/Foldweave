@@ -97,6 +97,9 @@ export interface ReviewStatus {
   preview_fingerprint: string;
   output_parent: string;
   result_folder_name: string;
+  revision_available: boolean;
+  revision_attempts_remaining: number;
+  revision_failure: string | null;
   done_url: string | null;
 }
 
@@ -107,6 +110,21 @@ export interface AcceptancePayload {
   output_parent: string;
   preview_fingerprint: string;
   result_folder_name: string;
+}
+
+export interface RevisionPayload {
+  candidate_fingerprint: string;
+  expected_revision: number;
+  idempotency_key: string;
+  instruction: string;
+  preview_fingerprint: string;
+}
+
+export interface KeepProposalPayload {
+  candidate_fingerprint: string;
+  expected_revision: number;
+  idempotency_key: string;
+  preview_fingerprint: string;
 }
 
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -156,7 +174,14 @@ export function assertStatus(
     typeof value.output_parent !== "string" ||
     value.output_parent.length === 0 ||
     typeof value.result_folder_name !== "string" ||
-    value.result_folder_name.length === 0
+    value.result_folder_name.length === 0 ||
+    typeof value.revision_available !== "boolean" ||
+    typeof value.revision_attempts_remaining !== "number" ||
+    !Number.isInteger(value.revision_attempts_remaining) ||
+    value.revision_attempts_remaining < 0 ||
+    value.revision_attempts_remaining > 2 ||
+    (value.revision_failure !== null &&
+      typeof value.revision_failure !== "string")
   ) {
     throw new Error("Foldweave returned an incomplete review status.");
   }

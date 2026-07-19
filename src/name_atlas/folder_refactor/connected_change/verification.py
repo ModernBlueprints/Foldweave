@@ -27,7 +27,7 @@ from name_atlas.folder_refactor.connected_change.contracts import (
     CapsuleAppliedExecutionOrigin,
     ConnectedChangeMatchReport,
     FolderExecutionOrigin,
-    GptPlannedExecutionOrigin,
+    GptExecutionOrigin,
 )
 from name_atlas.folder_refactor.connected_change.descriptors import (
     build_connected_change_core,
@@ -58,6 +58,9 @@ from name_atlas.folder_refactor.contracts import (
     FolderInventory,
     FolderVerificationReport,
     StrictFrozenModel,
+)
+from name_atlas.folder_refactor.foldweave_planning_contracts import (
+    FolderEvidenceLedgerV2,
 )
 from name_atlas.folder_refactor.inventory import FolderScanError, scan_folder
 from name_atlas.folder_refactor.markdown_contracts import FolderReferenceGraph
@@ -108,6 +111,7 @@ from name_atlas.verification.bagit_validator import (
 )
 
 _EXECUTION_ORIGIN_ADAPTER = TypeAdapter(FolderExecutionOrigin)
+_EVIDENCE_LEDGER_ADAPTER = TypeAdapter(FolderEvidenceLedger | FolderEvidenceLedgerV2)
 _Model = TypeVar("_Model", bound=BaseModel)
 
 
@@ -322,7 +326,7 @@ class _Authorities:
         ledger: FolderChangeLedger,
         report: FolderVerificationReport,
         execution_origin: FolderExecutionOrigin,
-        evidence_ledger: FolderEvidenceLedger | None,
+        evidence_ledger: FolderEvidenceLedger | FolderEvidenceLedgerV2 | None,
     ) -> None:
         self.inventory = inventory
         self.request = request
@@ -349,9 +353,7 @@ def _parse_authorities(
             "Execution-origin JSON is not canonical.",
         )
     evidence_ledger = (
-        _parse_canonical_model(root, EVIDENCE_LEDGER_PATH, FolderEvidenceLedger)
-        if execution_role == "origin"
-        else None
+        _parse_canonical_evidence_ledger(root) if execution_role == "origin" else None
     )
     return _Authorities(
         inventory=_parse_canonical_model(root, SOURCE_SNAPSHOT_PATH, FolderInventory),
@@ -395,6 +397,20 @@ def _parse_canonical_model(
         raise _VerificationBlocked(
             "portable_artifact_schema_invalid",
             f"Portable JSON is not canonical: {relative_path}.",
+        )
+    return parsed
+
+
+def _parse_canonical_evidence_ledger(
+    root: Path,
+) -> FolderEvidenceLedger | FolderEvidenceLedgerV2:
+    payload = read_regular_bytes(root, EVIDENCE_LEDGER_PATH)
+    strict_json_object(payload)
+    parsed = _EVIDENCE_LEDGER_ADAPTER.validate_json(payload, strict=True)
+    if canonical_portable_json_bytes(parsed) != payload:
+        raise _VerificationBlocked(
+            "portable_artifact_schema_invalid",
+            "Evidence-ledger JSON is not canonical.",
         )
     return parsed
 
@@ -479,7 +495,7 @@ def _validate_authorities(
             "The verification report differs from independently derived facts.",
         ) from exc
     if core.execution_role == "origin":
-        if not isinstance(artifacts.execution_origin, GptPlannedExecutionOrigin):
+        if not isinstance(artifacts.execution_origin, GptExecutionOrigin):
             raise ValueError("Origin result lacks gpt_planned execution authority.")
         if artifacts.evidence_ledger is None:
             raise ValueError("Origin result lacks its exact evidence ledger.")
@@ -581,7 +597,7 @@ def _validate_connected_authority(
     if core.execution_role == "origin":
         if (
             artifacts.plan.execution_authority != "gpt_plan"
-            or not isinstance(artifacts.execution_origin, GptPlannedExecutionOrigin)
+            or not isinstance(artifacts.execution_origin, GptExecutionOrigin)
             or change_file.originating_receipt != envelope
         ):
             raise ValueError("Origin receipt, plan, or embedded receipt is untruthful.")

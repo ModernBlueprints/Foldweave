@@ -12,6 +12,17 @@ from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 
 from name_atlas.decision_cards.budget import PersistentBudgetLedger
+from name_atlas.folder_refactor.foldweave_planning_contracts import (
+    FolderPlannerRevisionTurnInputV1,
+    FolderPlanRevisionV1,
+    FolderRevisionProviderResponseV1,
+    canonical_revision_turn_input_bytes,
+)
+from name_atlas.folder_refactor.foldweave_revision_prompt import (
+    FOLDWEAVE_REVISION_INSTRUCTIONS,
+    FOLDWEAVE_REVISION_RESPONSE_TOOLS,
+    SubmitPlanRevisionArguments,
+)
 from name_atlas.folder_refactor.planner_contracts import (
     MAX_OUTPUT_TOKENS,
     FolderPlannerTurnInput,
@@ -25,6 +36,7 @@ from name_atlas.folder_refactor.planner_contracts import (
     SubmitPlanCall,
 )
 from name_atlas.folder_refactor.planner_prompt import (
+    FOLDWEAVE_PLANNER_INSTRUCTIONS,
     PLANNER_ARGUMENT_MODELS,
     PLANNER_INSTRUCTIONS,
     PLANNER_RESPONSE_TOOLS,
@@ -71,6 +83,49 @@ class LivePlannerPolicy:
 
 
 DEFAULT_LIVE_PLANNER_POLICY = LivePlannerPolicy()
+DEFAULT_LIVE_REVISION_POLICY = LivePlannerPolicy(max_output_tokens=8192)
+
+
+@dataclass(frozen=True, slots=True)
+class LivePlannerPromptProfile:
+    """Exact prompt and tool set used for one initial planning surface."""
+
+    instructions: str
+    tools: tuple[dict[str, Any], ...]
+
+
+LEGACY_PLANNER_PROMPT_PROFILE = LivePlannerPromptProfile(
+    instructions=PLANNER_INSTRUCTIONS,
+    tools=PLANNER_RESPONSE_TOOLS,
+)
+FOLDWEAVE_PLANNER_PROMPT_PROFILE = LivePlannerPromptProfile(
+    instructions=FOLDWEAVE_PLANNER_INSTRUCTIONS,
+    tools=PLANNER_RESPONSE_TOOLS,
+)
+
+
+def _strict_async_openai_client(
+    *,
+    api_key: str,
+    base_url: str,
+    timeout_seconds: float,
+    max_retries: int,
+) -> _ResponsesClient:
+    """Build one TLS-validating client that never follows an HTTP redirect."""
+
+    from openai import AsyncOpenAI, DefaultAsyncHttpxClient
+
+    http_client = DefaultAsyncHttpxClient(
+        timeout=timeout_seconds,
+        follow_redirects=False,
+    )
+    return AsyncOpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        timeout=timeout_seconds,
+        max_retries=max_retries,
+        http_client=http_client,
+    )
 
 
 class LiveFolderPlannerProvider:
@@ -85,6 +140,7 @@ class LiveFolderPlannerProvider:
         budget: PersistentBudgetLedger,
         policy: LivePlannerPolicy = DEFAULT_LIVE_PLANNER_POLICY,
         existing_usage: tuple[FolderPlannerUsage, ...] = (),
+        prompt_profile: LivePlannerPromptProfile = LEGACY_PLANNER_PROMPT_PROFILE,
     ) -> None:
         expected_turns = tuple(range(1, len(existing_usage) + 1))
         if tuple(item.response_turn for item in existing_usage) != expected_turns:
@@ -92,6 +148,7 @@ class LiveFolderPlannerProvider:
         self._client = client
         self._budget = budget
         self.policy = policy
+        self._prompt_profile = prompt_profile
         self._usage = list(existing_usage)
 
     @classmethod
@@ -102,6 +159,8 @@ class LiveFolderPlannerProvider:
         budget: PersistentBudgetLedger,
         policy: LivePlannerPolicy = DEFAULT_LIVE_PLANNER_POLICY,
         existing_usage: tuple[FolderPlannerUsage, ...] = (),
+        prompt_profile: LivePlannerPromptProfile = LEGACY_PLANNER_PROMPT_PROFILE,
+        base_url: str = "https://api.openai.com/v1",
     ) -> LiveFolderPlannerProvider:
         """Create the exact no-retry SDK client without exposing the key."""
 
@@ -109,11 +168,10 @@ class LiveFolderPlannerProvider:
             raise PlannerProviderResponseError(
                 "Configure OPENAI_API_KEY locally before live GPT-5.6 planning."
             )
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(
+        client = _strict_async_openai_client(
             api_key=api_key,
-            timeout=policy.timeout_seconds,
+            base_url=base_url,
+            timeout_seconds=policy.timeout_seconds,
             max_retries=policy.sdk_max_retries,
         )
         return cls(
@@ -121,6 +179,7 @@ class LiveFolderPlannerProvider:
             budget=budget,
             policy=policy,
             existing_usage=existing_usage,
+            prompt_profile=prompt_profile,
         )
 
     @property
@@ -144,7 +203,11 @@ class LiveFolderPlannerProvider:
             raise PlannerProviderResponseError(
                 "Live usage prefix does not match the persisted response turn."
             )
-        request = _responses_request(turn_input, policy=self.policy)
+        request = _responses_request(
+            turn_input,
+            policy=self.policy,
+            prompt_profile=self._prompt_profile,
+        )
         reservation_microusd = _reservation_microusd(
             request,
             policy=self.policy,
@@ -238,10 +301,217 @@ class LiveFolderPlannerProvider:
             )
 
 
+class LiveFolderPlanRevisionProvider:
+    """Exchange one exact sparse Foldweave revision with no retry."""
+
+    provider_kind: Literal["live"] = "live"
+
+    def __init__(
+        self,
+        client: _ResponsesClient,
+        *,
+        budget: PersistentBudgetLedger,
+        policy: LivePlannerPolicy = DEFAULT_LIVE_REVISION_POLICY,
+        existing_usage: tuple[FolderPlannerUsage, ...] = (),
+    ) -> None:
+        expected_turns = tuple(range(1, len(existing_usage) + 1))
+        if tuple(item.response_turn for item in existing_usage) != expected_turns:
+            raise ValueError("Existing revision usage must be one contiguous prefix.")
+        self._client = client
+        self._budget = budget
+        self.policy = policy
+        self._usage = list(existing_usage)
+
+    @classmethod
+    def from_api_key(
+        cls,
+        api_key: str,
+        *,
+        budget: PersistentBudgetLedger,
+        policy: LivePlannerPolicy = DEFAULT_LIVE_REVISION_POLICY,
+        existing_usage: tuple[FolderPlannerUsage, ...] = (),
+        base_url: str = "https://api.openai.com/v1",
+    ) -> LiveFolderPlanRevisionProvider:
+        """Create the exact no-retry revision client without exposing the key."""
+
+        if not api_key.strip():
+            raise PlannerProviderResponseError(
+                "Configure an OpenAI API key locally before live Foldweave revision."
+            )
+        client = _strict_async_openai_client(
+            api_key=api_key,
+            base_url=base_url,
+            timeout_seconds=policy.timeout_seconds,
+            max_retries=policy.sdk_max_retries,
+        )
+        return cls(
+            client,
+            budget=budget,
+            policy=policy,
+            existing_usage=existing_usage,
+        )
+
+    @property
+    def usage(self) -> tuple[FolderPlannerUsage, ...]:
+        return tuple(self._usage)
+
+    async def exchange(
+        self,
+        turn_input: FolderPlannerRevisionTurnInputV1,
+        /,
+    ) -> FolderRevisionProviderResponseV1:
+        """Reserve, call, sanitize, and parse exactly one sparse revision."""
+
+        if turn_input.provider_kind != "live":
+            raise PlannerProviderResponseError(
+                "Live revision provider received a non-live turn."
+            )
+        if turn_input.turn_contract_freeze_fingerprint is None:
+            raise PlannerProviderResponseError(
+                "A new live revision requires an exact contract-freeze binding."
+            )
+        if turn_input.response_turn != len(self._usage) + 1:
+            raise PlannerProviderResponseError(
+                "Live revision usage prefix does not match the durable turn."
+            )
+        request = _revision_responses_request(turn_input, policy=self.policy)
+        reservation_microusd = _reservation_microusd(request, policy=self.policy)
+        try:
+            self._budget.reserve_microusd(
+                reservation_microusd=reservation_microusd,
+                provider_attempts=1,
+            )
+        except Exception as exc:
+            raise PlannerProviderResponseError(
+                "The cumulative GPT-5.6 budget cannot reserve this revision turn."
+            ) from exc
+
+        started = perf_counter()
+        try:
+            response = await self._client.responses.create(
+                **request,
+                timeout=self.policy.timeout_seconds,
+            )
+        except Exception as exc:
+            if isinstance(exc, TimeoutError) or "timeout" in type(exc).__name__.lower():
+                raise PlannerProviderTimeoutError(
+                    "The GPT-5.6 revision request timed out without a retry."
+                ) from exc
+            raise PlannerProviderTransportError(
+                "The GPT-5.6 revision request failed without a retry."
+            ) from exc
+
+        latency_ms = (perf_counter() - started) * 1_000
+        usage = _usage_from_response(
+            response,
+            response_turn=turn_input.response_turn,
+            latency_ms=latency_ms,
+        )
+        if usage is None:
+            raise PlannerProviderResponseError(
+                "GPT-5.6 returned no complete revision usage record."
+            )
+        try:
+            self._budget.record_reported_cost_microusd(usage.estimated_cost_microusd)
+        except Exception as exc:
+            raise PlannerProviderResponseError(
+                "The cumulative GPT-5.6 revision usage could not be committed."
+            ) from exc
+        self._usage.append(usage)
+
+        returned_model = _bounded_text(getattr(response, "model", None), 200)
+        observable = _sanitize_output_items(getattr(response, "output", None))
+        if getattr(response, "error", None) is not None:
+            raise PlannerProviderResponseError("GPT-5.6 returned a revision error.")
+        if getattr(response, "status", None) != "completed":
+            raise PlannerProviderResponseError(
+                "GPT-5.6 did not complete the revision turn."
+            )
+        if _has_refusal(getattr(response, "output", None)):
+            raise PlannerProviderResponseError("GPT-5.6 refused the revision turn.")
+        call_id, revision = _parse_revision_tool_call(getattr(response, "output", None))
+        return FolderRevisionProviderResponseV1(
+            provider_kind="live",
+            returned_model=returned_model,
+            observable_output_items=observable,
+            call_id=call_id,
+            revision=revision,
+        )
+
+
+def _revision_responses_request(
+    turn_input: FolderPlannerRevisionTurnInputV1,
+    *,
+    policy: LivePlannerPolicy,
+) -> dict[str, Any]:
+    return {
+        "model": "gpt-5.6",
+        "input": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": canonical_revision_turn_input_bytes(turn_input).decode(
+                            "utf-8"
+                        ),
+                    }
+                ],
+            }
+        ],
+        "instructions": FOLDWEAVE_REVISION_INSTRUCTIONS,
+        "tools": list(FOLDWEAVE_REVISION_RESPONSE_TOOLS),
+        "tool_choice": {
+            "type": "function",
+            "name": "submit_plan_revision",
+        },
+        "parallel_tool_calls": False,
+        "max_tool_calls": 1,
+        "max_output_tokens": policy.max_output_tokens,
+        "reasoning": {"effort": policy.reasoning_effort},
+        "store": False,
+    }
+
+
+def _parse_revision_tool_call(output: object) -> tuple[str, FolderPlanRevisionV1]:
+    if not isinstance(output, list):
+        raise PlannerProviderResponseError("Revision output must be a list.")
+    calls = [item for item in output if getattr(item, "type", None) == "function_call"]
+    non_reasoning = [
+        item
+        for item in output
+        if getattr(item, "type", None) not in {"reasoning", "function_call"}
+    ]
+    if len(calls) != 1 or non_reasoning:
+        raise PlannerProviderResponseError(
+            "Revision output must contain exactly one declared function call."
+        )
+    call = calls[0]
+    if getattr(call, "name", None) != "submit_plan_revision":
+        raise PlannerProviderResponseError("Revision function call is unsupported.")
+    call_id = _bounded_text(getattr(call, "call_id", None), 128)
+    arguments = getattr(call, "arguments", None)
+    if not isinstance(arguments, str):
+        raise PlannerProviderResponseError("Revision arguments are malformed.")
+    try:
+        argument_bytes = arguments.encode("utf-8", errors="strict")
+        strict_json_object(argument_bytes)
+        parsed = SubmitPlanRevisionArguments.model_validate_json(
+            argument_bytes,
+            strict=True,
+        )
+    except (UnicodeError, ValueError, ValidationError) as exc:
+        raise PlannerProviderResponseError(
+            "Revision arguments violate the strict schema."
+        ) from exc
+    return call_id, parsed.revision
+
+
 def _responses_request(
     turn_input: FolderPlannerTurnInput,
     *,
     policy: LivePlannerPolicy,
+    prompt_profile: LivePlannerPromptProfile = LEGACY_PLANNER_PROMPT_PROFILE,
 ) -> dict[str, Any]:
     turn_json = canonical_json_bytes(turn_input).decode("utf-8")
     return {
@@ -252,8 +522,8 @@ def _responses_request(
                 "content": [{"type": "input_text", "text": turn_json}],
             }
         ],
-        "instructions": PLANNER_INSTRUCTIONS,
-        "tools": list(PLANNER_RESPONSE_TOOLS),
+        "instructions": prompt_profile.instructions,
+        "tools": list(prompt_profile.tools),
         "tool_choice": "required",
         "parallel_tool_calls": True,
         "max_tool_calls": 24,

@@ -21,9 +21,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from name_atlas.folder_refactor.receipt_contracts import (
-    FolderRestoreReport,
-)
+from name_atlas.folder_refactor.naming import validate_result_folder_name
+from name_atlas.folder_refactor.receipt_contracts import FolderRestoreReport
 from name_atlas.native_bridge import (
     MacOSNativePathBridge,
     NativeOpenStatus,
@@ -31,6 +30,7 @@ from name_atlas.native_bridge import (
     NativePathRole,
     NativeSelectionStatus,
 )
+from name_atlas.native_settings import NativeSettingsResult, NativeSettingsService
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=PACKAGE_ROOT / "templates")
@@ -185,6 +185,9 @@ class FolderReviewHandle:
     output_parent: Path
     result_folder_name: str
     journey: FolderJourney
+    revision_available: bool = False
+    revision_attempts_remaining: int = 0
+    revision_failure: str | None = None
 
     def __post_init__(self) -> None:
         if len(self.job_id) != 32 or any(
@@ -202,6 +205,14 @@ class FolderReviewHandle:
             raise ValueError("Review handle local paths must be absolute.")
         if not self.result_folder_name.strip():
             raise ValueError("Review handle requires its result-folder name.")
+        if not 0 <= self.revision_attempts_remaining <= 2:
+            raise ValueError("Review attempts remaining is outside its bound.")
+        if self.revision_available != (self.revision_attempts_remaining > 0):
+            raise ValueError("Review revision availability and remaining count differ.")
+        if self.revision_failure is not None and (
+            not self.revision_failure.strip() or len(self.revision_failure) > 2_000
+        ):
+            raise ValueError("Review revision failure is invalid.")
 
 
 FolderRunOutcome = (
@@ -314,6 +325,36 @@ class ReviewableFolderRunService(FolderRunService, Protocol):
 
 
 @runtime_checkable
+class RevisableFolderRunService(ReviewableFolderRunService, Protocol):
+    """Replace or retain one exact visible preview through bounded revision."""
+
+    async def revise_review(
+        self,
+        *,
+        job_id: str,
+        expected_revision: int,
+        preview_fingerprint: str,
+        candidate_fingerprint: str,
+        instruction: str,
+        idempotency_key: str,
+    ) -> FolderReviewHandle:
+        """Return one complete replacement or failed-revision review handle."""
+        ...
+
+    async def keep_previous_review(
+        self,
+        *,
+        job_id: str,
+        expected_revision: int,
+        preview_fingerprint: str,
+        candidate_fingerprint: str,
+        idempotency_key: str,
+    ) -> FolderReviewHandle:
+        """Dismiss a failed replacement and retain the prior valid proposal."""
+        ...
+
+
+@runtime_checkable
 class ConnectedChangeDownloadService(FolderRunService, Protocol):
     """Capture verified Change File bytes for one terminal result."""
 
@@ -342,7 +383,7 @@ class ClarifyingFolderRunService(FolderRunService, Protocol):
         *,
         continuation_token: str,
         answer: str,
-    ) -> FolderRunPresentation:
+    ) -> FolderRunOutcome:
         """Continue the existing job with exactly one plain-text answer."""
         ...
 
@@ -488,6 +529,7 @@ class _FolderWebState:
     evidence_disclosure_required: bool = False
     outbound_evidence_will_be_sent: bool = False
     foldweave_active: bool = False
+    native_settings_available: bool = False
     current_stage: int = 0
     completed_stage_count: int = 0
     result: FolderRunPresentation | None = None
@@ -521,6 +563,8 @@ def create_folder_app(
     planner_label: str = PLANNER_LABEL,
     planner_note: str | None = None,
     native_bridge: NativePathBridge | None = None,
+    native_settings: NativeSettingsService | None = None,
+    health_instance_nonce: str | None = None,
 ) -> FastAPI:
     """Create one loopback UI around the injected durable transaction service."""
 
@@ -560,6 +604,7 @@ def create_folder_app(
         getattr(service, "outbound_evidence_will_be_sent", False)
     )
     state.foldweave_active = review_enabled
+    state.native_settings_available = native_settings is not None
     default_request = getattr(service, "default_request", None)
     if (
         connected_enabled
@@ -606,6 +651,13 @@ def create_folder_app(
     app.state.folder_run_service = service
     app.state.review_enabled = review_enabled
     app.state.native_path_bridge = desktop_bridge
+    app.state.native_settings = native_settings
+    instance_nonce = health_instance_nonce or secrets.token_hex(32)
+    if len(instance_nonce) != 64 or any(
+        character not in "0123456789abcdef" for character in instance_nonce
+    ):
+        raise ValueError("Health instance nonce must be lowercase SHA-256 text.")
+    app.state.health_instance_nonce = instance_nonce
     app.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=["127.0.0.1", "localhost", "testserver", "[::1]"],
@@ -629,6 +681,64 @@ def create_folder_app(
         StaticFiles(directory=PACKAGE_ROOT / "static"),
         name="static",
     )
+
+    @app.get("/healthz", include_in_schema=False)
+    async def health() -> JSONResponse:
+        return _no_store_json(
+            {
+                "application": "Foldweave" if review_enabled else "Name Atlas",
+                "instance_nonce": instance_nonce,
+                "ready": True,
+            }
+        )
+
+    @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
+    async def settings(request: Request) -> Response:
+        if native_settings is None:
+            return HTMLResponse("Native settings are unavailable.", status_code=404)
+        view = await asyncio.to_thread(native_settings.view)
+        return TEMPLATES.TemplateResponse(
+            request=request,
+            name="folder/settings.html",
+            context={
+                **_base_context(
+                    state=state,
+                    planner_label=planner_label,
+                    planner_note=planner_note,
+                ),
+                "settings": view,
+            },
+        )
+
+    @app.post("/settings/configure", include_in_schema=False)
+    async def configure_settings(request: Request) -> Response:
+        if native_settings is None:
+            return HTMLResponse("Native settings are unavailable.", status_code=404)
+        try:
+            await _parse_settings_action_form(
+                request,
+                expected_csrf_token=state.csrf_token,
+            )
+        except FolderFormError as exc:
+            return HTMLResponse(str(exc), status_code=422)
+        result = await asyncio.to_thread(native_settings.configure)
+        state.notice = _native_settings_message(result)
+        return _redirect("/settings")
+
+    @app.post("/settings/remove", include_in_schema=False)
+    async def remove_settings(request: Request) -> Response:
+        if native_settings is None:
+            return HTMLResponse("Native settings are unavailable.", status_code=404)
+        try:
+            await _parse_settings_action_form(
+                request,
+                expected_csrf_token=state.csrf_token,
+            )
+        except FolderFormError as exc:
+            return HTMLResponse(str(exc), status_code=422)
+        result = await asyncio.to_thread(native_settings.remove)
+        state.notice = _native_settings_message(result)
+        return _redirect("/settings")
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def root(request: Request) -> Response:
@@ -878,21 +988,106 @@ def create_folder_app(
                 {"error": "review_job_not_found"},
                 status_code=404,
             )
-        return _no_store_json(
-            {
-                "job_id": state.review.job_id,
-                "lifecycle": state.lifecycle.value,
-                "job_revision": state.review.job_revision,
-                "proposal_revision": state.review.proposal_revision,
-                "candidate_fingerprint": state.review.candidate_fingerprint,
-                "preview_fingerprint": state.review.preview_fingerprint,
-                "output_parent": str(state.review.output_parent),
-                "result_folder_name": state.review.result_folder_name,
-                "done_url": (
-                    "/done" if state.lifecycle is FolderWebLifecycle.VERIFIED else None
-                ),
-            }
-        )
+        return _no_store_json(_review_status_payload(state.review))
+
+    @app.post(
+        "/api/jobs/{job_id}/revision",
+        include_in_schema=False,
+    )
+    async def revise_review(job_id: str, request: Request) -> JSONResponse:
+        if not review_enabled or not isinstance(
+            service,
+            RevisableFolderRunService,
+        ):
+            return _no_store_json(
+                {"error": "plan_revision_unavailable"},
+                status_code=404,
+            )
+        async with state.submission_gate:
+            handle = state.review
+            if handle is None or not hmac.compare_digest(job_id, handle.job_id):
+                return _no_store_json(
+                    {"error": "review_not_revisable"},
+                    status_code=409,
+                )
+            try:
+                revision = await _parse_review_revision_json(
+                    request,
+                    expected_csrf_token=state.csrf_token,
+                    job_id=job_id,
+                )
+            except FolderFormError as exc:
+                return _no_store_json(
+                    {"error": "revision_invalid", "detail": str(exc)},
+                    status_code=422,
+                )
+            state.lifecycle = FolderWebLifecycle.PLANNING
+            try:
+                replacement = await _invoke_service(
+                    service,
+                    lambda: service.revise_review(**revision),
+                )
+            except Exception as exc:  # noqa: BLE001 - durable refusal is visible
+                state.notice = _safe_error_text(exc)
+                await _refresh_terminal_checkpoint(state, service)
+                if state.lifecycle is FolderWebLifecycle.PLANNING:
+                    _block_browser_result(state, state.notice)
+                return _no_store_json(
+                    {"error": "revision_blocked", "detail": state.notice},
+                    status_code=409,
+                )
+            state.review = replacement
+            state.lifecycle = FolderWebLifecycle.REVIEWING
+            state.notice = replacement.revision_failure
+            return _no_store_json(_review_status_payload(replacement))
+
+    @app.post(
+        "/api/jobs/{job_id}/keep-proposal",
+        include_in_schema=False,
+    )
+    async def keep_review(job_id: str, request: Request) -> JSONResponse:
+        if not review_enabled or not isinstance(
+            service,
+            RevisableFolderRunService,
+        ):
+            return _no_store_json(
+                {"error": "plan_revision_unavailable"},
+                status_code=404,
+            )
+        async with state.submission_gate:
+            handle = state.review
+            if handle is None or not hmac.compare_digest(job_id, handle.job_id):
+                return _no_store_json(
+                    {"error": "failed_revision_not_current"},
+                    status_code=409,
+                )
+            try:
+                keep = await _parse_review_keep_json(
+                    request,
+                    expected_csrf_token=state.csrf_token,
+                    job_id=job_id,
+                )
+            except FolderFormError as exc:
+                return _no_store_json(
+                    {"error": "keep_proposal_invalid", "detail": str(exc)},
+                    status_code=422,
+                )
+            try:
+                replacement = await _invoke_service(
+                    service,
+                    lambda: service.keep_previous_review(**keep),
+                )
+            except Exception as exc:  # noqa: BLE001 - durable refusal is visible
+                state.notice = _safe_error_text(exc)
+                await _refresh_terminal_checkpoint(state, service)
+                return _no_store_json(
+                    {"error": "keep_proposal_blocked", "detail": state.notice},
+                    status_code=409,
+                )
+            state.review = replacement
+            state.lifecycle = FolderWebLifecycle.REVIEWING
+            state.notice = None
+            return _no_store_json(_review_status_payload(replacement))
 
     @app.post(
         "/api/jobs/{job_id}/accept",
@@ -908,21 +1103,11 @@ def create_folder_app(
                 status_code=404,
             )
         async with state.submission_gate:
-            handle = state.review
-            if (
-                handle is None
-                or not hmac.compare_digest(job_id, handle.job_id)
-                or state.lifecycle is not FolderWebLifecycle.REVIEWING
-            ):
-                return _no_store_json(
-                    {"error": "review_not_current"},
-                    status_code=409,
-                )
             try:
                 acceptance = await _parse_review_acceptance_json(
                     request,
                     expected_csrf_token=state.csrf_token,
-                    expected_handle=handle,
+                    job_id=job_id,
                 )
             except FolderFormError as exc:
                 return _no_store_json(
@@ -1291,11 +1476,7 @@ async def _continue_job(
         return
     finally:
         clear_progress()
-    if not isinstance(outcome, FolderRunPresentation):
-        state.blocker = "second_clarification_not_allowed"
-        state.lifecycle = FolderWebLifecycle.BLOCKED
-        return
-    _complete_job(state, outcome)
+    _apply_outcome(state, outcome)
 
 
 def _complete_job(state: _FolderWebState, result: FolderRunPresentation) -> None:
@@ -1323,6 +1504,8 @@ def _apply_outcome(state: _FolderWebState, outcome: FolderRunOutcome) -> None:
         return
     if isinstance(outcome, FolderReviewHandle):
         state.review = outcome
+        state.clarification = None
+        state.clarification_error = None
         state.result = None
         state.blocker = None
         state.lifecycle = FolderWebLifecycle.REVIEWING
@@ -1607,6 +1790,20 @@ async def _parse_picker_form(
         raise FolderFormError("The path-selection role is unsupported.") from exc
 
 
+async def _parse_settings_action_form(
+    request: Request,
+    *,
+    expected_csrf_token: str,
+) -> None:
+    fields = await _parse_urlencoded_fields(
+        request,
+        expected_names={"csrf_token"},
+        form_name="Settings action",
+    )
+    if not hmac.compare_digest(fields["csrf_token"], expected_csrf_token):
+        raise FolderFormError("The settings security token is invalid or expired.")
+
+
 async def _parse_urlencoded_fields(
     request: Request,
     *,
@@ -1731,19 +1928,158 @@ async def _parse_review_acceptance_json(
     request: Request,
     *,
     expected_csrf_token: str,
-    expected_handle: FolderReviewHandle,
+    job_id: str,
 ) -> dict[str, object]:
     """Parse one exact browser authorization without inferring any authority."""
 
+    expected_keys = {
+        "candidate_fingerprint",
+        "expected_revision",
+        "idempotency_key",
+        "output_parent",
+        "preview_fingerprint",
+        "result_folder_name",
+    }
+    fields = await _parse_strict_review_json(
+        request,
+        expected_csrf_token=expected_csrf_token,
+        expected_keys=expected_keys,
+        action="acceptance",
+    )
+    revision = fields["expected_revision"]
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise FolderFormError("Review revision must be an integer.")
+    text_fields = tuple(key for key in expected_keys if key != "expected_revision")
+    if any(not isinstance(fields[key], str) for key in text_fields):
+        raise FolderFormError("Review acceptance text fields must be strings.")
+    candidate_fingerprint = _review_sha256(fields["candidate_fingerprint"])
+    preview_fingerprint = _review_sha256(fields["preview_fingerprint"])
+    output_text = fields["output_parent"]
+    result_folder_name = fields["result_folder_name"]
+    assert isinstance(output_text, str)
+    assert isinstance(result_folder_name, str)
+    if not output_text or "\x00" in output_text:
+        raise FolderFormError("Review output parent is invalid.")
+    output_parent = Path(output_text)
+    if not output_parent.is_absolute():
+        raise FolderFormError("Review output parent must be absolute.")
+    try:
+        validate_result_folder_name(result_folder_name)
+    except ValueError as exc:
+        raise FolderFormError("Review result-folder name is invalid.") from exc
+    return {
+        "job_id": _review_job_id(job_id),
+        "expected_revision": revision,
+        "preview_fingerprint": preview_fingerprint,
+        "candidate_fingerprint": candidate_fingerprint,
+        "output_parent": output_parent,
+        "result_folder_name": result_folder_name,
+        "idempotency_key": _review_idempotency_key(fields["idempotency_key"]),
+    }
+
+
+async def _parse_review_revision_json(
+    request: Request,
+    *,
+    expected_csrf_token: str,
+    job_id: str,
+) -> dict[str, object]:
+    """Parse one sparse user instruction bound to the visible proposal."""
+
+    expected_keys = {
+        "candidate_fingerprint",
+        "expected_revision",
+        "idempotency_key",
+        "instruction",
+        "preview_fingerprint",
+    }
+    fields = await _parse_strict_review_json(
+        request,
+        expected_csrf_token=expected_csrf_token,
+        expected_keys=expected_keys,
+        action="revision",
+    )
+    revision = fields["expected_revision"]
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise FolderFormError("Review revision must be an integer.")
+    if any(
+        not isinstance(fields[key], str)
+        for key in expected_keys - {"expected_revision"}
+    ):
+        raise FolderFormError("Review revision text fields must be strings.")
+    instruction = fields["instruction"]
+    assert isinstance(instruction, str)
+    if (
+        not instruction
+        or instruction != instruction.strip()
+        or len(instruction) > 20_000
+        or "\x00" in instruction
+    ):
+        raise FolderFormError("Review revision instruction is invalid.")
+    idempotency_key = _review_idempotency_key(fields["idempotency_key"])
+    return {
+        "job_id": _review_job_id(job_id),
+        "expected_revision": revision,
+        "preview_fingerprint": _review_sha256(fields["preview_fingerprint"]),
+        "candidate_fingerprint": _review_sha256(fields["candidate_fingerprint"]),
+        "instruction": instruction,
+        "idempotency_key": idempotency_key,
+    }
+
+
+async def _parse_review_keep_json(
+    request: Request,
+    *,
+    expected_csrf_token: str,
+    job_id: str,
+) -> dict[str, object]:
+    """Parse one exact failed-revision dismissal without changing its plan."""
+
+    expected_keys = {
+        "candidate_fingerprint",
+        "expected_revision",
+        "idempotency_key",
+        "preview_fingerprint",
+    }
+    fields = await _parse_strict_review_json(
+        request,
+        expected_csrf_token=expected_csrf_token,
+        expected_keys=expected_keys,
+        action="keep proposal",
+    )
+    revision = fields["expected_revision"]
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise FolderFormError("Review revision must be an integer.")
+    if any(
+        not isinstance(fields[key], str)
+        for key in expected_keys - {"expected_revision"}
+    ):
+        raise FolderFormError("Keep-proposal text fields must be strings.")
+    return {
+        "job_id": _review_job_id(job_id),
+        "expected_revision": revision,
+        "preview_fingerprint": _review_sha256(fields["preview_fingerprint"]),
+        "candidate_fingerprint": _review_sha256(fields["candidate_fingerprint"]),
+        "idempotency_key": _review_idempotency_key(fields["idempotency_key"]),
+    }
+
+
+async def _parse_strict_review_json(
+    request: Request,
+    *,
+    expected_csrf_token: str,
+    expected_keys: set[str],
+    action: str,
+) -> dict[str, object]:
     content_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
     if content_type != "application/json":
-        raise FolderFormError("Review acceptance must use JSON.")
+        raise FolderFormError(f"Review {action} must use JSON.")
     csrf = request.headers.get("x-foldweave-csrf", "")
     if not hmac.compare_digest(csrf, expected_csrf_token):
-        raise FolderFormError("Review acceptance token is invalid or expired.")
+        raise FolderFormError(f"Review {action} token is invalid or expired.")
     body = await request.body()
     if not body or len(body) > MAX_FORM_BODY_BYTES:
-        raise FolderFormError("Review acceptance is empty or too large.")
+        raise FolderFormError(f"Review {action} is empty or too large.")
     try:
         pairs = json.loads(
             body.decode("utf-8", errors="strict"),
@@ -1753,52 +2089,62 @@ async def _parse_review_acceptance_json(
             ),
         )
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        raise FolderFormError("Review acceptance is not strict UTF-8 JSON.") from exc
+        raise FolderFormError(f"Review {action} is not strict UTF-8 JSON.") from exc
     if not isinstance(pairs, list) or any(
         not isinstance(item, tuple) or len(item) != 2 for item in pairs
     ):
-        raise FolderFormError("Review acceptance must be one JSON object.")
+        raise FolderFormError(f"Review {action} must be one JSON object.")
     keys = tuple(key for key, _value in pairs)
-    expected_keys = (
-        "candidate_fingerprint",
-        "expected_revision",
-        "idempotency_key",
-        "output_parent",
-        "preview_fingerprint",
-        "result_folder_name",
-    )
-    if len(set(keys)) != len(keys) or set(keys) != set(expected_keys):
-        raise FolderFormError("Review acceptance fields are incomplete or duplicated.")
-    fields = dict(pairs)
-    revision = fields["expected_revision"]
-    if isinstance(revision, bool) or not isinstance(revision, int):
-        raise FolderFormError("Review revision must be an integer.")
-    text_fields = tuple(key for key in expected_keys if key != "expected_revision")
-    if any(not isinstance(fields[key], str) for key in text_fields):
-        raise FolderFormError("Review acceptance text fields must be strings.")
+    if len(set(keys)) != len(keys) or set(keys) != expected_keys:
+        raise FolderFormError(f"Review {action} fields are incomplete or duplicated.")
+    return dict(pairs)
+
+
+def _review_idempotency_key(value: object) -> str:
+    if not isinstance(value, str):
+        raise FolderFormError("Review idempotency key must be a string.")
     if (
-        revision != expected_handle.job_revision
-        or fields["candidate_fingerprint"] != expected_handle.candidate_fingerprint
-        or fields["preview_fingerprint"] != expected_handle.preview_fingerprint
-        or fields["output_parent"] != str(expected_handle.output_parent)
-        or fields["result_folder_name"] != expected_handle.result_folder_name
-    ):
-        raise FolderFormError("Review acceptance does not match the visible preview.")
-    idempotency_key = fields["idempotency_key"]
-    if (
-        not idempotency_key
-        or idempotency_key != idempotency_key.strip()
-        or len(idempotency_key.encode("utf-8")) > 256
+        not value
+        or value != value.strip()
+        or len(value.encode("utf-8")) > 256
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
     ):
         raise FolderFormError("Review idempotency key is invalid.")
+    return value
+
+
+def _review_sha256(value: object) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise FolderFormError("Review fingerprint must be lowercase SHA-256 text.")
+    return value
+
+
+def _review_job_id(value: str) -> str:
+    if len(value) != 32 or any(
+        character not in "0123456789abcdef" for character in value
+    ):
+        raise FolderFormError("Review job ID is invalid.")
+    return value
+
+
+def _review_status_payload(handle: FolderReviewHandle) -> dict[str, object]:
     return {
-        "job_id": expected_handle.job_id,
-        "expected_revision": revision,
-        "preview_fingerprint": fields["preview_fingerprint"],
-        "candidate_fingerprint": fields["candidate_fingerprint"],
-        "output_parent": expected_handle.output_parent,
-        "result_folder_name": fields["result_folder_name"],
-        "idempotency_key": idempotency_key,
+        "job_id": handle.job_id,
+        "lifecycle": "reviewing",
+        "job_revision": handle.job_revision,
+        "proposal_revision": handle.proposal_revision,
+        "candidate_fingerprint": handle.candidate_fingerprint,
+        "preview_fingerprint": handle.preview_fingerprint,
+        "output_parent": str(handle.output_parent),
+        "result_folder_name": handle.result_folder_name,
+        "revision_available": handle.revision_available,
+        "revision_attempts_remaining": handle.revision_attempts_remaining,
+        "revision_failure": handle.revision_failure,
+        "done_url": None,
     }
 
 
@@ -1826,6 +2172,7 @@ def _base_context(
         "evidence_disclosure_required": state.evidence_disclosure_required,
         "notice": state.notice,
         "foldweave_active": state.foldweave_active,
+        "native_settings_available": state.native_settings_available,
     }
 
 
@@ -1882,6 +2229,16 @@ def _no_store_json(
     response = JSONResponse(payload, status_code=status_code)
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def _native_settings_message(result: NativeSettingsResult) -> str:
+    if result.status == "configured":
+        return "The direct API key is configured in macOS Keychain."
+    if result.status == "removed":
+        return "The direct API key was removed from macOS Keychain."
+    if result.status == "cancelled":
+        return "Key configuration was cancelled; no credential changed."
+    return "The native credential operation failed without exposing the key."
 
 
 def _safe_error_text(exc: Exception) -> str:
@@ -1996,15 +2353,18 @@ def _is_loopback_request(request: Request) -> bool:
 
 
 def _safe_download_filename(filename: str) -> str:
+    supported_suffix = filename.endswith(
+        (".foldweave-change.json", ".nameatlas-change.json")
+    )
     if (
         not filename.isascii()
-        or not filename.endswith(".nameatlas-change.json")
+        or not supported_suffix
         or not filename
         or len(filename.encode("utf-8")) > 255
         or any(ord(character) < 32 or ord(character) == 127 for character in filename)
         or any(character in filename for character in ('"', "\\", "/"))
     ):
-        return "name-atlas.nameatlas-change.json"
+        return "foldweave.foldweave-change.json"
     return filename
 
 

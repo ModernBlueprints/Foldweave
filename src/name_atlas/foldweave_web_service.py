@@ -8,6 +8,7 @@ from pathlib import Path
 
 from name_atlas.connected_web_service import ConnectedChangeDownload
 from name_atlas.folder_app import (
+    FolderClarificationRequest,
     FolderJourney,
     FolderReviewHandle,
     FolderRunOutcome,
@@ -22,9 +23,11 @@ from name_atlas.folder_refactor.connected_change.job_v3 import (
     FolderJobLifecycleV3,
     FolderRefactorJobV3,
     FolderRefactorJobV3Store,
+    GptPlannedJobAuthorityV3,
 )
 from name_atlas.folder_refactor.connected_change.review_service import (
     FoldweaveReviewService,
+    FoldweaveReviewServiceError,
 )
 from name_atlas.folder_refactor.connected_change.verification import (
     ConnectedReceiptVerification,
@@ -32,6 +35,9 @@ from name_atlas.folder_refactor.connected_change.verification import (
 from name_atlas.folder_refactor.inventory import scan_folder
 from name_atlas.folder_refactor.receipt_contracts import FolderRestoreReport
 from name_atlas.folder_refactor.serialization import canonical_sha256
+from name_atlas.foldweave_provider_factory import (
+    FoldweavePlanningProviderFactory,
+)
 
 TargetMapFactory = Callable[[Path, str], tuple[str, Mapping[str, str]]]
 
@@ -58,10 +64,24 @@ class FoldweaveBrowserReviewService:
         job_path: Path,
         service: FoldweaveReviewService | None = None,
         target_map_factory: TargetMapFactory | None = None,
+        provider_factory: FoldweavePlanningProviderFactory | None = None,
+        review_channel: str = "browser",
     ) -> None:
         self._job_path = job_path.expanduser().resolve(strict=False)
         self._service = service or FoldweaveReviewService()
         self._target_map_factory = target_map_factory or _default_target_map
+        self._provider_factory = provider_factory
+        if review_channel not in {"browser", "native_app"}:
+            raise ValueError("Browser review channel must be browser or native_app.")
+        self._review_channel = review_channel
+        if provider_factory is not None:
+            self.planner_label = "Live GPT-5.6 planning"
+            self.planner_note = (
+                "GPT-5.6 receives only the bounded evidence disclosed below. "
+                "Foldweave checks the complete proposal before review and creates "
+                "nothing until exact acceptance."
+            )
+            self.outbound_evidence_will_be_sent = True
 
     @property
     def run_in_worker_thread(self) -> bool:
@@ -82,16 +102,26 @@ class FoldweaveBrowserReviewService:
     ) -> FolderRunOutcome:
         """Prepare one complete origin preview without creating output."""
 
-        result_name, targets = self._target_map_factory(source_root, request)
-        job = self._service.prepare_deterministic_origin_review(
-            source_root=source_root,
-            output_parent=output_parent,
-            job_path=self._job_path,
-            request=request,
-            result_folder_name=result_name,
-            target_by_original_path=targets,
-            idempotency_key=_browser_job_key(self._job_path, "organize"),
-        )
+        if self._provider_factory is None:
+            result_name, targets = self._target_map_factory(source_root, request)
+            job = self._service.prepare_deterministic_origin_review(
+                source_root=source_root,
+                output_parent=output_parent,
+                job_path=self._job_path,
+                request=request,
+                result_folder_name=result_name,
+                target_by_original_path=targets,
+                idempotency_key=_browser_job_key(self._job_path, "organize"),
+            )
+        else:
+            job = await self._service.prepare_planned_origin_review(
+                source_root=source_root,
+                output_parent=output_parent,
+                job_path=self._job_path,
+                request=request,
+                idempotency_key=_browser_job_key(self._job_path, "organize"),
+                provider=self._provider_factory.initial_provider(),
+            )
         return self._review_or_terminal(job)
 
     async def apply_shared_change(
@@ -109,6 +139,88 @@ class FoldweaveBrowserReviewService:
             output_parent=output_parent,
             job_path=self._job_path,
             idempotency_key=_browser_job_key(self._job_path, "apply"),
+        )
+        return self._review_or_terminal(job)
+
+    async def resume_existing_job(self) -> FolderRunOutcome:
+        """Continue one exact persisted job without duplicating its operation."""
+
+        job = self._service.status(self._job_path)
+        if job.lifecycle is FolderJobLifecycleV3.MATCHING:
+            if not isinstance(job.authority, CapsuleAppliedJobAuthorityV2):
+                raise ValueError("Matching job lacks Change File authority.")
+            job = self._service.prepare_application_review(
+                change_file_path=job.authority.change_file_binding.path,
+                source_root=job.source_root,
+                output_parent=job.output_parent,
+                job_path=job.job_path,
+                idempotency_key=_browser_job_key(job.job_path, "apply"),
+            )
+        elif job.lifecycle is FolderJobLifecycleV3.PLANNING:
+            if self._provider_factory is None:
+                result_name, targets = self._target_map_factory(
+                    job.source_root,
+                    job.user_request,
+                )
+                job = self._service.prepare_deterministic_origin_review(
+                    source_root=job.source_root,
+                    output_parent=job.output_parent,
+                    job_path=job.job_path,
+                    request=job.user_request,
+                    result_folder_name=result_name,
+                    target_by_original_path=targets,
+                    idempotency_key=_browser_job_key(job.job_path, "organize"),
+                )
+            else:
+                authority = job.authority
+                progress = (
+                    authority.planner_checkpoint.progress
+                    if isinstance(authority, GptPlannedJobAuthorityV3)
+                    else None
+                )
+                if progress is not None and progress.pending_response_turn is not None:
+                    job = await self._service.recover_interrupted_planned_origin_review(
+                        job.job_path
+                    )
+                else:
+                    job = await self._service.resume_planned_origin_review(
+                        job.job_path,
+                        provider=self._provider_factory.initial_provider(),
+                    )
+        elif job.lifecycle is FolderJobLifecycleV3.AWAITING_CLARIFICATION:
+            return _clarification_request(job)
+        elif job.lifecycle is FolderJobLifecycleV3.REVISING:
+            job = self._service.recover_interrupted_revision(job.job_path)
+        elif job.lifecycle is FolderJobLifecycleV3.EXECUTING:
+            job = self._service.resume_authorized_execution(job.job_path)
+        return self._review_or_terminal(job)
+
+    async def continue_after_clarification(
+        self,
+        *,
+        continuation_token: str,
+        answer: str,
+    ) -> FolderRunOutcome:
+        """Continue the exact direct-planning job after its sole answer."""
+
+        if self._provider_factory is None:
+            raise ValueError("Live clarification is unavailable in this mode.")
+        current = self._service.status(self._job_path)
+        if current.job_id != continuation_token:
+            raise FoldweaveReviewServiceError(
+                "clarification_token_mismatch",
+                "The clarification answer targets another durable job.",
+            )
+        if current.lifecycle is not FolderJobLifecycleV3.AWAITING_CLARIFICATION:
+            raise FoldweaveReviewServiceError(
+                "clarification_not_active",
+                "The durable job is not waiting for a clarification answer.",
+            )
+        job = await self._service.answer_planned_origin_clarification(
+            self._job_path,
+            continuation_token=continuation_token,
+            answer=answer,
+            provider=self._provider_factory.initial_provider(),
         )
         return self._review_or_terminal(job)
 
@@ -142,7 +254,7 @@ class FoldweaveBrowserReviewService:
             output_parent=output_parent,
             result_folder_name=result_folder_name,
             idempotency_key=idempotency_key,
-            channel="browser",
+            channel=self._review_channel,
         )
         if job.lifecycle is not FolderJobLifecycleV3.VERIFIED:
             detail = (
@@ -152,6 +264,61 @@ class FoldweaveBrowserReviewService:
             )
             raise ValueError(detail)
         return self._terminal_presentation(job)
+
+    async def revise_review(
+        self,
+        *,
+        job_id: str,
+        expected_revision: int,
+        preview_fingerprint: str,
+        candidate_fingerprint: str,
+        instruction: str,
+        idempotency_key: str,
+    ) -> FolderReviewHandle:
+        """Run one bounded provider revision and return the replacement review."""
+
+        self._require_job_id(job_id)
+        if self._provider_factory is None:
+            raise ValueError("Live proposal revision is unavailable in this mode.")
+        job = await self._service.revise(
+            self._job_path,
+            expected_revision=expected_revision,
+            preview_fingerprint=preview_fingerprint,
+            candidate_fingerprint=candidate_fingerprint,
+            instruction=instruction,
+            idempotency_key=idempotency_key,
+            provider_factory=self._provider_factory.revision_provider,
+        )
+        if job.lifecycle not in {
+            FolderJobLifecycleV3.REVIEWING,
+            FolderJobLifecycleV3.REVISION_FAILED,
+        }:
+            detail = job.blocker_message or f"Job ended in {job.lifecycle.value}."
+            raise ValueError(detail)
+        return _review_handle(job)
+
+    async def keep_previous_review(
+        self,
+        *,
+        job_id: str,
+        expected_revision: int,
+        preview_fingerprint: str,
+        candidate_fingerprint: str,
+        idempotency_key: str,
+    ) -> FolderReviewHandle:
+        """Dismiss one failed revision while retaining its prior valid proposal."""
+
+        if not idempotency_key.strip():
+            raise ValueError("Keep-proposal idempotency key is required.")
+        self._require_job_id(job_id)
+        job = self._service.keep_previous_proposal(
+            self._job_path,
+            expected_revision=expected_revision,
+            preview_fingerprint=preview_fingerprint,
+            candidate_fingerprint=candidate_fingerprint,
+            idempotency_key=idempotency_key,
+        )
+        return _review_handle(job)
 
     def web_checkpoint(self) -> FolderWebCheckpoint | None:
         """Project the current job without provider, budget, copy, or mutation."""
@@ -165,7 +332,11 @@ class FoldweaveBrowserReviewService:
 
         if not os.path.lexists(self._job_path):
             return None
-        job = FolderRefactorJobV3Store(self._job_path).load()
+        store = FolderRefactorJobV3Store(self._job_path)
+        with store.writer() as writer:
+            job = writer.rehydrate()
+        if job.lifecycle is FolderJobLifecycleV3.REVISING:
+            job = self._service.recover_interrupted_revision(self._job_path)
         if job.lifecycle is FolderJobLifecycleV3.EXECUTING:
             job = self._service.resume_authorized_execution(self._job_path)
         return self._checkpoint(job)
@@ -260,6 +431,32 @@ class FoldweaveBrowserReviewService:
 
     def _checkpoint(self, job: FolderRefactorJobV3) -> FolderWebCheckpoint:
         if job.lifecycle in {
+            FolderJobLifecycleV3.MATCHING,
+            FolderJobLifecycleV3.PLANNING,
+            FolderJobLifecycleV3.EXECUTING,
+        }:
+            return FolderWebCheckpoint(
+                lifecycle=FolderWebLifecycle.PLANNING,
+                source_root=job.source_root,
+                output_parent=job.output_parent,
+                request=job.user_request,
+                journey=(
+                    FolderJourney.APPLY
+                    if isinstance(job.authority, CapsuleAppliedJobAuthorityV2)
+                    else FolderJourney.ORGANIZE
+                ),
+                resume_required=True,
+            )
+        if job.lifecycle is FolderJobLifecycleV3.AWAITING_CLARIFICATION:
+            return FolderWebCheckpoint(
+                lifecycle=FolderWebLifecycle.AWAITING_CLARIFICATION,
+                source_root=job.source_root,
+                output_parent=job.output_parent,
+                request=job.user_request,
+                journey=FolderJourney.ORGANIZE,
+                clarification=_clarification_request(job),
+            )
+        if job.lifecycle in {
             FolderJobLifecycleV3.REVIEWING,
             FolderJobLifecycleV3.REVISION_FAILED,
         }:
@@ -312,6 +509,20 @@ class FoldweaveBrowserReviewService:
         return job
 
 
+def _clarification_request(job: FolderRefactorJobV3) -> FolderClarificationRequest:
+    authority = job.authority
+    if not isinstance(authority, GptPlannedJobAuthorityV3):
+        raise ValueError("Clarification state lacks GPT planning authority.")
+    progress = authority.planner_checkpoint.progress
+    question = None if progress is None else progress.clarification_question
+    if question is None:
+        raise ValueError("Clarification state lacks its persisted question.")
+    return FolderClarificationRequest(
+        question=question,
+        continuation_token=job.job_id,
+    )
+
+
 def _review_handle(job: FolderRefactorJobV3) -> FolderReviewHandle:
     if job.preview is None or job.candidate_plan is None:
         raise ValueError("Reviewing Foldweave job lacks its complete preview.")
@@ -328,6 +539,24 @@ def _review_handle(job: FolderRefactorJobV3) -> FolderReviewHandle:
             FolderJourney.APPLY
             if isinstance(job.authority, CapsuleAppliedJobAuthorityV2)
             else FolderJourney.ORGANIZE
+        ),
+        revision_available=(
+            isinstance(job.authority, GptPlannedJobAuthorityV3)
+            and job.authority.evidence_ledger is not None
+            and job.revision_attempt_count < 2
+            and job.proposal_revision < 2
+        ),
+        revision_attempts_remaining=(
+            max(0, 2 - job.revision_attempt_count)
+            if (
+                isinstance(job.authority, GptPlannedJobAuthorityV3)
+                and job.authority.evidence_ledger is not None
+                and job.proposal_revision < 2
+            )
+            else 0
+        ),
+        revision_failure=(
+            None if job.revision_failure is None else job.revision_failure.detail
         ),
     )
 

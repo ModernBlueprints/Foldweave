@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from types import TracebackType
-from typing import Annotated, Any, Literal, Self
+from typing import Any, Literal, Self
 from zoneinfo import ZoneInfo
 
 from pydantic import Field, field_validator, model_validator
@@ -31,6 +31,7 @@ from name_atlas.folder_refactor.connected_change.job_v2 import (
     FolderIdempotencyBindingV2,
     FolderRefactorJobV2,
     GptPlannedJobAuthorityV2,
+    GptPlannerCheckpointV2,
     JobLocalDirectoryIdentityV2,
     JobLocalFileIdentityV2,
     LegacyFolderJobV1Evidence,
@@ -46,6 +47,13 @@ from name_atlas.folder_refactor.contracts import (
     FolderInventory,
     StrictFrozenModel,
 )
+from name_atlas.folder_refactor.foldweave_planning_contracts import (
+    FolderEvidenceLedgerV2,
+    FolderPlannerRevisionTurnInputV1,
+    FolderRevisionTurnRecordV1,
+    GptPlannedExecutionOriginV2,
+    revision_turn_input_fingerprint,
+)
 from name_atlas.folder_refactor.inventory import FolderScanError, scan_folder
 from name_atlas.folder_refactor.markdown_contracts import FolderReferenceGraph
 from name_atlas.folder_refactor.portable_artifacts import (
@@ -55,10 +63,12 @@ from name_atlas.folder_refactor.portable_artifacts import (
 from name_atlas.folder_refactor.serialization import (
     canonical_json_bytes,
     canonical_sha256,
+    request_fingerprint,
 )
 
 FOLDER_REFACTOR_JOB_V3_SCHEMA_VERSION = "folder-refactor-job.v3"
 FOLDER_EXECUTION_AUTHORIZATION_SCHEMA_VERSION = "folder-execution-authorization.v1"
+FOLDER_KEEP_PREVIOUS_ACTION_SCHEMA_VERSION = "folder-keep-previous-action.v1"
 DEFAULT_V3_JOB_DIRECTORY = Path(".foldweave/jobs")
 oslo_tz = ZoneInfo("Europe/Oslo")
 
@@ -180,6 +190,7 @@ class FolderRevisionInstructionV1(StrictFrozenModel):
     base_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
     base_preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
     instruction: str = Field(min_length=1, max_length=20_000)
+    idempotency_key_sha256: str = Field(pattern=SHA256_PATTERN)
     instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
 
     @model_validator(mode="after")
@@ -190,6 +201,7 @@ class FolderRevisionInstructionV1(StrictFrozenModel):
                 "base_candidate_fingerprint": self.base_candidate_fingerprint,
                 "base_preview_fingerprint": self.base_preview_fingerprint,
                 "instruction": self.instruction,
+                "idempotency_key_sha256": self.idempotency_key_sha256,
             }
         )
         if self.instruction_fingerprint != expected:
@@ -203,6 +215,79 @@ class FolderRevisionFailureV1(StrictFrozenModel):
     code: str = Field(pattern=r"^[a-z0-9_:-]{1,128}$")
     detail: str = Field(min_length=1, max_length=2_000)
     attempted_instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+
+class FolderRevisionProviderFailureV1(StrictFrozenModel):
+    """One provider attempt that produced no mechanically inspectable response."""
+
+    schema_version: Literal["folder-revision-provider-failure.v1"] = (
+        "folder-revision-provider-failure.v1"
+    )
+    attempt_index: int = Field(ge=1, le=2)
+    response_turn: int = Field(ge=2, le=8)
+    provider_kind: Literal["deterministic", "live", "recorded_replay"]
+    turn_input_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    revision_instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    code: str = Field(pattern=r"^[a-z0-9_:-]{1,128}$")
+    detail: str = Field(min_length=1, max_length=2_000)
+    failure_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def require_failure_fingerprint(self) -> Self:
+        expected = canonical_sha256(
+            self.model_dump(mode="json", exclude={"failure_fingerprint"})
+        )
+        if self.failure_fingerprint != expected:
+            raise ValueError("Revision provider failure fingerprint is invalid.")
+        return self
+
+
+class FolderRevisionRejectionRecordV1(StrictFrozenModel):
+    """Append-only reason why one observable sparse revision was rejected."""
+
+    schema_version: Literal["folder-revision-rejection-record.v1"] = (
+        "folder-revision-rejection-record.v1"
+    )
+    attempt_index: int = Field(ge=1, le=2)
+    response_turn: int = Field(ge=2, le=8)
+    segment_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    turn_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    revision_instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    contract_freeze_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    code: str = Field(pattern=r"^[a-z0-9_:-]{1,128}$")
+    detail: str = Field(min_length=1, max_length=2_000)
+    record_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def require_record_fingerprint(self) -> Self:
+        expected = canonical_sha256(
+            self.model_dump(mode="json", exclude={"record_fingerprint"})
+        )
+        if self.record_fingerprint != expected:
+            raise ValueError("Revision rejection record fingerprint is invalid.")
+        return self
+
+
+class FolderKeepPreviousActionV1(StrictFrozenModel):
+    """One idempotent decision to retain a failed revision's prior preview."""
+
+    schema_version: Literal["folder-keep-previous-action.v1"] = (
+        FOLDER_KEEP_PREVIOUS_ACTION_SCHEMA_VERSION
+    )
+    base_job_revision: int = Field(ge=0)
+    candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    idempotency_key_sha256: str = Field(pattern=SHA256_PATTERN)
+    action_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def require_action_fingerprint(self) -> Self:
+        expected = canonical_sha256(
+            self.model_dump(mode="json", exclude={"action_fingerprint"})
+        )
+        if self.action_fingerprint != expected:
+            raise ValueError("Keep-previous action fingerprint is invalid.")
+        return self
 
 
 class FolderJobStalenessV3(StrictFrozenModel):
@@ -227,10 +312,83 @@ class FolderJobVerifiedArtifactsV3(StrictFrozenModel):
     verification_status: Literal["verified"] = "verified"
 
 
-FolderJobAuthorityV3 = Annotated[
-    GptPlannedJobAuthorityV2 | CapsuleAppliedJobAuthorityV2,
-    Field(discriminator="kind"),
-]
+class GptPlannedJobAuthorityV3(StrictFrozenModel):
+    """Append-only initial and revision planning authority for new v3 jobs."""
+
+    authority_schema_version: Literal["folder-gpt-planned-job-authority.v3"]
+    kind: Literal["gpt_planned"] = "gpt_planned"
+    planner_checkpoint: GptPlannerCheckpointV2
+    evidence_ledger: FolderEvidenceLedgerV2 | None = None
+    execution_origin: GptPlannedExecutionOriginV2 | None = None
+    pending_revision_turn: FolderPlannerRevisionTurnInputV1 | None = None
+
+    @model_validator(mode="after")
+    def require_composite_authority(self) -> Self:
+        accepted = self.planner_checkpoint.status == "accepted"
+        if not (
+            accepted
+            == (self.evidence_ledger is not None)
+            == (self.execution_origin is not None)
+        ):
+            raise ValueError(
+                "Accepted v3 planning, evidence, and provenance must coincide."
+            )
+        if self.pending_revision_turn is not None and not accepted:
+            raise ValueError("A pending revision requires accepted initial planning.")
+        if self.evidence_ledger is not None:
+            initial_fingerprint = self.planner_checkpoint.accepted_plan_fingerprint
+            if (
+                initial_fingerprint is None
+                or self.evidence_ledger.segments[0].final_candidate_fingerprint
+                != initial_fingerprint
+            ):
+                raise ValueError(
+                    "Composite v3 evidence differs from the initial planner checkpoint."
+                )
+            checkpoint_progress = self.planner_checkpoint.progress
+            initial = self.evidence_ledger.initial_ledger
+            if checkpoint_progress is None or not (
+                checkpoint_progress.status == "accepted"
+                and initial.response_turn_count == checkpoint_progress.response_turns
+                and initial.evidence_call_count == checkpoint_progress.evidence_calls
+                and initial.clarification_question
+                == checkpoint_progress.clarification_question
+                and initial.clarification_answer
+                == checkpoint_progress.clarification_answer
+                and initial.usage == self.planner_checkpoint.usage
+                and initial.observable_turns == checkpoint_progress.turns
+                and initial.accepted_plan_fingerprint
+                == self.planner_checkpoint.accepted_plan_fingerprint
+            ):
+                raise ValueError(
+                    "Composite v3 evidence lacks its complete initial progress."
+                )
+        if self.execution_origin is not None:
+            ledger = self.evidence_ledger
+            expected_provider_calls = (
+                ledger.response_turn_count
+                if ledger is not None and ledger.model_transport == "responses_api"
+                else 0
+            )
+            if ledger is None or not (
+                self.execution_origin.evidence_fingerprint
+                == ledger.evidence_fingerprint
+                and self.execution_origin.evidence_transcript_fingerprint
+                == ledger.transcript_fingerprint
+                and self.execution_origin.accepted_plan_fingerprint
+                == ledger.accepted_plan_fingerprint
+                and self.execution_origin.provider_call_count == expected_provider_calls
+            ):
+                raise ValueError("V3 execution origin differs from composite evidence.")
+        return self
+
+
+# Existing F0a-era v3 files used the predecessor v2 authority. Keep them readable
+# without weakening new-work authority. The two GPT models share a `kind` literal,
+# so schema-shape validation, not an ambiguous discriminator, performs dispatch.
+FolderJobAuthorityV3 = (
+    GptPlannedJobAuthorityV3 | GptPlannedJobAuthorityV2 | CapsuleAppliedJobAuthorityV2
+)
 
 
 class FolderRefactorJobV3(StrictFrozenModel):
@@ -261,6 +419,18 @@ class FolderRefactorJobV3(StrictFrozenModel):
     preview: FolderPlanPreviewV1 | None = None
     revision_instruction: FolderRevisionInstructionV1 | None = None
     revision_failure: FolderRevisionFailureV1 | None = None
+    revision_provider_failures: tuple[FolderRevisionProviderFailureV1, ...] = Field(
+        default=(),
+        max_length=2,
+    )
+    revision_rejections: tuple[FolderRevisionRejectionRecordV1, ...] = Field(
+        default=(),
+        max_length=2,
+    )
+    keep_previous_actions: tuple[FolderKeepPreviousActionV1, ...] = Field(
+        default=(),
+        max_length=2,
+    )
     immediate_parent_job_id: str | None = Field(
         default=None,
         pattern=r"^[a-f0-9]{32}$",
@@ -352,6 +522,58 @@ class FolderRefactorJobV3(StrictFrozenModel):
             != self.source_inventory.source_commitment
         ):
             raise ValueError("Candidate plan targets another source.")
+        if self.candidate_plan is not None and (
+            self.candidate_plan.request_fingerprint
+            != request_fingerprint(self.user_request)
+        ):
+            raise ValueError("Candidate plan targets another user request.")
+        if isinstance(self.authority, GptPlannedJobAuthorityV3):
+            ledger = self.authority.evidence_ledger
+            origin = self.authority.execution_origin
+            if self.candidate_plan is not None and (
+                ledger is None
+                or origin is None
+                or not (
+                    self.candidate_plan.evidence_schema_version
+                    == "folder-evidence-ledger.v2"
+                    and ledger.accepted_plan_fingerprint
+                    == canonical_sha256(self.candidate_plan)
+                    and ledger.evidence_fingerprint
+                    == self.candidate_plan.evidence_fingerprint
+                    and ledger.selected_proposal_revision == self.proposal_revision
+                    and ledger.user_revision_count
+                    + len(self.revision_provider_failures)
+                    + (1 if self.authority.pending_revision_turn is not None else 0)
+                    == self.revision_attempt_count
+                    and origin.accepted_plan_fingerprint
+                    == ledger.accepted_plan_fingerprint
+                )
+            ):
+                raise ValueError(
+                    "V3 candidate differs from its planning evidence authority."
+                )
+            if self.lifecycle is FolderJobLifecycleV3.REVISING:
+                if (
+                    self.authority.pending_revision_turn is None
+                    or self.revision_instruction is None
+                    or self.candidate_plan is None
+                    or self.preview is None
+                ):
+                    raise ValueError(
+                        "Revising requires the prior preview and reserved "
+                        "provider turn."
+                    )
+                self._require_pending_revision_authority()
+            elif (
+                self.authority.pending_revision_turn is not None
+                and self.lifecycle is not FolderJobLifecycleV3.BLOCKED
+            ):
+                raise ValueError(
+                    "Only revising or terminal provider failure may retain a "
+                    "pending provider turn."
+                )
+            elif self.authority.pending_revision_turn is not None:
+                self._require_pending_revision_authority()
         if self.lifecycle in {
             FolderJobLifecycleV3.REVIEWING,
             FolderJobLifecycleV3.REVISION_FAILED,
@@ -395,11 +617,52 @@ class FolderRefactorJobV3(StrictFrozenModel):
                 )
             ):
                 raise ValueError("Pre-review jobs cannot retain proposal output.")
+        elif self.lifecycle is FolderJobLifecycleV3.REVISING:
+            if self.execution_authorization is not None or any(
+                value is not None
+                for value in (
+                    self.pending_result_path,
+                    self.final_result_path,
+                    self.verified_artifacts,
+                )
+            ):
+                raise ValueError("Revising cannot retain execution output authority.")
         if self.lifecycle is FolderJobLifecycleV3.REVISION_FAILED:
             if self.revision_failure is None:
                 raise ValueError("revision_failed requires exact failure evidence.")
+            if isinstance(self.authority, GptPlannedJobAuthorityV3) and (
+                self.revision_instruction is None
+                or self.revision_failure.attempted_instruction_fingerprint
+                != self.revision_instruction.instruction_fingerprint
+            ):
+                raise ValueError("Revision failure targets another instruction.")
         elif self.revision_failure is not None:
             raise ValueError("Only revision_failed may retain revision failure.")
+        provider_instruction_fingerprints = tuple(
+            failure.revision_instruction_fingerprint
+            for failure in self.revision_provider_failures
+        )
+        if len(provider_instruction_fingerprints) != len(
+            set(provider_instruction_fingerprints)
+        ):
+            raise ValueError("Revision provider failures must be unique.")
+        provider_attempts = tuple(
+            failure.attempt_index for failure in self.revision_provider_failures
+        )
+        if provider_attempts != tuple(sorted(provider_attempts)):
+            raise ValueError("Revision provider failures must be attempt ordered.")
+        rejection_attempts = tuple(
+            rejection.attempt_index for rejection in self.revision_rejections
+        )
+        if rejection_attempts != tuple(sorted(set(rejection_attempts))):
+            raise ValueError("Revision rejections must be unique and attempt ordered.")
+        if isinstance(self.authority, GptPlannedJobAuthorityV3):
+            self._require_revision_rejection_history()
+        keep_keys = tuple(
+            action.idempotency_key_sha256 for action in self.keep_previous_actions
+        )
+        if len(keep_keys) != len(set(keep_keys)):
+            raise ValueError("Keep-previous idempotency keys must be unique.")
         blocker = self.blocker_code is not None or self.blocker_message is not None
         if self.lifecycle is FolderJobLifecycleV3.BLOCKED:
             if self.blocker_code is None or self.blocker_message is None:
@@ -412,6 +675,121 @@ class FolderRefactorJobV3(StrictFrozenModel):
         elif self.staleness is not None:
             raise ValueError("Only stale jobs may retain staleness evidence.")
         return self
+
+    def _require_revision_rejection_history(self) -> None:
+        ledger = self.authority.evidence_ledger
+        if ledger is None:
+            if self.revision_rejections:
+                raise ValueError(
+                    "Revision rejections require accepted planning evidence."
+                )
+            return
+        rejected_segments = tuple(
+            segment
+            for segment in ledger.segments
+            if segment.segment_kind == "user_revision" and not segment.selected
+        )
+        records_by_segment = {
+            record.segment_fingerprint: record for record in self.revision_rejections
+        }
+        if len(records_by_segment) != len(self.revision_rejections):
+            raise ValueError("Revision rejection segments must be unique.")
+        for segment in rejected_segments:
+            record = records_by_segment.get(segment.segment_fingerprint)
+            if record is None:
+                legacy_current_failure = (
+                    self.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+                    and self.revision_failure is not None
+                    and segment is rejected_segments[-1]
+                )
+                if not legacy_current_failure:
+                    raise ValueError(
+                        "A past rejected revision lacks append-only failure evidence."
+                    )
+                continue
+            turn = FolderRevisionTurnRecordV1.model_validate_json(
+                canonical_json_bytes(segment.observable_records[0]),
+                strict=True,
+            )
+            effective_contract = (
+                turn.input.turn_contract_freeze_fingerprint
+                or ledger.contract_freeze_fingerprint
+            )
+            if not (
+                record.response_turn == turn.input.response_turn
+                and record.turn_fingerprint == turn.turn_fingerprint
+                and record.revision_instruction_fingerprint
+                == segment.revision_instruction_fingerprint
+                == turn.input.revision_instruction_fingerprint
+                and record.contract_freeze_fingerprint == effective_contract
+            ):
+                raise ValueError(
+                    "Revision rejection record differs from its transcript segment."
+                )
+        rejected_fingerprints = {
+            segment.segment_fingerprint for segment in rejected_segments
+        }
+        if set(records_by_segment) - rejected_fingerprints:
+            raise ValueError("Revision rejection record names no rejected segment.")
+        if (
+            self.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+            and self.revision_failure is not None
+            and self.revision_rejections
+        ):
+            latest = self.revision_rejections[-1]
+            if (
+                latest.segment_fingerprint == rejected_segments[-1].segment_fingerprint
+                and latest.revision_instruction_fingerprint
+                == self.revision_failure.attempted_instruction_fingerprint
+                and not (
+                    latest.code == self.revision_failure.code
+                    and latest.detail == self.revision_failure.detail
+                )
+            ):
+                raise ValueError(
+                    "Current revision failure differs from append-only evidence."
+                )
+
+    def _require_pending_revision_authority(self) -> None:
+        assert isinstance(self.authority, GptPlannedJobAuthorityV3)
+        pending = self.authority.pending_revision_turn
+        ledger = self.authority.evidence_ledger
+        candidate = self.candidate_plan
+        preview = self.preview
+        instruction = self.revision_instruction
+        assert pending is not None
+        assert ledger is not None
+        assert candidate is not None
+        assert preview is not None
+        assert instruction is not None
+        expected_provider_kind = {
+            "responses_api": "live",
+            "recorded_replay": "recorded_replay",
+            "deterministic_development": "deterministic",
+        }.get(ledger.model_transport)
+        expected_revision_delta = (
+            1 if self.lifecycle is FolderJobLifecycleV3.REVISING else 2
+        )
+        if not (
+            pending.job_id == self.job_id
+            and pending.expected_job_revision == preview.expected_job_revision
+            and pending.expected_job_revision + expected_revision_delta == self.revision
+            and pending.proposal_revision == self.proposal_revision
+            and pending.base_candidate == candidate
+            and pending.base_candidate_fingerprint == canonical_sha256(candidate)
+            and pending.base_preview_fingerprint == preview.preview_fingerprint
+            and pending.revision_instruction == instruction.instruction
+            and pending.revision_instruction_fingerprint
+            == instruction.instruction_fingerprint
+            and pending.prior_transcript_fingerprint == ledger.transcript_fingerprint
+            and pending.response_turn == ledger.response_turn_count + 1
+            and pending.source_commitment == self.source_inventory.source_commitment
+            and pending.request == self.user_request
+            and pending.request_fingerprint == request_fingerprint(self.user_request)
+            and pending.evidence_fingerprint == ledger.evidence_fingerprint
+            and pending.provider_kind == expected_provider_kind
+        ):
+            raise ValueError("Pending revision targets another durable review.")
 
     def _require_preview_authority(self) -> None:
         assert self.preview is not None
@@ -665,6 +1043,7 @@ class FolderRefactorJobV3Writer:
             raise FolderJobV3RevisionError("Successor must be the next revision.")
         _require_immutable_identity(current, successor)
         _require_lifecycle_transition(current.lifecycle, successor.lifecycle)
+        _require_append_only_action_history(current, successor)
         _require_transition_payload(current, successor)
         promoted_execution = (
             current.lifecycle is FolderJobLifecycleV3.EXECUTING
@@ -734,6 +1113,145 @@ def build_execution_authorization(
     return FolderExecutionAuthorizationV1(
         **payload,
         authorization_fingerprint=canonical_sha256(fingerprint_payload),
+    )
+
+
+def build_revision_instruction(
+    *,
+    base_candidate_fingerprint: str,
+    base_preview_fingerprint: str,
+    instruction: str,
+    idempotency_key: str,
+) -> FolderRevisionInstructionV1:
+    """Bind one exact user revision without retaining its plaintext retry key."""
+
+    normalized = instruction.strip()
+    if not normalized or normalized != instruction or "\x00" in normalized:
+        raise FolderJobV3RevisionError(
+            "Revision instruction must be nonblank, trimmed UTF-8 text."
+        )
+    key_sha256 = _revision_key_sha256(idempotency_key)
+    payload = {
+        "base_candidate_fingerprint": base_candidate_fingerprint,
+        "base_preview_fingerprint": base_preview_fingerprint,
+        "instruction": instruction,
+        "idempotency_key_sha256": key_sha256,
+    }
+    return FolderRevisionInstructionV1(
+        **payload,
+        instruction_fingerprint=canonical_sha256(
+            {"domain": "foldweave:revision-instruction:v1", **payload}
+        ),
+    )
+
+
+def build_revision_provider_failure(
+    *,
+    attempt_index: int,
+    turn_input: FolderPlannerRevisionTurnInputV1,
+    code: str,
+    detail: str,
+) -> FolderRevisionProviderFailureV1:
+    """Record a bounded provider failure without fabricating a model response."""
+
+    values = {
+        "attempt_index": attempt_index,
+        "response_turn": turn_input.response_turn,
+        "provider_kind": turn_input.provider_kind,
+        "turn_input_fingerprint": revision_turn_input_fingerprint(turn_input),
+        "revision_instruction_fingerprint": (
+            turn_input.revision_instruction_fingerprint
+        ),
+        "code": code,
+        "detail": detail,
+    }
+    draft = FolderRevisionProviderFailureV1.model_construct(
+        **values,
+        failure_fingerprint="0" * 64,
+    )
+    return FolderRevisionProviderFailureV1(
+        **values,
+        failure_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"failure_fingerprint"})
+        ),
+    )
+
+
+def build_revision_rejection_record(
+    *,
+    attempt_index: int,
+    ledger: FolderEvidenceLedgerV2,
+    failure: FolderRevisionFailureV1,
+) -> FolderRevisionRejectionRecordV1:
+    """Bind a mechanical rejection to its exact immutable transcript turn."""
+
+    segment = ledger.segments[-1]
+    if segment.segment_kind != "user_revision" or segment.selected:
+        raise FolderJobV3RevisionError(
+            "Mechanical rejection requires the latest rejected revision segment."
+        )
+    turn = FolderRevisionTurnRecordV1.model_validate_json(
+        canonical_json_bytes(segment.observable_records[0]),
+        strict=True,
+    )
+    if (
+        segment.revision_instruction_fingerprint
+        != failure.attempted_instruction_fingerprint
+        or turn.input.revision_instruction_fingerprint
+        != failure.attempted_instruction_fingerprint
+    ):
+        raise FolderJobV3RevisionError(
+            "Mechanical rejection targets another revision instruction."
+        )
+    values = {
+        "attempt_index": attempt_index,
+        "response_turn": turn.input.response_turn,
+        "segment_fingerprint": segment.segment_fingerprint,
+        "turn_fingerprint": turn.turn_fingerprint,
+        "revision_instruction_fingerprint": (failure.attempted_instruction_fingerprint),
+        "contract_freeze_fingerprint": (
+            turn.input.turn_contract_freeze_fingerprint
+            or ledger.contract_freeze_fingerprint
+        ),
+        "code": failure.code,
+        "detail": failure.detail,
+    }
+    draft = FolderRevisionRejectionRecordV1.model_construct(
+        **values,
+        record_fingerprint="0" * 64,
+    )
+    return FolderRevisionRejectionRecordV1(
+        **values,
+        record_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"record_fingerprint"})
+        ),
+    )
+
+
+def build_keep_previous_action(
+    *,
+    base_job_revision: int,
+    candidate_fingerprint: str,
+    preview_fingerprint: str,
+    idempotency_key: str,
+) -> FolderKeepPreviousActionV1:
+    """Bind one exact keep decision without retaining its plaintext retry key."""
+
+    values = {
+        "base_job_revision": base_job_revision,
+        "candidate_fingerprint": candidate_fingerprint,
+        "preview_fingerprint": preview_fingerprint,
+        "idempotency_key_sha256": _keep_previous_key_sha256(idempotency_key),
+    }
+    draft = FolderKeepPreviousActionV1.model_construct(
+        **values,
+        action_fingerprint="0" * 64,
+    )
+    return FolderKeepPreviousActionV1(
+        **values,
+        action_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"action_fingerprint"})
+        ),
     )
 
 
@@ -855,12 +1373,14 @@ def _require_lifecycle_transition(
             FolderJobLifecycleV3.BLOCKED,
         },
         FolderJobLifecycleV3.PLANNING: {
+            FolderJobLifecycleV3.PLANNING,
             FolderJobLifecycleV3.AWAITING_CLARIFICATION,
             FolderJobLifecycleV3.REVIEWING,
             FolderJobLifecycleV3.STALE,
             FolderJobLifecycleV3.BLOCKED,
         },
         FolderJobLifecycleV3.AWAITING_CLARIFICATION: {
+            FolderJobLifecycleV3.AWAITING_CLARIFICATION,
             FolderJobLifecycleV3.PLANNING,
             FolderJobLifecycleV3.REVIEWING,
             FolderJobLifecycleV3.STALE,
@@ -894,6 +1414,90 @@ def _require_lifecycle_transition(
         raise FolderJobV3RevisionError(
             f"Invalid v3 transition: {current.value} -> {successor.value}."
         )
+
+
+def _require_append_only_action_history(
+    current: FolderRefactorJobV3,
+    successor: FolderRefactorJobV3,
+) -> None:
+    """Permit only one exact action-history append at its declared transition."""
+
+    provider_prefix = successor.revision_provider_failures[
+        : len(current.revision_provider_failures)
+    ]
+    if provider_prefix != current.revision_provider_failures:
+        raise FolderJobV3RevisionError(
+            "Revision provider failure history is not append-only."
+        )
+    provider_added = len(successor.revision_provider_failures) - len(
+        current.revision_provider_failures
+    )
+    if provider_added not in {0, 1}:
+        raise FolderJobV3RevisionError(
+            "A transition may append at most one provider failure."
+        )
+    if provider_added and not (
+        current.lifecycle is FolderJobLifecycleV3.REVISING
+        and successor.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+    ):
+        raise FolderJobV3RevisionError(
+            "Provider failure history changed outside a failed revision."
+        )
+
+    rejection_prefix = successor.revision_rejections[: len(current.revision_rejections)]
+    if rejection_prefix != current.revision_rejections:
+        raise FolderJobV3RevisionError("Revision rejection history is not append-only.")
+    rejection_added = len(successor.revision_rejections) - len(
+        current.revision_rejections
+    )
+    if rejection_added not in {0, 1}:
+        raise FolderJobV3RevisionError(
+            "A transition may append at most one revision rejection."
+        )
+    if rejection_added and not (
+        (
+            current.lifecycle is FolderJobLifecycleV3.REVISING
+            and successor.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+        )
+        or (
+            current.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+            and successor.lifecycle
+            in {FolderJobLifecycleV3.REVISING, FolderJobLifecycleV3.REVIEWING}
+        )
+    ):
+        raise FolderJobV3RevisionError(
+            "Revision rejection history changed outside its exact transition."
+        )
+
+    keep_prefix = successor.keep_previous_actions[: len(current.keep_previous_actions)]
+    if keep_prefix != current.keep_previous_actions:
+        raise FolderJobV3RevisionError("Keep-previous history is not append-only.")
+    keep_added = len(successor.keep_previous_actions) - len(
+        current.keep_previous_actions
+    )
+    if keep_added not in {0, 1}:
+        raise FolderJobV3RevisionError(
+            "A transition may append at most one keep-previous action."
+        )
+    if keep_added:
+        if not (
+            current.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+            and successor.lifecycle is FolderJobLifecycleV3.REVIEWING
+        ):
+            raise FolderJobV3RevisionError(
+                "Keep-previous history changed outside its exact transition."
+            )
+        action = successor.keep_previous_actions[-1]
+        if (
+            current.preview is None
+            or action.base_job_revision != current.revision
+            or action.candidate_fingerprint
+            != current.preview.compiled_candidate_fingerprint
+            or action.preview_fingerprint != current.preview.preview_fingerprint
+        ):
+            raise FolderJobV3RevisionError(
+                "Keep-previous action targets another failed preview."
+            )
 
 
 def _require_transition_payload(
@@ -942,6 +1546,38 @@ def _authorization_key_sha256(value: str) -> str:
         )
     return canonical_sha256(
         {"domain": "foldweave:execution-authorization-key:v1", "key": value}
+    )
+
+
+def _revision_key_sha256(value: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or len(value.encode("utf-8")) > 256
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise FolderJobV3IdempotencyConflict(
+            "Revision idempotency key must be trimmed control-free text."
+        )
+    return canonical_sha256(
+        {"domain": "foldweave:revision-idempotency-key:v1", "key": value}
+    )
+
+
+def _keep_previous_key_sha256(value: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or len(value.encode("utf-8")) > 256
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise FolderJobV3IdempotencyConflict(
+            "Keep-previous idempotency key must be trimmed control-free text."
+        )
+    return canonical_sha256(
+        {"domain": "foldweave:keep-previous-idempotency-key:v1", "key": value}
     )
 
 

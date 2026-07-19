@@ -1,5 +1,6 @@
 {% extends "folder/base.html" %}
-{% block title %}Working · Reversible Name Atlas{% endblock %}
+{% set product_name = "Foldweave" if foldweave_active else "Name Atlas" %}
+{% block title %}Working · {% if foldweave_active %}Foldweave{% else %}Reversible Name Atlas{% endif %}{% endblock %}
 {% block content %}
   {% set current_journey = journey|default("organize", true) %}
   {% set current_planner_note = planner_note|default("", true) %}
@@ -15,8 +16,8 @@
       <p>Start a fresh job after correcting the blocker. No partial result is accepted.</p>
     {% elif state.lifecycle.value == "awaiting_clarification" and current_journey == "organize" %}
       <div class="folder-kicker">One detail needed</div>
-      <h1 id="working-title">Name Atlas needs one answer</h1>
-      <p class="folder-lede">The same job will continue automatically. Your original folder remains untouched.</p>
+      <h1 id="working-title">{{ product_name }} needs one answer</h1>
+      <p class="folder-lede">The same job will continue automatically. Your original folder remains untouched.{% if foldweave_active %} No result or copy is created until you accept the exact proposal.{% endif %}</p>
 
       {% if planner_label|default("") %}
         <div class="folder-planner-truth" role="status">
@@ -38,11 +39,11 @@
         <textarea class="bp6-input" id="clarification-answer" name="answer" rows="4" maxlength="4000" required autofocus></textarea>
         <button class="bp6-button bp6-intent-primary bp6-large folder-primary-action" type="submit">Answer and continue</button>
       </form>
-      <p>No file-by-file review is required.</p>
+      <p>{% if foldweave_active %}You will review the complete proposed structure before anything is created.{% else %}No file-by-file review is required.{% endif %}</p>
     {% else %}
       <div class="folder-kicker">{% if current_journey == "apply" %}Applying a shared change{% else %}Organizing a folder{% endif %}</div>
-      <h1 id="working-title">{% if current_journey == "apply" %}Name Atlas is matching the project{% else %}Name Atlas is planning the change{% endif %}</h1>
-      <p class="folder-lede">You can leave this page open. The persisted job owns the transaction and your selected project folder remains untouched.</p>
+      <h1 id="working-title">{% if current_journey == "apply" %}{{ product_name }} is matching the project{% else %}{{ product_name }} is planning the change{% endif %}</h1>
+      <p class="folder-lede">You can leave this page open. The persisted job owns the transaction and your selected project folder remains untouched.{% if foldweave_active %} No result or copy is created until you accept the exact proposal.{% endif %}</p>
 
       {% if planner_label|default("") %}
         <div class="folder-planner-truth" role="status">

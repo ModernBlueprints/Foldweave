@@ -188,7 +188,9 @@ def _live_provider(job_path: Path) -> object:
             GptPlannedJobAuthorityV2,
         ):
             existing_usage = job.authority.planner_checkpoint.usage
-    budget = PersistentBudgetLedger.open_existing_live_planner(path=BUDGET_LEDGER_PATH)
+    budget = PersistentBudgetLedger.open_existing_foldweave_planner(
+        path=BUDGET_LEDGER_PATH
+    )
     return LiveFolderPlannerProvider.from_api_key(
         api_key,
         budget=budget,

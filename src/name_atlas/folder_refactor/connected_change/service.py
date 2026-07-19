@@ -22,7 +22,7 @@ from name_atlas.folder_refactor.connected_change.contracts import (
     ConnectedChangeFile,
     ConnectedChangeMatchReport,
     FolderExecutionOrigin,
-    GptPlannedExecutionOrigin,
+    GptExecutionOrigin,
 )
 from name_atlas.folder_refactor.connected_change.descriptors import (
     build_connected_change_core,
@@ -54,6 +54,9 @@ from name_atlas.folder_refactor.connected_change.receipt import (
 from name_atlas.folder_refactor.connected_change.verification import (
     ConnectedReceiptVerificationStatus,
     verify_connected_result,
+)
+from name_atlas.folder_refactor.foldweave_planning_contracts import (
+    FolderEvidenceLedgerV2,
 )
 from name_atlas.folder_refactor.inventory import FolderScan, scan_folder
 from name_atlas.folder_refactor.markdown_contracts import FolderReferenceGraph
@@ -110,8 +113,8 @@ class PreparedConnectedChangeOrigin:
     reference_graph: FolderReferenceGraph
     request: str
     accepted_plan: FolderAcceptedPlanV2
-    execution_origin: GptPlannedExecutionOrigin
-    evidence_ledger: FolderEvidenceLedger
+    execution_origin: GptExecutionOrigin
+    evidence_ledger: FolderEvidenceLedger | FolderEvidenceLedgerV2
     markdown_payloads: Mapping[str, bytes]
 
 
@@ -147,8 +150,8 @@ class _OriginFinalizer(FolderProofFinalizer):
         self,
         *,
         job_id: str,
-        execution_origin: GptPlannedExecutionOrigin,
-        evidence_ledger: FolderEvidenceLedger,
+        execution_origin: GptExecutionOrigin,
+        evidence_ledger: FolderEvidenceLedger | FolderEvidenceLedgerV2,
         markdown_payloads: Mapping[str, bytes],
     ) -> None:
         self.job_id = job_id
@@ -461,8 +464,8 @@ def rehydrate_prepared_connected_change_origin(
     source_root: Path,
     request: str,
     accepted_plan: FolderAcceptedPlanV2,
-    execution_origin: GptPlannedExecutionOrigin,
-    evidence_ledger: FolderEvidenceLedger,
+    execution_origin: GptExecutionOrigin,
+    evidence_ledger: FolderEvidenceLedger | FolderEvidenceLedgerV2,
 ) -> PreparedConnectedChangeOrigin:
     """Rebind one persisted accepted origin to its unchanged local source."""
 

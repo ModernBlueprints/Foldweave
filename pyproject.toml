@@ -12,6 +12,12 @@ dependencies = [
     "mcp>=1.27,<2",
     "openai>=1.0,<3",
     "pydantic>=2.12,<3",
+    "pyobjc-core>=12.2.1,<13 ; sys_platform == 'darwin'",
+    "pyobjc-framework-cocoa>=12.2.1,<13 ; sys_platform == 'darwin'",
+    "pyobjc-framework-quartz>=12.2.1,<13 ; sys_platform == 'darwin'",
+    "pyobjc-framework-security>=12.2.1,<13 ; sys_platform == 'darwin'",
+    "pyobjc-framework-webkit>=12.2.1,<13 ; sys_platform == 'darwin'",
+    "pywebview>=6.2.1,<7 ; sys_platform == 'darwin'",
     "uvicorn>=0.35,<1",
 ]
 
@@ -22,6 +28,7 @@ name-atlas = "name_atlas.launcher:main"
 [dependency-groups]
 dev = [
     "httpx>=0.28,<1",
+    "pyinstaller>=6.21,<7 ; sys_platform == 'darwin'",
     "pytest>=8.4,<10",
     "ruff>=0.14,<1",
 ]

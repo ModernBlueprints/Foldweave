@@ -1,10 +1,15 @@
 {% extends "folder/base.html" %}
-{% block title %}Apply a shared change · Reversible Name Atlas{% endblock %}
+{% set product_name = "Foldweave" if foldweave_active else "Name Atlas" %}
+{% block title %}Apply a shared change · {% if foldweave_active %}Foldweave{% else %}Reversible Name Atlas{% endif %}{% endblock %}
 {% block content %}
   <section class="folder-panel folder-panel--start" aria-labelledby="apply-title">
     <div class="folder-kicker">Apply a shared change</div>
-    <h1 id="apply-title">Create the same organized result</h1>
-    <p class="folder-lede">Choose a Name Atlas Change File and your equivalent project folder. Name Atlas matches and applies the change locally.</p>
+    <h1 id="apply-title">{% if foldweave_active %}Review the shared structure{% else %}Create the same organized result{% endif %}</h1>
+    {% if foldweave_active %}
+      <p class="folder-lede">Choose a Foldweave Change File and your equivalent project folder. Foldweave matches them locally, then stops so you can review your current structure and the shared proposal before anything is created.</p>
+    {% else %}
+      <p class="folder-lede">Choose a Name Atlas Change File and your equivalent project folder. Name Atlas matches and applies the change locally.</p>
+    {% endif %}
 
     {% if state.blocker %}
       <div class="folder-alert" role="alert">
@@ -17,10 +22,10 @@
       <input type="hidden" name="csrf_token" value="{{ state.csrf_token }}">
 
       <fieldset class="folder-path-control">
-        <legend>Name Atlas Change File</legend>
+        <legend>{{ product_name }} Change File</legend>
         <button class="bp6-button folder-picker-button" type="button" data-picker-role="change_file" data-picker-target="change-file">Choose Change File…</button>
         <label for="change-file">Or enter the absolute path</label>
-        <input class="bp6-input" id="change-file" name="change_file" type="text" inputmode="text" autocomplete="off" spellcheck="false" required value="{{ state.change_file_value|default('') }}" placeholder="/absolute/path/northstar.nameatlas-change.json">
+        <input class="bp6-input" id="change-file" name="change_file" type="text" inputmode="text" autocomplete="off" spellcheck="false" required value="{{ state.change_file_value|default('') }}" placeholder="{% if foldweave_active %}/absolute/path/northstar.foldweave-change.json{% else %}/absolute/path/northstar.nameatlas-change.json{% endif %}">
         <small data-picker-status aria-live="polite">The Change File contains the change and proof identifiers, not project payload bytes.</small>
       </fieldset>
 
@@ -34,21 +39,21 @@
         <button class="bp6-button folder-picker-button" type="button" data-picker-role="source_folder" data-picker-target="source-root" data-derive-output-target="output-parent">Choose your project folder…</button>
         <label for="source-root">Or enter the absolute path</label>
         <input class="bp6-input" id="source-root" name="source_root" type="text" inputmode="text" autocomplete="off" spellcheck="false" required value="{{ state.source_value }}" placeholder="/absolute/path/to/your/project" data-derive-output-target="output-parent">
-        <small data-picker-status aria-live="polite">Name Atlas blocks instead of guessing when the project does not match uniquely.</small>
+        <small data-picker-status aria-live="polite">{{ product_name }} blocks instead of guessing when the project does not match uniquely.</small>
       </fieldset>
 
       <fieldset class="folder-path-control folder-path-control--secondary">
         <legend>Result location</legend>
-        <p class="folder-derived-path">Name Atlas derives a separate result next to your selected project. You can choose another existing parent folder.</p>
+        <p class="folder-derived-path">{{ product_name }} derives a separate result next to your selected project. You can choose another existing parent folder.</p>
         <button class="bp6-button folder-picker-button" type="button" data-picker-role="output_parent" data-picker-target="output-parent">Change result location…</button>
         <label for="output-parent">Absolute result-parent path</label>
         <input class="bp6-input" id="output-parent" name="output_parent" type="text" inputmode="text" autocomplete="off" spellcheck="false" required value="{{ state.output_value }}" placeholder="Derived from your selected folder">
         <small data-picker-status aria-live="polite"></small>
       </fieldset>
 
-      <p class="folder-source-promise"><strong>Applying a Change File makes no GPT call, requires no API key, makes no external network request, and does not change your selected project folder.</strong></p>
+      <p class="folder-source-promise"><strong>Applying a Change File makes no GPT call, requires no API key, makes no external network request, and does not change your selected project folder.</strong>{% if foldweave_active %} No result or copy is created until you accept the exact reviewed proposal.{% endif %}</p>
 
-      <button class="bp6-button bp6-intent-primary bp6-large folder-primary-action" type="submit">Apply change and create copy</button>
+      <button class="bp6-button bp6-intent-primary bp6-large folder-primary-action" type="submit">{% if foldweave_active %}Match and review structure{% else %}Apply change and create copy{% endif %}</button>
     </form>
   </section>
 {% endblock %}

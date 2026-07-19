@@ -9,6 +9,8 @@ import {
   type AcceptancePayload,
   type FolderPlanPreviewV1,
   type Journey,
+  type KeepProposalPayload,
+  type RevisionPayload,
   type ReviewStatus,
   assertPreview,
   assertStatus,
@@ -80,11 +82,59 @@ function ReviewEntry({ bootstrap }: { bootstrap: Bootstrap }): ReactElement {
     window.location.assign(value.done_url);
   };
 
+  const revisePlan = async (payload: RevisionPayload): Promise<void> => {
+    await mutateReview("revision", payload);
+  };
+
+  const keepPrevious = async (payload: KeepProposalPayload): Promise<void> => {
+    await mutateReview("keep-proposal", payload);
+  };
+
+  const mutateReview = async (
+    action: "revision" | "keep-proposal",
+    payload: RevisionPayload | KeepProposalPayload,
+  ): Promise<void> => {
+    const response = await fetch(
+      `/api/jobs/${encodeURIComponent(bootstrap.jobId)}/${action}`,
+      {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+          "x-foldweave-csrf": bootstrap.csrfToken,
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+    const statusValue: unknown = await response.json();
+    if (!response.ok) {
+      throw new Error(extractError(statusValue));
+    }
+    assertStatus(statusValue, bootstrap.jobId);
+    const previewValue = await fetchJson(
+      `/api/jobs/${encodeURIComponent(bootstrap.jobId)}/preview`,
+      new AbortController().signal,
+    );
+    assertPreview(previewValue, bootstrap.jobId);
+    if (
+      previewValue.expected_job_revision !== statusValue.job_revision ||
+      previewValue.compiled_candidate_fingerprint !==
+        statusValue.candidate_fingerprint ||
+      previewValue.preview_fingerprint !== statusValue.preview_fingerprint
+    ) {
+      throw new Error("The revised preview no longer matches the durable job.");
+    }
+    setPreview(previewValue);
+    setStatus(statusValue);
+  };
+
   return (
     <ReviewIsland
       acceptPlan={acceptPlan}
       journey={bootstrap.journey}
+      keepPrevious={keepPrevious}
       preview={preview}
+      revisePlan={revisePlan}
       status={status}
     />
   );

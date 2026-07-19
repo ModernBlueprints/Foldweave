@@ -3,10 +3,12 @@
 from .budget import (
     BUDGET_SCHEMA_VERSION,
     C3_LIVE_CALL_CAP,
+    FOLDWEAVE_PROJECT_COST_MICRO_USD,
     HISTORICAL_LIVE_CALL_CAP,
     BudgetSnapshot,
     PersistentBudgetLedger,
     microusd_to_usd,
+    migrate_foldweave_cost_cap,
     migrate_live_call_cap,
 )
 from .errors import (
@@ -68,6 +70,7 @@ __all__ = [
     "DecisionCardCapExhaustedError",
     "DecisionCardOutputError",
     "DecisionCardProviderError",
+    "FOLDWEAVE_PROJECT_COST_MICRO_USD",
     "InvalidEvidencePacketError",
     "LiveConfigurationError",
     "LiveDecisionCardProvider",
@@ -97,6 +100,7 @@ __all__ = [
     "evidence_fingerprint",
     "load_recorded_decision_card",
     "migrate_live_call_cap",
+    "migrate_foldweave_cost_cap",
     "microusd_to_usd",
     "validate_decision_card",
     "validate_evidence_packet",

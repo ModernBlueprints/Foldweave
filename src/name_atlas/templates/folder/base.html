@@ -19,6 +19,7 @@
         </span>
       </a>
       {% if planner_label|default("") %}<span class="folder-mode">{{ planner_label }}</span>{% endif %}
+      {% if native_settings_available|default(false) %}<a class="bp6-button bp6-minimal" href="/settings">Settings</a>{% endif %}
     </header>
     <main id="main-content" class="folder-main" tabindex="-1">
       {% if notice %}

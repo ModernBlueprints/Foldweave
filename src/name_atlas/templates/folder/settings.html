@@ -1,0 +1,33 @@
+{% extends "folder/base.html" %}
+{% block title %}Settings · Foldweave{% endblock %}
+{% block content %}
+  <section class="folder-card folder-settings" aria-labelledby="settings-title">
+    <header>
+      <span class="folder-eyebrow">{% if settings.credential.store_kind == "environment" %}Build qualification{% else %}Native direct mode{% endif %}</span>
+      <h1 id="settings-title">Secure settings</h1>
+      {% if settings.credential.store_kind == "environment" %}
+        <p>The bounded build-qualification key is read by trusted Python from the process environment. It never enters this web view or the product-user Keychain item.</p>
+      {% else %}
+        <p>The API key is entered in a native secure field and stored in macOS Keychain. It never enters this web view.</p>
+      {% endif %}
+    </header>
+    <dl class="folder-proof-list">
+      <div><dt>Credential</dt><dd>{% if settings.credential.status_code %}Unavailable — Foldweave could not read macOS Keychain state.{% elif settings.credential.configured and settings.credential.store_kind == "environment" %}Configured in qualification environment{% elif settings.credential.configured %}Configured in macOS Keychain{% else %}Not configured{% endif %}</dd></div>
+      <div><dt>Endpoint</dt><dd><code>{{ settings.endpoint }}</code></dd></div>
+      <div><dt>Profile</dt><dd>{% if settings.endpoint_profile == "openai_official" %}Official OpenAI Responses API{% else %}Compatible advanced endpoint{% endif %}</dd></div>
+    </dl>
+    <div class="folder-actions">
+      {% if settings.credential.store_kind == "keychain" %}
+        <form method="post" action="/settings/configure">
+          <input type="hidden" name="csrf_token" value="{{ state.csrf_token }}">
+          <button class="bp6-button bp6-intent-primary" type="submit">{% if settings.credential.configured %}Replace key…{% else %}Configure key…{% endif %}</button>
+        </form>
+        <form method="post" action="/settings/remove">
+          <input type="hidden" name="csrf_token" value="{{ state.csrf_token }}">
+          <button class="bp6-button" type="submit" {% if not settings.credential.configured %}disabled{% endif %}>Remove key</button>
+        </form>
+      {% endif %}
+      <a class="bp6-button bp6-minimal" href="/">Back to Foldweave</a>
+    </div>
+  </section>
+{% endblock %}

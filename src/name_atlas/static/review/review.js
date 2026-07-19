@@ -59,9 +59,9 @@ var g = `${h}-active`, _ = `${h}-align-left`, v = `${h}-align-right`, y = `${h}-
 `${h}`;
 var b = `${h}-disabled`, x = `${h}-fill`;
 `${h}`, `${h}`;
-var ee = `${h}-inline`, te = `${h}-interactive`, S = `${h}-large`, ne = `${h}-loading`, re = `${h}-minimal`, ie = `${h}-outlined`;
+var ee = `${h}-inline`, te = `${h}-interactive`, S = `${h}-large`, C = `${h}-loading`, ne = `${h}-minimal`, re = `${h}-outlined`;
 `${h}`, `${h}`;
-var ae = `${h}-read-only`, C = `${h}-round`, oe = `${h}-selected`, se = `${h}-small`, ce = `${h}-vertical`;
+var ie = `${h}-read-only`, ae = `${h}-round`, oe = `${h}-selected`, se = `${h}-small`, ce = `${h}-vertical`;
 wt(m.TOP), wt(m.BOTTOM), wt(m.LEFT), wt(m.RIGHT), xt(f.ZERO), xt(f.ONE), xt(f.TWO), xt(f.THREE), xt(f.FOUR), Ct(p.PRIMARY), Ct(p.SUCCESS), Ct(p.WARNING), Ct(p.DANGER), `${h}`, `${h}`, `${h}`, `${h}`, `${h}`, `${h}`, `${h}`, `${h}`, `${h}`;
 var le = `${h}-text-overflow-ellipsis`, w = `${h}-blockquote`, ue = `${h}-code`, de = `${h}-code-block`, T = `${h}-heading`, fe = `${h}-list`;
 `${h}`, `${h}`;
@@ -167,12 +167,12 @@ function Tt(e, t) {
 	};
 }
 function Et(e, t) {
-	if (e === "outlined") return ie;
-	if (e === "minimal") return re;
+	if (e === "outlined") return re;
+	if (e === "minimal") return ne;
 	let { minimal: n = !1, outlined: r = !1 } = t;
 	return {
-		[re]: n,
-		[ie]: r
+		[ne]: n,
+		[re]: r
 	};
 }
 //#endregion
@@ -212,7 +212,7 @@ var Dt = /* @__PURE__ */ s(((e) => {
 		__self: !0,
 		__source: !0
 	};
-	function ne(e, n, r) {
+	function C(e, n, r) {
 		var i, a = {}, o = null, s = null;
 		if (n != null) for (i in n.ref !== void 0 && (s = n.ref), n.key !== void 0 && (o = "" + n.key), n) ee.call(n, i) && !S.hasOwnProperty(i) && (a[i] = n[i]);
 		var c = arguments.length - 2;
@@ -231,7 +231,7 @@ var Dt = /* @__PURE__ */ s(((e) => {
 			_owner: te.current
 		};
 	}
-	function re(e, n) {
+	function ne(e, n) {
 		return {
 			$$typeof: t,
 			type: e.type,
@@ -241,10 +241,10 @@ var Dt = /* @__PURE__ */ s(((e) => {
 			_owner: e._owner
 		};
 	}
-	function ie(e) {
+	function re(e) {
 		return typeof e == "object" && !!e && e.$$typeof === t;
 	}
-	function ae(e) {
+	function ie(e) {
 		var t = {
 			"=": "=0",
 			":": "=2"
@@ -253,9 +253,9 @@ var Dt = /* @__PURE__ */ s(((e) => {
 			return t[e];
 		});
 	}
-	var C = /\/+/g;
+	var ae = /\/+/g;
 	function oe(e, t) {
-		return typeof e == "object" && e && e.key != null ? ae("" + e.key) : t.toString(36);
+		return typeof e == "object" && e && e.key != null ? ie("" + e.key) : t.toString(36);
 	}
 	function se(e, r, i, a, o) {
 		var s = typeof e;
@@ -272,9 +272,9 @@ var Dt = /* @__PURE__ */ s(((e) => {
 				case n: c = !0;
 			}
 		}
-		if (c) return c = e, o = o(c), e = a === "" ? "." + oe(c, 0) : a, x(o) ? (i = "", e != null && (i = e.replace(C, "$&/") + "/"), se(o, r, i, "", function(e) {
+		if (c) return c = e, o = o(c), e = a === "" ? "." + oe(c, 0) : a, x(o) ? (i = "", e != null && (i = e.replace(ae, "$&/") + "/"), se(o, r, i, "", function(e) {
 			return e;
-		})) : o != null && (ie(o) && (o = re(o, i + (!o.key || c && c.key === o.key ? "" : ("" + o.key).replace(C, "$&/") + "/") + e)), r.push(o)), 1;
+		})) : o != null && (re(o) && (o = ne(o, i + (!o.key || c && c.key === o.key ? "" : ("" + o.key).replace(ae, "$&/") + "/") + e)), r.push(o)), 1;
 		if (c = 0, a = a === "" ? "." : a + ":", x(e)) for (var l = 0; l < e.length; l++) {
 			s = e[l];
 			var u = a + oe(s, l);
@@ -330,7 +330,7 @@ var Dt = /* @__PURE__ */ s(((e) => {
 			}) || [];
 		},
 		only: function(e) {
-			if (!ie(e)) throw Error("React.Children.only expected to receive a single React element child.");
+			if (!re(e)) throw Error("React.Children.only expected to receive a single React element child.");
 			return e;
 		}
 	}, e.Component = _, e.Fragment = r, e.Profiler = a, e.PureComponent = y, e.StrictMode = i, e.Suspense = l, e.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = de, e.act = T, e.cloneElement = function(e, n, r) {
@@ -369,8 +369,8 @@ var Dt = /* @__PURE__ */ s(((e) => {
 			$$typeof: o,
 			_context: e
 		}, e.Consumer = e;
-	}, e.createElement = ne, e.createFactory = function(e) {
-		var t = ne.bind(null, e);
+	}, e.createElement = C, e.createFactory = function(e) {
+		var t = C.bind(null, e);
 		return t.type = e, t;
 	}, e.createRef = function() {
 		return { current: null };
@@ -379,7 +379,7 @@ var Dt = /* @__PURE__ */ s(((e) => {
 			$$typeof: c,
 			render: e
 		};
-	}, e.isValidElement = ie, e.lazy = function(e) {
+	}, e.isValidElement = re, e.lazy = function(e) {
 		return {
 			$$typeof: d,
 			_payload: {
@@ -5262,7 +5262,7 @@ function v0(e, t, n) {
 		[g]: p,
 		[b]: f,
 		[x]: i,
-		[ne]: o
+		[C]: o
 	}, bt(r), Ct(e.intent), Tt(l, {
 		large: a,
 		small: u
@@ -5373,7 +5373,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 		m = !1, h && (h = !1, _(S), S = -1), p = !0;
 		var a = f;
 		try {
-			for (y(i), d = n(c); d !== null && (!(d.expirationTime > i) || t && !ie());) {
+			for (y(i), d = n(c); d !== null && (!(d.expirationTime > i) || t && !re());) {
 				var o = d.callback;
 				if (typeof o == "function") {
 					d.callback = null, f = d.priorityLevel;
@@ -5392,36 +5392,36 @@ var S0 = /* @__PURE__ */ s(((e) => {
 			d = null, f = a, p = !1;
 		}
 	}
-	var ee = !1, te = null, S = -1, ne = 5, re = -1;
-	function ie() {
-		return !(e.unstable_now() - re < ne);
+	var ee = !1, te = null, S = -1, C = 5, ne = -1;
+	function re() {
+		return !(e.unstable_now() - ne < C);
 	}
-	function ae() {
+	function ie() {
 		if (te !== null) {
 			var t = e.unstable_now();
-			re = t;
+			ne = t;
 			var n = !0;
 			try {
 				n = te(!0, t);
 			} finally {
-				n ? C() : (ee = !1, te = null);
+				n ? ae() : (ee = !1, te = null);
 			}
 		} else ee = !1;
 	}
-	var C;
-	if (typeof v == "function") C = function() {
-		v(ae);
+	var ae;
+	if (typeof v == "function") ae = function() {
+		v(ie);
 	};
 	else if (typeof MessageChannel < "u") {
 		var oe = new MessageChannel(), se = oe.port2;
-		oe.port1.onmessage = ae, C = function() {
+		oe.port1.onmessage = ie, ae = function() {
 			se.postMessage(null);
 		};
-	} else C = function() {
-		g(ae, 0);
+	} else ae = function() {
+		g(ie, 0);
 	};
 	function ce(e) {
-		te = e, ee || (ee = !0, C());
+		te = e, ee || (ee = !0, ae());
 	}
 	function le(t, n) {
 		S = g(function() {
@@ -5433,7 +5433,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 	}, e.unstable_continueExecution = function() {
 		m || p || (m = !0, ce(x));
 	}, e.unstable_forceFrameRate = function(e) {
-		0 > e || 125 < e ? console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported") : ne = 0 < e ? Math.floor(1e3 / e) : 5;
+		0 > e || 125 < e ? console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported") : C = 0 < e ? Math.floor(1e3 / e) : 5;
 	}, e.unstable_getCurrentPriorityLevel = function() {
 		return f;
 	}, e.unstable_getFirstCallbackNode = function() {
@@ -5495,7 +5495,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 			expirationTime: s,
 			sortIndex: -1
 		}, a > o ? (r.sortIndex = a, t(l, r), n(c) === null && r === n(l) && (h ? (_(S), S = -1) : h = !0, le(b, a - o))) : (r.sortIndex = s, t(c, r), m || p || (m = !0, ce(x))), r;
-	}, e.unstable_shouldYield = ie, e.unstable_wrapCallback = function(e) {
+	}, e.unstable_shouldYield = re, e.unstable_wrapCallback = function(e) {
 		var t = f;
 		return function() {
 			var n = f;
@@ -5626,7 +5626,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 		var i = _.hasOwnProperty(t) ? _[t] : null;
 		(i === null ? r || !(2 < t.length) || t[0] !== "o" && t[0] !== "O" || t[1] !== "n" && t[1] !== "N" : i.type !== 0) && (h(t, n, i, r) && (n = null), r || i === null ? p(t) && (n === null ? e.removeAttribute(t) : e.setAttribute(t, "" + n)) : i.mustUseProperty ? e[i.propertyName] = n === null ? i.type !== 3 && "" : n : (t = i.attributeName, r = i.attributeNamespace, n === null ? e.removeAttribute(t) : (i = i.type, n = i === 3 || i === 4 && !0 === n ? "" : "" + n, r ? e.setAttributeNS(r, t, n) : e.setAttribute(t, n))));
 	}
-	var x = t.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED, ee = Symbol.for("react.element"), te = Symbol.for("react.portal"), S = Symbol.for("react.fragment"), ne = Symbol.for("react.strict_mode"), re = Symbol.for("react.profiler"), ie = Symbol.for("react.provider"), ae = Symbol.for("react.context"), C = Symbol.for("react.forward_ref"), oe = Symbol.for("react.suspense"), se = Symbol.for("react.suspense_list"), ce = Symbol.for("react.memo"), le = Symbol.for("react.lazy"), w = Symbol.for("react.offscreen"), ue = Symbol.iterator;
+	var x = t.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED, ee = Symbol.for("react.element"), te = Symbol.for("react.portal"), S = Symbol.for("react.fragment"), C = Symbol.for("react.strict_mode"), ne = Symbol.for("react.profiler"), re = Symbol.for("react.provider"), ie = Symbol.for("react.context"), ae = Symbol.for("react.forward_ref"), oe = Symbol.for("react.suspense"), se = Symbol.for("react.suspense_list"), ce = Symbol.for("react.memo"), le = Symbol.for("react.lazy"), w = Symbol.for("react.offscreen"), ue = Symbol.iterator;
 	function de(e) {
 		return typeof e != "object" || !e ? null : (e = ue && e[ue] || e["@@iterator"], typeof e == "function" ? e : null);
 	}
@@ -5713,15 +5713,15 @@ var S0 = /* @__PURE__ */ s(((e) => {
 		switch (e) {
 			case S: return "Fragment";
 			case te: return "Portal";
-			case re: return "Profiler";
-			case ne: return "StrictMode";
+			case ne: return "Profiler";
+			case C: return "StrictMode";
 			case oe: return "Suspense";
 			case se: return "SuspenseList";
 		}
 		if (typeof e == "object") switch (e.$$typeof) {
-			case ae: return (e.displayName || "Context") + ".Consumer";
-			case ie: return (e._context.displayName || "Context") + ".Provider";
-			case C:
+			case ie: return (e.displayName || "Context") + ".Consumer";
+			case re: return (e._context.displayName || "Context") + ".Provider";
+			case ae:
 				var t = e.render;
 				return e = e.displayName, e ||= (e = t.displayName || t.name || "", e === "" ? "ForwardRef" : "ForwardRef(" + e + ")"), e;
 			case ce: return t = e.displayName || null, t === null ? _e(e.type) || "Memo" : t;
@@ -5747,7 +5747,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 			case 3: return "Root";
 			case 6: return "Text";
 			case 16: return _e(t);
-			case 8: return t === ne ? "StrictMode" : "Mode";
+			case 8: return t === C ? "StrictMode" : "Mode";
 			case 22: return "Offscreen";
 			case 12: return "Profiler";
 			case 21: return "Scope";
@@ -10550,7 +10550,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 	function Zl(e) {
 		if (typeof e == "function") return +!!Xl(e);
 		if (e != null) {
-			if (e = e.$$typeof, e === C) return 11;
+			if (e = e.$$typeof, e === ae) return 11;
 			if (e === ce) return 14;
 		}
 		return 2;
@@ -10568,22 +10568,22 @@ var S0 = /* @__PURE__ */ s(((e) => {
 		else if (typeof e == "string") s = 5;
 		else a: switch (e) {
 			case S: return eu(n.children, a, o, t);
-			case ne:
+			case C:
 				s = 8, a |= 8;
 				break;
-			case re: return e = Yl(12, n, t, a | 2), e.elementType = re, e.lanes = o, e;
+			case ne: return e = Yl(12, n, t, a | 2), e.elementType = ne, e.lanes = o, e;
 			case oe: return e = Yl(13, n, t, a), e.elementType = oe, e.lanes = o, e;
 			case se: return e = Yl(19, n, t, a), e.elementType = se, e.lanes = o, e;
 			case w: return tu(n, a, o, t);
 			default:
 				if (typeof e == "object" && e) switch (e.$$typeof) {
-					case ie:
+					case re:
 						s = 10;
 						break a;
-					case ae:
+					case ie:
 						s = 9;
 						break a;
-					case C:
+					case ae:
 						s = 11;
 						break a;
 					case ce:
@@ -11081,9 +11081,9 @@ var N0 = class e extends Zt {
 	render() {
 		let { asyncControl: e = !1, className: t, disabled: n, fill: r, inputClassName: i, inputRef: a, inputSize: o, intent: s, large: c, readOnly: l, round: u, size: d = "medium", small: f, tagName: p = "div" } = this.props, m = (0, $.default)(ke, Ct(s), {
 			[b]: n,
-			[ae]: l,
+			[ie]: l,
 			[x]: r,
-			[C]: u
+			[ae]: u
 		}, Tt(d, {
 			large: c,
 			small: f
@@ -11206,20 +11206,20 @@ R0.displayName = `${O}.TagRemoveButton`;
 //#endregion
 //#region node_modules/@blueprintjs/core/lib/esm/components/tag/tag.js
 var z0 = (0, D.forwardRef)((e, t) => {
-	let { children: n, className: r, endIcon: i, fill: a = !1, icon: o, intent: s, interactive: c, large: l = !1, minimal: u = !1, multiline: d, onRemove: f, rightIcon: p, round: m = !1, size: h = "medium", tabIndex: _ = 0, htmlTitle: v, ...y } = e, b = kt(f), ee = c ?? y.onClick != null, [S, ne] = nn(ee, e, t, {
+	let { children: n, className: r, endIcon: i, fill: a = !1, icon: o, intent: s, interactive: c, large: l = !1, minimal: u = !1, multiline: d, onRemove: f, rightIcon: p, round: m = !1, size: h = "medium", tabIndex: _ = 0, htmlTitle: v, ...y } = e, b = kt(f), ee = c ?? y.onClick != null, [S, C] = nn(ee, e, t, {
 		defaultTabIndex: 0,
 		disabledTabIndex: void 0
-	}), ie = (0, $.default)(lt, Ct(s), Tt(h, { large: l }), {
+	}), re = (0, $.default)(lt, Ct(s), Tt(h, { large: l }), {
 		[g]: S,
 		[x]: a,
 		[te]: ee,
-		[re]: u,
-		[C]: m
+		[ne]: u,
+		[ae]: m
 	}, r);
 	return (0, Q.jsxs)("span", {
 		...Rt(y),
-		...ne,
-		className: ie,
+		...C,
+		className: re,
 		role: ee ? "button" : void 0,
 		children: [
 			(0, Q.jsx)(r0, { icon: o }),
@@ -11245,7 +11245,7 @@ function U0(e, t) {
 }
 function W0(e, t) {
 	if (!G0(e)) throw Error("Foldweave returned an invalid review status.");
-	if (e.job_id !== t || !K0(e.job_id, H0) || e.lifecycle !== "reviewing" || !Number.isInteger(e.job_revision) || !Number.isInteger(e.proposal_revision) || !K0(e.candidate_fingerprint, V0) || !K0(e.preview_fingerprint, V0) || typeof e.output_parent != "string" || e.output_parent.length === 0 || typeof e.result_folder_name != "string" || e.result_folder_name.length === 0) throw Error("Foldweave returned an incomplete review status.");
+	if (e.job_id !== t || !K0(e.job_id, H0) || e.lifecycle !== "reviewing" || !Number.isInteger(e.job_revision) || !Number.isInteger(e.proposal_revision) || !K0(e.candidate_fingerprint, V0) || !K0(e.preview_fingerprint, V0) || typeof e.output_parent != "string" || e.output_parent.length === 0 || typeof e.result_folder_name != "string" || e.result_folder_name.length === 0 || typeof e.revision_available != "boolean" || typeof e.revision_attempts_remaining != "number" || !Number.isInteger(e.revision_attempts_remaining) || e.revision_attempts_remaining < 0 || e.revision_attempts_remaining > 2 || e.revision_failure !== null && typeof e.revision_failure != "string") throw Error("Foldweave returned an incomplete review status.");
 }
 function G0(e) {
 	return typeof e == "object" && !!e && !Array.isArray(e);
@@ -11288,55 +11288,109 @@ var q0 = [
 	protected: "Protected",
 	empty_directory: "Empty directory"
 };
-function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFactory: i = c2 }) {
-	let [a, o] = (0, D.useState)("proposed"), [s, c] = (0, D.useState)(!0), [l, u] = (0, D.useState)(/* @__PURE__ */ new Set()), [d, f] = (0, D.useState)(""), [p, m] = (0, D.useState)(e.member_changes.find(i2)?.member_id ?? e.member_changes[0]?.member_id ?? null), [h, g] = (0, D.useState)(() => n2(e)), [_, v] = (0, D.useState)(""), [y, b] = (0, D.useState)(!1), [x, ee] = (0, D.useState)(null), te = (0, D.useRef)([]), S = (0, D.useMemo)(() => new Map(e.member_changes.map((e) => [e.member_id, e])), [e.member_changes]), ne = a === "current" ? e.current_tree_members : e.proposed_tree_members, re = (0, D.useMemo)(() => ne.filter((e) => {
-		let t = S.get(e.member_id);
+function Y0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, keepPrevious: a, idempotencyKeyFactory: o = l2 }) {
+	let [s, c] = (0, D.useState)("proposed"), [l, u] = (0, D.useState)(!0), [d, f] = (0, D.useState)(/* @__PURE__ */ new Set()), [p, m] = (0, D.useState)(""), [h, g] = (0, D.useState)(e.member_changes.find(a2)?.member_id ?? e.member_changes[0]?.member_id ?? null), [_, v] = (0, D.useState)(() => r2(e)), [y, b] = (0, D.useState)(""), [x, ee] = (0, D.useState)(!1), [te, S] = (0, D.useState)(null), [C, ne] = (0, D.useState)(!1), [re, ie] = (0, D.useState)(null), [ae, oe] = (0, D.useState)(null), se = (0, D.useRef)(e), ce = (0, D.useRef)(null), le = (0, D.useRef)(null), w = (0, D.useRef)(null), ue = (0, D.useRef)(null), de = (0, D.useRef)([]), T = (0, D.useMemo)(() => new Map(e.member_changes.map((e) => [e.member_id, e])), [e.member_changes]), fe = s === "current" ? e.current_tree_members : e.proposed_tree_members, pe = (0, D.useMemo)(() => fe.filter((e) => {
+		let t = T.get(e.member_id);
 		if (!t) return !1;
-		let n = d.trim().toLocaleLowerCase();
-		return n.length === 0 || t.current_relative_path.toLocaleLowerCase().includes(n) || t.proposed_relative_path.toLocaleLowerCase().includes(n) ? l.size > 0 ? [...l].some((e) => r2(t, e)) : !s || i2(t) : !1;
+		let n = p.trim().toLocaleLowerCase();
+		return n.length === 0 || t.current_relative_path.toLocaleLowerCase().includes(n) || t.proposed_relative_path.toLocaleLowerCase().includes(n) ? d.size > 0 ? [...d].some((e) => i2(t, e)) : !l || a2(t) : !1;
 	}), [
+		d,
+		T,
 		l,
-		S,
-		s,
-		ne,
-		d
-	]), ie = (0, D.useMemo)(() => $0(re), [re]), ae = (0, D.useMemo)(() => t2(ie, h), [h, ie]), C = p === null ? void 0 : S.get(p), oe = (0, D.useMemo)(() => C === void 0 ? [] : e.supported_link_effects.filter((e) => e.source_member_id === C.member_id || e.target_member_id === C.member_id), [e.supported_link_effects, C]);
+		fe,
+		p
+	]), me = (0, D.useMemo)(() => e2(pe), [pe]), he = (0, D.useMemo)(() => n2(me, _), [_, me]), ge = h === null ? void 0 : T.get(h), _e = (0, D.useMemo)(() => ge === void 0 ? [] : e.supported_link_effects.filter((e) => e.source_member_id === ge.member_id || e.target_member_id === ge.member_id), [e.supported_link_effects, ge]);
 	(0, D.useEffect)(() => {
-		p !== null && re.some((e) => e.member_id === p) || m(re[0]?.member_id ?? null);
-	}, [p, re]);
-	let se = (e) => {
-		c(!1), u((t) => {
+		h !== null && pe.some((e) => e.member_id === h) || g(pe[0]?.member_id ?? null);
+	}, [h, pe]), (0, D.useEffect)(() => {
+		let t = se.current;
+		if (t.preview_fingerprint === e.preview_fingerprint) return;
+		let n = new Map(t.member_changes.map((e) => [e.member_id, e.proposed_relative_path])), r = e.member_changes.filter((e) => n.get(e.member_id) !== e.proposed_relative_path).length;
+		oe(`${r} ${r === 1 ? "mapping" : "mappings"} changed from the previous proposal.`), se.current = e;
+	}, [e]);
+	let ve = (e) => {
+		u(!1), f((t) => {
 			let n = new Set(t);
 			return n.has(e) ? n.delete(e) : n.add(e), n;
 		});
-	}, ce = (e, t, n) => {
+	}, ye = (e, t, n) => {
 		if (e.key === "ArrowDown" || e.key === "ArrowUp") {
 			e.preventDefault();
 			let n = e.key === "ArrowDown" ? t + 1 : t - 1;
-			te.current[n]?.focus();
+			de.current[n]?.focus();
 			return;
 		}
-		n.kind === "directory" && e.key === "ArrowRight" && (e.preventDefault(), g((e) => new Set(e).add(n.path))), n.kind === "directory" && e.key === "ArrowLeft" && (e.preventDefault(), g((e) => {
+		n.kind === "directory" && e.key === "ArrowRight" && (e.preventDefault(), v((e) => new Set(e).add(n.path))), n.kind === "directory" && e.key === "ArrowLeft" && (e.preventDefault(), v((e) => {
 			let t = new Set(e);
 			return t.delete(n.path), t;
 		}));
-	}, le = async () => {
-		if (!(y || e.counts.blocker_count > 0)) {
-			b(!0), ee(null);
-			try {
-				await r({
-					candidate_fingerprint: e.compiled_candidate_fingerprint,
-					expected_revision: e.expected_job_revision,
-					idempotency_key: i(),
-					output_parent: t.output_parent,
-					preview_fingerprint: e.preview_fingerprint,
-					result_folder_name: t.result_folder_name
-				});
-			} catch (e) {
-				ee(e instanceof Error ? e.message : "Acceptance was blocked."), b(!1);
-			}
+	}, be = async () => {
+		if (x || C || t.revision_failure !== null || e.counts.blocker_count > 0) return;
+		ee(!0), S(null);
+		let n = JSON.stringify([
+			e.expected_job_revision,
+			e.compiled_candidate_fingerprint,
+			e.preview_fingerprint,
+			t.output_parent,
+			t.result_folder_name
+		]), i = X0(ce, n, o);
+		try {
+			await r({
+				candidate_fingerprint: e.compiled_candidate_fingerprint,
+				expected_revision: e.expected_job_revision,
+				idempotency_key: i,
+				output_parent: t.output_parent,
+				preview_fingerprint: e.preview_fingerprint,
+				result_folder_name: t.result_folder_name
+			}), ce.current = null;
+		} catch (e) {
+			S(e instanceof Error ? e.message : "Acceptance was blocked."), ee(!1);
 		}
-	}, w = n === "apply" ? "Your current folder" : "Original structure", ue = n === "apply" ? "Shared proposal" : "Proposed structure";
+	}, xe = async () => {
+		let n = y.trim();
+		if (C || x || !t.revision_available || n.length === 0) return;
+		ne(!0), ie(null);
+		let r = JSON.stringify([
+			e.expected_job_revision,
+			e.compiled_candidate_fingerprint,
+			e.preview_fingerprint,
+			n
+		]), a = X0(le, r, o);
+		try {
+			await i({
+				candidate_fingerprint: e.compiled_candidate_fingerprint,
+				expected_revision: e.expected_job_revision,
+				idempotency_key: a,
+				instruction: n,
+				preview_fingerprint: e.preview_fingerprint
+			}), le.current = null, b("");
+		} catch (e) {
+			ie(e instanceof Error ? e.message : "Revision was blocked.");
+		} finally {
+			ne(!1);
+		}
+	}, Se = async () => {
+		if (C || t.revision_failure === null) return;
+		ne(!0), ie(null);
+		let n = JSON.stringify([
+			e.expected_job_revision,
+			e.compiled_candidate_fingerprint,
+			e.preview_fingerprint
+		]), r = X0(w, n, o);
+		try {
+			await a({
+				candidate_fingerprint: e.compiled_candidate_fingerprint,
+				expected_revision: e.expected_job_revision,
+				idempotency_key: r,
+				preview_fingerprint: e.preview_fingerprint
+			}), w.current = null;
+		} catch (e) {
+			ie(e instanceof Error ? e.message : "The prior proposal could not be kept.");
+		} finally {
+			ne(!1);
+		}
+	}, Ce = n === "apply" ? "Your current folder" : "Original structure", we = n === "apply" ? "Shared proposal" : "Proposed structure";
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "fw-review bp6-dark",
 		children: [
@@ -11344,27 +11398,27 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 				className: "fw-trust-strip",
 				"aria-label": "Plan trust summary",
 				children: [
-					/* @__PURE__ */ (0, Q.jsx)(X0, {
+					/* @__PURE__ */ (0, Q.jsx)(Z0, {
 						icon: "lock",
 						label: "Source unchanged",
 						value: "No output yet"
 					}),
-					/* @__PURE__ */ (0, Q.jsx)(X0, {
+					/* @__PURE__ */ (0, Q.jsx)(Z0, {
 						icon: "tick-circle",
 						label: "Complete accounting",
 						value: `${e.counts.file_count} files`
 					}),
-					/* @__PURE__ */ (0, Q.jsx)(X0, {
+					/* @__PURE__ */ (0, Q.jsx)(Z0, {
 						icon: "shield",
 						label: "Protected",
 						value: `${e.counts.protected_count} fixed`
 					}),
-					/* @__PURE__ */ (0, Q.jsx)(X0, {
+					/* @__PURE__ */ (0, Q.jsx)(Z0, {
 						icon: "link",
 						label: "Supported links",
 						value: `${e.counts.link_updated_count} updates`
 					}),
-					/* @__PURE__ */ (0, Q.jsx)(X0, {
+					/* @__PURE__ */ (0, Q.jsx)(Z0, {
 						icon: "folder-new",
 						label: "Output",
 						value: "Created only after accept"
@@ -11377,30 +11431,30 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 					/* @__PURE__ */ (0, Q.jsxs)(E0, {
 						"aria-label": "Structure view",
 						children: [/* @__PURE__ */ (0, Q.jsx)(g0, {
-							"aria-pressed": a === "current",
-							intent: a === "current" ? "primary" : "none",
-							onClick: () => o("current"),
-							children: w
+							"aria-pressed": s === "current",
+							intent: s === "current" ? "primary" : "none",
+							onClick: () => c("current"),
+							children: Ce
 						}), /* @__PURE__ */ (0, Q.jsx)(g0, {
-							"aria-pressed": a === "proposed",
-							intent: a === "proposed" ? "primary" : "none",
-							onClick: () => o("proposed"),
-							children: ue
+							"aria-pressed": s === "proposed",
+							intent: s === "proposed" ? "primary" : "none",
+							onClick: () => c("proposed"),
+							children: we
 						})]
 					}),
 					/* @__PURE__ */ (0, Q.jsx)("div", { className: "fw-toolbar-spacer" }),
 					/* @__PURE__ */ (0, Q.jsx)(F0, {
 						"aria-label": "Search current and proposed paths",
 						leftIcon: "search",
-						onChange: (e) => f(e.currentTarget.value),
+						onChange: (e) => m(e.currentTarget.value),
 						placeholder: "Search paths",
-						value: d
+						value: p
 					}),
 					/* @__PURE__ */ (0, Q.jsx)(M0, {
-						checked: s,
+						checked: l,
 						label: "Changed only",
 						onChange: (e) => {
-							c(e.currentTarget.checked), e.currentTarget.checked && u(/* @__PURE__ */ new Set());
+							u(e.currentTarget.checked), e.currentTarget.checked && f(/* @__PURE__ */ new Set());
 						}
 					})
 				]
@@ -11410,10 +11464,10 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 				role: "group",
 				"aria-label": "Member filters",
 				children: q0.map(({ key: e, label: t }) => /* @__PURE__ */ (0, Q.jsx)(M0, {
-					checked: l.has(e),
+					checked: d.has(e),
 					inline: !0,
 					label: t,
-					onChange: () => se(e)
+					onChange: () => ve(e)
 				}, e))
 			}),
 			/* @__PURE__ */ (0, Q.jsxs)("div", {
@@ -11425,32 +11479,32 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 						className: "fw-panel-heading",
 						children: [/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("span", {
 							className: "fw-eyebrow",
-							children: a === "current" ? "CURRENT" : "PROPOSED"
-						}), /* @__PURE__ */ (0, Q.jsx)("h2", { children: a === "current" ? w : ue })] }), /* @__PURE__ */ (0, Q.jsxs)(z0, {
+							children: s === "current" ? "CURRENT" : "PROPOSED"
+						}), /* @__PURE__ */ (0, Q.jsx)("h2", { children: s === "current" ? Ce : we })] }), /* @__PURE__ */ (0, Q.jsxs)(z0, {
 							minimal: !0,
-							children: [re.length, " shown"]
+							children: [pe.length, " shown"]
 						})]
 					}), /* @__PURE__ */ (0, Q.jsx)("div", {
 						className: "fw-tree",
 						role: "tree",
-						"aria-label": `${a === "current" ? w : ue} folder tree`,
-						children: ae.length === 0 ? /* @__PURE__ */ (0, Q.jsx)("div", {
+						"aria-label": `${s === "current" ? Ce : we} folder tree`,
+						children: he.length === 0 ? /* @__PURE__ */ (0, Q.jsx)("div", {
 							className: "fw-empty-state",
 							children: "No members match these filters."
-						}) : ae.map((e, t) => {
-							let n = e.memberId === null ? void 0 : S.get(e.memberId), r = e.kind === "directory", i = h.has(e.path);
+						}) : he.map((e, t) => {
+							let n = e.memberId === null ? void 0 : T.get(e.memberId), r = e.kind === "directory", i = _.has(e.path);
 							return /* @__PURE__ */ (0, Q.jsxs)("button", {
-								"aria-label": Q0(e, n),
+								"aria-label": $0(e, n),
 								"aria-expanded": r ? i : void 0,
 								"aria-level": e.depth + 1,
-								"aria-selected": e.memberId !== null && p === e.memberId,
-								className: `fw-tree-row ${e.memberId !== null && p === e.memberId ? "is-selected" : ""}`,
+								"aria-selected": e.memberId !== null && h === e.memberId,
+								className: `fw-tree-row ${e.memberId !== null && h === e.memberId ? "is-selected" : ""}`,
 								onClick: () => {
-									r && g((t) => s2(t, e.path)), e.memberId !== null && m(e.memberId);
+									r && v((t) => c2(t, e.path)), e.memberId !== null && g(e.memberId);
 								},
-								onKeyDown: (n) => ce(n, t, e),
+								onKeyDown: (n) => ye(n, t, e),
 								ref: (e) => {
-									te.current[t] = e;
+									de.current[t] = e;
 								},
 								role: "treeitem",
 								style: { "--fw-depth": e.depth },
@@ -11469,7 +11523,7 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 										className: "fw-tree-label",
 										children: e.label
 									}),
-									n && /* @__PURE__ */ (0, Q.jsx)(Z0, { change: n })
+									n && /* @__PURE__ */ (0, Q.jsx)(Q0, { change: n })
 								]
 							}, e.key);
 						})
@@ -11477,24 +11531,24 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 				}), /* @__PURE__ */ (0, Q.jsx)(D0, {
 					className: "fw-detail-panel",
 					compact: !0,
-					children: C ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
+					children: ge ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
 						/* @__PURE__ */ (0, Q.jsxs)("div", {
 							className: "fw-detail-heading",
 							children: [/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("span", {
 								className: "fw-eyebrow",
 								children: "SELECTED MEMBER"
-							}), /* @__PURE__ */ (0, Q.jsx)("h2", { children: a === "current" ? C.current_relative_path : C.proposed_relative_path })] }), /* @__PURE__ */ (0, Q.jsx)(z0, {
-								intent: o2(C),
-								children: J0[C.change_classification]
+							}), /* @__PURE__ */ (0, Q.jsx)("h2", { children: s === "current" ? ge.current_relative_path : ge.proposed_relative_path })] }), /* @__PURE__ */ (0, Q.jsx)(z0, {
+								intent: s2(ge),
+								children: J0[ge.change_classification]
 							})]
 						}),
 						/* @__PURE__ */ (0, Q.jsxs)("dl", {
 							className: "fw-details",
 							children: [
-								/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("dt", { children: "Current" }), /* @__PURE__ */ (0, Q.jsx)("dd", { children: C.current_relative_path })] }),
-								/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("dt", { children: "Proposed" }), /* @__PURE__ */ (0, Q.jsx)("dd", { children: C.proposed_relative_path })] }),
-								/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("dt", { children: "Authority" }), /* @__PURE__ */ (0, Q.jsx)("dd", { children: a2(C) })] }),
-								/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("dt", { children: "Reason" }), /* @__PURE__ */ (0, Q.jsx)("dd", { children: C.rationale })] })
+								/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("dt", { children: "Current" }), /* @__PURE__ */ (0, Q.jsx)("dd", { children: ge.current_relative_path })] }),
+								/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("dt", { children: "Proposed" }), /* @__PURE__ */ (0, Q.jsx)("dd", { children: ge.proposed_relative_path })] }),
+								/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("dt", { children: "Authority" }), /* @__PURE__ */ (0, Q.jsx)("dd", { children: o2(ge) })] }),
+								/* @__PURE__ */ (0, Q.jsxs)("div", { children: [/* @__PURE__ */ (0, Q.jsx)("dt", { children: "Reason" }), /* @__PURE__ */ (0, Q.jsx)("dd", { children: ge.rationale })] })
 							]
 						}),
 						/* @__PURE__ */ (0, Q.jsxs)("section", {
@@ -11503,7 +11557,7 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 							children: [/* @__PURE__ */ (0, Q.jsx)("h3", {
 								id: "link-effects-title",
 								children: "Supported link effects"
-							}), oe.length === 0 ? /* @__PURE__ */ (0, Q.jsx)("p", { children: "No supported links originate from this member." }) : /* @__PURE__ */ (0, Q.jsx)("ul", { children: oe.map((e) => /* @__PURE__ */ (0, Q.jsxs)("li", { children: [
+							}), _e.length === 0 ? /* @__PURE__ */ (0, Q.jsx)("p", { children: "No supported links originate from this member." }) : /* @__PURE__ */ (0, Q.jsx)("ul", { children: _e.map((e) => /* @__PURE__ */ (0, Q.jsxs)("li", { children: [
 								/* @__PURE__ */ (0, Q.jsx)(z0, {
 									intent: e.status === "rewritten" ? "warning" : "success",
 									minimal: !0,
@@ -11541,18 +11595,48 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 							/* @__PURE__ */ (0, Q.jsx)("p", { children: "The source stays unchanged. Acceptance is bound to this exact preview." })
 						] }), /* @__PURE__ */ (0, Q.jsx)(g0, {
 							className: "fw-accept-button",
-							disabled: e.counts.blocker_count > 0 || y,
+							disabled: e.counts.blocker_count > 0 || x || C || t.revision_failure !== null,
 							intent: "success",
-							loading: y,
-							onClick: () => void le(),
+							loading: x,
+							onClick: () => void be(),
 							rightIcon: "arrow-right",
 							children: "Accept this structure and create copy"
 						})]
 					}),
-					x && /* @__PURE__ */ (0, Q.jsx)("div", {
+					te && /* @__PURE__ */ (0, Q.jsx)("div", {
 						className: "fw-error",
 						role: "alert",
-						children: x
+						children: te
+					}),
+					ae && /* @__PURE__ */ (0, Q.jsx)("div", {
+						className: "fw-revision-delta",
+						role: "status",
+						children: ae
+					}),
+					t.revision_failure && /* @__PURE__ */ (0, Q.jsxs)("div", {
+						className: "fw-error",
+						role: "alert",
+						children: [
+							/* @__PURE__ */ (0, Q.jsx)("strong", { children: "The replacement proposal did not pass Foldweave checks." }),
+							/* @__PURE__ */ (0, Q.jsx)("span", { children: t.revision_failure }),
+							/* @__PURE__ */ (0, Q.jsxs)("div", {
+								className: "fw-revision-actions",
+								children: [/* @__PURE__ */ (0, Q.jsx)(g0, {
+									disabled: !t.revision_available || C,
+									onClick: () => ue.current?.focus(),
+									children: "Try another change"
+								}), /* @__PURE__ */ (0, Q.jsx)(g0, {
+									disabled: C,
+									onClick: () => void Se(),
+									children: "Keep previous proposal"
+								})]
+							})
+						]
+					}),
+					re && /* @__PURE__ */ (0, Q.jsx)("div", {
+						className: "fw-error",
+						role: "alert",
+						children: re
 					}),
 					/* @__PURE__ */ (0, Q.jsx)("div", { className: "fw-revision-divider" }),
 					/* @__PURE__ */ (0, Q.jsx)("label", {
@@ -11562,16 +11646,19 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 					}),
 					/* @__PURE__ */ (0, Q.jsx)("textarea", {
 						id: "foldweave-revision",
-						onChange: (e) => v(e.currentTarget.value),
+						onChange: (e) => b(e.currentTarget.value),
 						placeholder: "For example: keep the meeting notes together, and move the final brief into Delivery.",
+						ref: ue,
 						rows: 3,
-						value: _
+						value: y
 					}),
 					/* @__PURE__ */ (0, Q.jsxs)("div", {
 						className: "fw-revision-footer",
-						children: [/* @__PURE__ */ (0, Q.jsx)("span", { children: "Iterative revision is being connected in F1. No instruction will be sent yet." }), /* @__PURE__ */ (0, Q.jsx)(g0, {
-							disabled: !0,
+						children: [/* @__PURE__ */ (0, Q.jsx)("span", { children: t.revision_available ? `${t.revision_attempts_remaining} revision ${t.revision_attempts_remaining === 1 ? "attempt" : "attempts"} remaining.` : "Start a new job to request another revision." }), /* @__PURE__ */ (0, Q.jsx)(g0, {
+							disabled: !t.revision_available || y.trim().length === 0 || C || x,
 							intent: "primary",
+							loading: C,
+							onClick: () => void xe(),
 							rightIcon: "send-message",
 							children: "Send changes"
 						})]
@@ -11581,7 +11668,15 @@ function Y0({ preview: e, status: t, journey: n, acceptPlan: r, idempotencyKeyFa
 		]
 	});
 }
-function X0({ icon: e, label: t, value: n }) {
+function X0(e, t, n) {
+	if (e.current?.requestFingerprint === t) return e.current.idempotencyKey;
+	let r = n();
+	return e.current = {
+		requestFingerprint: t,
+		idempotencyKey: r
+	}, r;
+}
+function Z0({ icon: e, label: t, value: n }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "fw-trust-item",
 		children: [/* @__PURE__ */ (0, Q.jsx)(r0, {
@@ -11590,7 +11685,7 @@ function X0({ icon: e, label: t, value: n }) {
 		}), /* @__PURE__ */ (0, Q.jsxs)("span", { children: [/* @__PURE__ */ (0, Q.jsx)("strong", { children: t }), /* @__PURE__ */ (0, Q.jsx)("small", { children: n })] })]
 	});
 }
-function Z0({ change: e }) {
+function Q0({ change: e }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("span", {
 		className: "fw-status-signals",
 		children: [
@@ -11613,12 +11708,12 @@ function Z0({ change: e }) {
 		]
 	});
 }
-function Q0(e, t) {
+function $0(e, t) {
 	if (!t) return e.label;
 	let n = [J0[t.change_classification]];
 	return t.link_updated && n.push("supported link updated"), `${e.label}, ${n.join(", ")}`;
 }
-function $0(e) {
+function e2(e) {
 	let t = {
 		key: "root",
 		label: "",
@@ -11655,25 +11750,25 @@ function $0(e) {
 			children: []
 		});
 	}
-	return e2(t), t.children;
+	return t2(t), t.children;
 }
-function e2(e) {
-	e.children.sort((e, t) => e.kind === t.kind ? e.label.localeCompare(t.label) : e.kind === "directory" ? -1 : 1), e.children.forEach(e2);
+function t2(e) {
+	e.children.sort((e, t) => e.kind === t.kind ? e.label.localeCompare(t.label) : e.kind === "directory" ? -1 : 1), e.children.forEach(t2);
 }
-function t2(e, t) {
+function n2(e, t) {
 	let n = [];
-	for (let r of e) n.push(r), r.kind === "directory" && t.has(r.path) && n.push(...t2(r.children, t));
+	for (let r of e) n.push(r), r.kind === "directory" && t.has(r.path) && n.push(...n2(r.children, t));
 	return n;
 }
-function n2(e) {
+function r2(e) {
 	let t = /* @__PURE__ */ new Set();
-	for (let n of e.member_changes.filter(i2)) for (let e of [n.current_relative_path, n.proposed_relative_path]) {
+	for (let n of e.member_changes.filter(a2)) for (let e of [n.current_relative_path, n.proposed_relative_path]) {
 		let r = e.split("/"), i = n.member_kind === "empty_directory" ? r.length : r.length - 1;
 		for (let e = 1; e <= i; e += 1) t.add(r.slice(0, e).join("/"));
 	}
 	return t;
 }
-function r2(e, t) {
+function i2(e, t) {
 	switch (t) {
 		case "moved": return e.change_classification === "moved" || e.change_classification === "moved_and_renamed";
 		case "renamed": return e.change_classification === "renamed" || e.change_classification === "moved_and_renamed";
@@ -11683,25 +11778,25 @@ function r2(e, t) {
 		case "empty_directory": return e.member_kind === "empty_directory";
 	}
 }
-function i2(e) {
+function a2(e) {
 	return e.current_relative_path !== e.proposed_relative_path || e.link_updated;
 }
-function a2(e) {
+function o2(e) {
 	return e.authority_source === "change_file" ? "Imported Foldweave Change File" : e.authority_source === "gpt_plan" ? "Planning proposal, checked by deterministic code" : "Protected by deterministic policy";
 }
-function o2(e) {
+function s2(e) {
 	return e.protected || e.change_classification === "unchanged" ? "none" : e.link_updated ? "warning" : "primary";
 }
-function s2(e, t) {
+function c2(e, t) {
 	let n = new Set(e);
 	return n.has(t) ? n.delete(t) : n.add(t), n;
 }
-function c2() {
+function l2() {
 	if (typeof crypto.randomUUID == "function") return crypto.randomUUID();
 	let e = crypto.getRandomValues(/* @__PURE__ */ new Uint8Array(16));
 	return Array.from(e, (e) => e.toString(16).padStart(2, "0")).join("");
 }
-function l2() {
+function u2() {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "fw-loading",
 		children: [/* @__PURE__ */ (0, Q.jsx)(d0, { size: 24 }), /* @__PURE__ */ (0, Q.jsx)("span", { children: "Loading the verified preview…" })]
@@ -11709,56 +11804,80 @@ function l2() {
 }
 //#endregion
 //#region src/main.tsx
-function u2({ bootstrap: e }) {
+function d2({ bootstrap: e }) {
 	let [t, n] = (0, D.useState)(null), [r, i] = (0, D.useState)(null), [a, o] = (0, D.useState)(null);
-	return (0, D.useEffect)(() => {
+	if ((0, D.useEffect)(() => {
 		let t = new AbortController();
-		return Promise.all([d2(`/api/jobs/${encodeURIComponent(e.jobId)}/preview`, t.signal), d2(`/api/jobs/${encodeURIComponent(e.jobId)}/status`, t.signal)]).then(([t, r]) => {
+		return Promise.all([f2(`/api/jobs/${encodeURIComponent(e.jobId)}/preview`, t.signal), f2(`/api/jobs/${encodeURIComponent(e.jobId)}/status`, t.signal)]).then(([t, r]) => {
 			if (U0(t, e.jobId), W0(r, e.jobId), t.expected_job_revision !== r.job_revision || t.compiled_candidate_fingerprint !== r.candidate_fingerprint || t.preview_fingerprint !== r.preview_fingerprint) throw Error("The visible preview no longer matches the durable job.");
 			n(t), i(r);
 		}).catch((e) => {
 			t.signal.aborted || o(e instanceof Error ? e.message : "The preview could not be loaded.");
 		}), () => t.abort();
-	}, [e.jobId]), a ? /* @__PURE__ */ (0, Q.jsx)(L0, {
+	}, [e.jobId]), a) return /* @__PURE__ */ (0, Q.jsx)(L0, {
 		icon: "error",
 		title: "Review unavailable",
 		description: a
-	}) : !t || !r ? /* @__PURE__ */ (0, Q.jsx)(l2, {}) : /* @__PURE__ */ (0, Q.jsx)(Y0, {
-		acceptPlan: async (t) => {
-			let n = await fetch(`/api/jobs/${encodeURIComponent(e.jobId)}/accept`, {
-				method: "POST",
-				credentials: "same-origin",
-				headers: {
-					"content-type": "application/json",
-					"x-foldweave-csrf": e.csrfToken
-				},
-				body: JSON.stringify(t)
-			}), r = await n.json();
-			if (!n.ok) throw Error(f2(r));
-			if (!p2(r) || r.lifecycle !== "verified" || typeof r.done_url != "string") throw Error("Foldweave did not return a verified result destination.");
-			window.location.assign(r.done_url);
-		},
+	});
+	if (!t || !r) return /* @__PURE__ */ (0, Q.jsx)(u2, {});
+	let s = async (t) => {
+		let n = await fetch(`/api/jobs/${encodeURIComponent(e.jobId)}/accept`, {
+			method: "POST",
+			credentials: "same-origin",
+			headers: {
+				"content-type": "application/json",
+				"x-foldweave-csrf": e.csrfToken
+			},
+			body: JSON.stringify(t)
+		}), r = await n.json();
+		if (!n.ok) throw Error(p2(r));
+		if (!m2(r) || r.lifecycle !== "verified" || typeof r.done_url != "string") throw Error("Foldweave did not return a verified result destination.");
+		window.location.assign(r.done_url);
+	}, c = async (e) => {
+		await u("revision", e);
+	}, l = async (e) => {
+		await u("keep-proposal", e);
+	}, u = async (t, r) => {
+		let a = await fetch(`/api/jobs/${encodeURIComponent(e.jobId)}/${t}`, {
+			method: "POST",
+			credentials: "same-origin",
+			headers: {
+				"content-type": "application/json",
+				"x-foldweave-csrf": e.csrfToken
+			},
+			body: JSON.stringify(r)
+		}), o = await a.json();
+		if (!a.ok) throw Error(p2(o));
+		W0(o, e.jobId);
+		let s = await f2(`/api/jobs/${encodeURIComponent(e.jobId)}/preview`, new AbortController().signal);
+		if (U0(s, e.jobId), s.expected_job_revision !== o.job_revision || s.compiled_candidate_fingerprint !== o.candidate_fingerprint || s.preview_fingerprint !== o.preview_fingerprint) throw Error("The revised preview no longer matches the durable job.");
+		n(s), i(o);
+	};
+	return /* @__PURE__ */ (0, Q.jsx)(Y0, {
+		acceptPlan: s,
 		journey: e.journey,
+		keepPrevious: l,
 		preview: t,
+		revisePlan: c,
 		status: r
 	});
 }
-async function d2(e, t) {
+async function f2(e, t) {
 	let n = await fetch(e, {
 		credentials: "same-origin",
 		headers: { accept: "application/json" },
 		signal: t
 	}), r = await n.json();
-	if (!n.ok) throw Error(f2(r));
+	if (!n.ok) throw Error(p2(r));
 	return r;
 }
-function f2(e) {
-	return p2(e) && typeof e.detail == "string" && e.detail.length > 0 ? e.detail : "Foldweave could not complete this request.";
-}
 function p2(e) {
-	return typeof e == "object" && !!e && !Array.isArray(e);
+	return m2(e) && typeof e.detail == "string" && e.detail.length > 0 ? e.detail : "Foldweave could not complete this request.";
 }
 function m2(e) {
+	return typeof e == "object" && !!e && !Array.isArray(e);
+}
+function h2(e) {
 	let { jobId: t, csrfToken: n, journey: r } = e.dataset;
 	if (!t || !/^[a-f0-9]{32}$/.test(t)) throw Error("The review mount is missing its job identity.");
 	if (!n || n.length < 16) throw Error("The review mount is missing its local authorization token.");
@@ -11769,11 +11888,11 @@ function m2(e) {
 		journey: r
 	};
 }
-var h2 = document.getElementById("foldweave-review-root");
-if (h2) try {
-	let e = m2(h2);
-	(0, B0.createRoot)(h2).render(/* @__PURE__ */ (0, Q.jsx)(D.StrictMode, { children: /* @__PURE__ */ (0, Q.jsx)(u2, { bootstrap: e }) }));
+var g2 = document.getElementById("foldweave-review-root");
+if (g2) try {
+	let e = h2(g2);
+	(0, B0.createRoot)(g2).render(/* @__PURE__ */ (0, Q.jsx)(D.StrictMode, { children: /* @__PURE__ */ (0, Q.jsx)(d2, { bootstrap: e }) }));
 } catch (e) {
-	h2.textContent = e instanceof Error ? e.message : "Foldweave review could not start.";
+	g2.textContent = e instanceof Error ? e.message : "Foldweave review could not start.";
 }
 //#endregion

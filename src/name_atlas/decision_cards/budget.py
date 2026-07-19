@@ -27,7 +27,9 @@ from .models import MODEL_ALIAS, oslo_tz
 
 BUDGET_SCHEMA_VERSION = "gpt-budget.v1"
 MICRO_USD = 1_000_000
-MAX_PROJECT_COST_MICRO_USD = 10 * MICRO_USD
+C3_PROJECT_COST_MICRO_USD = 10 * MICRO_USD
+FOLDWEAVE_PROJECT_COST_MICRO_USD = 40 * MICRO_USD
+MAX_PROJECT_COST_MICRO_USD = FOLDWEAVE_PROJECT_COST_MICRO_USD
 HISTORICAL_LIVE_CALL_CAP = 8
 C3_LIVE_CALL_CAP = 13
 HISTORICAL_LIVE_REQUESTS = 1
@@ -110,7 +112,7 @@ class PersistentBudgetLedger:
             raise ValueError("Live call cap must be at least one.")
         cost_cap_microusd = usd_to_microusd(cost_cap_usd)
         if not 0 < cost_cap_microusd <= MAX_PROJECT_COST_MICRO_USD:
-            raise ValueError("Cost cap must be positive and no more than USD 10.")
+            raise ValueError("Cost cap must be positive and no more than USD 40.")
         if require_existing and path is None:
             raise ValueError("An existing ledger requires a persistent path.")
         if require_historical_activity and not require_existing:
@@ -142,6 +144,40 @@ class PersistentBudgetLedger:
             require_existing=True,
             nonblocking_lock=True,
             require_historical_activity=True,
+        )
+
+    @classmethod
+    def open_existing_foldweave_planner(
+        cls,
+        *,
+        path: Path,
+    ) -> Self:
+        """Open the sole ledger after its monotonic Foldweave migration."""
+
+        return cls(
+            path=path,
+            live_call_cap=C3_LIVE_CALL_CAP,
+            cost_cap_usd=40.0,
+            require_existing=True,
+            nonblocking_lock=True,
+            require_historical_activity=True,
+        )
+
+    @classmethod
+    def open_foldweave_installation(
+        cls,
+        *,
+        path: Path,
+    ) -> Self:
+        """Open one installation ledger, persisting it on first reservation."""
+
+        return cls(
+            path=path,
+            live_call_cap=C3_LIVE_CALL_CAP,
+            cost_cap_usd=40.0,
+            require_existing=False,
+            nonblocking_lock=True,
+            require_historical_activity=False,
         )
 
     @property
@@ -423,7 +459,7 @@ def migrate_live_call_cap(
                 "The existing persistent GPT budget record is required for migration."
             )
         current = PersistentBudgetLedger._read_path(path)
-        if current.configured_cost_cap_microusd != MAX_PROJECT_COST_MICRO_USD:
+        if current.configured_cost_cap_microusd != C3_PROJECT_COST_MICRO_USD:
             raise BudgetLedgerError(
                 "Persistent GPT budget cost authority does not match migration."
             )
@@ -445,6 +481,45 @@ def migrate_live_call_cap(
             )
         updated = current.model_copy(
             update={"configured_live_call_cap": C3_LIVE_CALL_CAP}
+        )
+        PersistentBudgetLedger._write_path(path, updated)
+        return updated
+
+
+def migrate_foldweave_cost_cap(
+    *,
+    path: Path,
+) -> BudgetSnapshot:
+    """Atomically raise only the sole ledger's monetary ceiling to USD 40."""
+
+    if not path.is_file():
+        raise BudgetLedgerError(
+            "The existing persistent GPT budget record is required for migration."
+        )
+    lock_path = path.with_suffix(f"{path.suffix}.lock")
+    with _exclusive_budget_lock(lock_path, nonblocking=True):
+        if not path.is_file():
+            raise BudgetLedgerError(
+                "The existing persistent GPT budget record is required for migration."
+            )
+        current = PersistentBudgetLedger._read_path(path)
+        if current.configured_live_call_cap != C3_LIVE_CALL_CAP:
+            raise BudgetLedgerError(
+                "Persistent GPT budget call authority does not match migration."
+            )
+        if not _has_c3_historical_floor(current):
+            raise BudgetLedgerError(
+                "Persistent GPT budget migration does not preserve the required "
+                "historical provider authority."
+            )
+        if current.configured_cost_cap_microusd == FOLDWEAVE_PROJECT_COST_MICRO_USD:
+            return current
+        if current.configured_cost_cap_microusd != C3_PROJECT_COST_MICRO_USD:
+            raise BudgetLedgerError(
+                "Persistent GPT budget cost cap is not eligible for migration."
+            )
+        updated = current.model_copy(
+            update={"configured_cost_cap_microusd": FOLDWEAVE_PROJECT_COST_MICRO_USD}
         )
         PersistentBudgetLedger._write_path(path, updated)
         return updated

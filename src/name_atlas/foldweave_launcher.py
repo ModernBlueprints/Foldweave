@@ -9,7 +9,7 @@ from collections.abc import Sequence
 COMMAND_HELP = (
     (
         "app",
-        "Run the Foldweave review application (browser fallback is available now).",
+        "Run the native Foldweave review application or its browser fallback.",
     ),
 )
 
@@ -40,7 +40,7 @@ def run(argv: Sequence[str] | None = None) -> int:
         build_root_parser().print_help()
         return 0
     if arguments[0] == "app":
-        from name_atlas.foldweave_browser_cli import run_foldweave_app
+        from name_atlas.foldweave_native_cli import run_foldweave_app
 
         return run_foldweave_app(arguments[1:])
 

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+
+from name_atlas.folder_refactor.serialization import canonical_sha256
 
 HERO_REQUEST = (
     "Prepare this Apollo client-project folder for handoff as Northstar. Keep every "
@@ -29,6 +32,13 @@ AMBIGUITY_ANSWER = (
     "presentation. Candidate B is internal review."
 )
 AMBIGUITY_RESULT_FOLDER_NAME = "northstar-presentations"
+FOLDWEAVE_F0B_FIXTURE_NAME = "sofia-apollo-native-root-review.v1"
+# Pinned below after hashing the complete packaged source, request, expected
+# target map, and explicit empty-directory requirement. The focused contract-
+# freeze test independently recomputes it from the packaged assets.
+FOLDWEAVE_F0B_FIXTURE_FINGERPRINT = (
+    "fd2e57938875453d3eca99085bb80e266f44b9c8e2195453247373ec4e593fa7"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -294,6 +304,35 @@ def hero_correspondence() -> dict[str, str]:
     """Return fixture-only Sofia-to-Martin correspondence for assertions."""
 
     return {member.sofia_path: member.martin_path for member in HERO_LOGICAL_MEMBERS}
+
+
+def foldweave_f0b_fixture_fingerprint() -> str:
+    """Fingerprint the exact source and expected plan used for F0b qualification."""
+
+    source_root = packaged_fixture_templates().sofia_root
+    source_members = []
+    for member_path in sorted(source_root.rglob("*")):
+        if not member_path.is_file() or member_path.is_symlink():
+            continue
+        payload = member_path.read_bytes()
+        source_members.append(
+            {
+                "relative_path": member_path.relative_to(source_root).as_posix(),
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    return canonical_sha256(
+        {
+            "domain": "foldweave:f0b:qualification-fixture:v1",
+            "fixture_name": FOLDWEAVE_F0B_FIXTURE_NAME,
+            "request": HERO_REQUEST,
+            "result_folder_name": HERO_RESULT_FOLDER_NAME,
+            "source_members": source_members,
+            "explicit_empty_directories": [HERO_EMPTY_DIRECTORY],
+            "expected_targets": hero_target_paths(),
+        }
+    )
 
 
 def ambiguity_target_paths() -> dict[str, str]:

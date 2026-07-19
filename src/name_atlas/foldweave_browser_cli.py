@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import stat
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -15,15 +14,19 @@ import uvicorn
 
 from name_atlas.config import DEFAULT_PORT, LOOPBACK_HOST
 from name_atlas.folder_app import create_folder_app
-from name_atlas.foldweave_web_service import FoldweaveBrowserReviewService
-
-FoldweaveAppMode = Literal["development"]
-FOLDWEAVE_STATE_ROOT_ENV = "FOLDWEAVE_STATE_ROOT"
-DEFAULT_FOLDWEAVE_STATE_ROOT = (
-    Path.home() / "Library" / "Application Support" / "Foldweave"
+from name_atlas.foldweave_paths import (
+    foldweave_paths,
+    resolve_foldweave_budget_authority,
+    resolve_foldweave_job_path,
 )
-DEFAULT_FOLDWEAVE_JOB_NAME = "active.json"
+from name_atlas.foldweave_provider_factory import FoldweaveDirectProviderFactory
+from name_atlas.foldweave_web_service import FoldweaveBrowserReviewService
+from name_atlas.native_settings import (
+    DirectEndpointProfile,
+    EnvironmentCredentialStore,
+)
 
+FoldweaveAppMode = Literal["live", "development"]
 LOGGER = logging.getLogger(__name__)
 
 
@@ -52,9 +55,12 @@ def build_foldweave_app_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mode",
-        choices=("development",),
-        required=True,
-        help="Use deterministic development planning; no OpenAI API call is made.",
+        choices=("live", "development"),
+        default="live",
+        help=(
+            "Use direct GPT-5.6 planning from the local environment (default), "
+            "or explicit deterministic development planning."
+        ),
     )
     parser.add_argument(
         "--source",
@@ -116,19 +122,15 @@ def _run_foldweave_browser(
             file=sys.stderr,
         )
         return 2
-    if mode != "development":
-        print(
-            "Startup blocked: only deterministic development mode is available "
-            "in the F0a gate.",
-            file=sys.stderr,
-        )
+    if mode not in {"live", "development"}:
+        print("Startup blocked: Foldweave mode is unsupported.", file=sys.stderr)
         return 2
     if not 1 <= port <= 65_535:
         print("Startup blocked: port must be between 1 and 65535.", file=sys.stderr)
         return 2
 
     try:
-        job_path = _resolve_job_path(job=job, environ=environ)
+        job_path = resolve_foldweave_job_path(job, environ=environ)
         initial_source: Path | None = None
         initial_output_parent: Path | None = None
         if not os.path.lexists(job_path):
@@ -140,7 +142,21 @@ def _run_foldweave_browser(
             if initial_output_parent is None and initial_source is not None:
                 initial_output_parent = initial_source.parent
 
-        service = FoldweaveBrowserReviewService(job_path=job_path)
+        environment = os.environ if environ is None else environ
+        provider_factory = None
+        if mode == "live":
+            budget_authority = resolve_foldweave_budget_authority(environ=environment)
+            provider_factory = FoldweaveDirectProviderFactory(
+                job_path=job_path,
+                credential_store=EnvironmentCredentialStore(environment),
+                endpoint=DirectEndpointProfile.official(),
+                budget_authority=budget_authority,
+            )
+        service = FoldweaveBrowserReviewService(
+            job_path=job_path,
+            provider_factory=provider_factory,
+            review_channel="browser",
+        )
         app = create_folder_app(
             service,
             initial_source=initial_source,
@@ -154,12 +170,13 @@ def _run_foldweave_browser(
         return 2
 
     logging.basicConfig(level=logging.INFO)
-    LOGGER.info(
-        "Starting Foldweave deterministic development review on loopback; "
-        "provider and budget authorities are not initialized."
-    )
+    LOGGER.info("Starting Foldweave %s review on loopback.", mode)
     print(f"Foldweave: http://{LOOPBACK_HOST}:{port}")
-    print("Deterministic development review — no OpenAI API call")
+    print(
+        "Live GPT-5.6 review"
+        if mode == "live"
+        else "Deterministic development review — no OpenAI API call"
+    )
     print(f"FolderRefactorJobV3: {job_path}")
     uvicorn.run(app, host=LOOPBACK_HOST, port=port, log_level="info")
     return 0
@@ -171,14 +188,7 @@ def foldweave_state_root(
 ) -> Path:
     """Return the production state root or one explicit absolute override."""
 
-    environment = os.environ if environ is None else environ
-    configured = environment.get(FOLDWEAVE_STATE_ROOT_ENV, "").strip()
-    if not configured:
-        return DEFAULT_FOLDWEAVE_STATE_ROOT.expanduser().resolve(strict=False)
-    candidate = Path(configured).expanduser()
-    if not candidate.is_absolute():
-        raise ValueError(f"{FOLDWEAVE_STATE_ROOT_ENV} must be an absolute path")
-    return candidate.resolve(strict=False)
+    return foldweave_paths(environ=environ).state_root
 
 
 def default_foldweave_job_path(
@@ -187,28 +197,7 @@ def default_foldweave_job_path(
 ) -> Path:
     """Return the stable v3 job path used for application restart recovery."""
 
-    return foldweave_state_root(environ=environ) / "jobs" / DEFAULT_FOLDWEAVE_JOB_NAME
-
-
-def _resolve_job_path(
-    *,
-    job: Path | None,
-    environ: Mapping[str, str] | None,
-) -> Path:
-    path = (
-        default_foldweave_job_path(environ=environ)
-        if job is None
-        else job.expanduser().resolve(strict=False)
-    )
-    if path.suffix.lower() != ".json":
-        raise ValueError("job must be one JSON file")
-    if os.path.lexists(path):
-        metadata = path.lstat()
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-            raise ValueError("job must be a regular file, not a link or directory")
-    elif os.path.lexists(path.parent) and not path.parent.is_dir():
-        raise ValueError("job parent must be a directory")
-    return path
+    return foldweave_paths(environ=environ).active_job
 
 
 def _resolve_optional_directory(path: Path | None, *, label: str) -> Path | None:

@@ -25,6 +25,8 @@ import type {
   FolderPlanPreviewV1,
   FolderPlanTreeMember,
   Journey,
+  KeepProposalPayload,
+  RevisionPayload,
   ReviewStatus,
   ViewSide,
 } from "./contracts";
@@ -48,11 +50,18 @@ interface TreeNode {
   children: TreeNode[];
 }
 
+interface PendingMutationKey {
+  requestFingerprint: string;
+  idempotencyKey: string;
+}
+
 export interface ReviewIslandProps {
   preview: FolderPlanPreviewV1;
   status: ReviewStatus;
   journey: Journey;
   acceptPlan: (payload: AcceptancePayload) => Promise<void>;
+  revisePlan: (payload: RevisionPayload) => Promise<void>;
+  keepPrevious: (payload: KeepProposalPayload) => Promise<void>;
   idempotencyKeyFactory?: () => string;
 }
 
@@ -79,6 +88,8 @@ export function ReviewIsland({
   status,
   journey,
   acceptPlan,
+  revisePlan,
+  keepPrevious,
   idempotencyKeyFactory = createIdempotencyKey,
 }: ReviewIslandProps): ReactElement {
   const [side, setSide] = useState<ViewSide>("proposed");
@@ -96,6 +107,14 @@ export function ReviewIsland({
   const [revisionInstruction, setRevisionInstruction] = useState("");
   const [accepting, setAccepting] = useState(false);
   const [acceptanceError, setAcceptanceError] = useState<string | null>(null);
+  const [revisionBusy, setRevisionBusy] = useState(false);
+  const [revisionError, setRevisionError] = useState<string | null>(null);
+  const [revisionDelta, setRevisionDelta] = useState<string | null>(null);
+  const priorPreview = useRef(preview);
+  const acceptanceMutation = useRef<PendingMutationKey | null>(null);
+  const revisionMutation = useRef<PendingMutationKey | null>(null);
+  const keepMutation = useRef<PendingMutationKey | null>(null);
+  const revisionInput = useRef<HTMLTextAreaElement | null>(null);
   const treeItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const changeById = useMemo(
@@ -147,6 +166,26 @@ export function ReviewIsland({
     setSelectedId(visibleMembers[0]?.member_id ?? null);
   }, [selectedId, visibleMembers]);
 
+  useEffect(() => {
+    const previous = priorPreview.current;
+    if (previous.preview_fingerprint === preview.preview_fingerprint) {
+      return;
+    }
+    const previousPaths = new Map(
+      previous.member_changes.map((change) => [
+        change.member_id,
+        change.proposed_relative_path,
+      ]),
+    );
+    const changedMappings = preview.member_changes.filter(
+      (change) => previousPaths.get(change.member_id) !== change.proposed_relative_path,
+    ).length;
+    setRevisionDelta(
+      `${changedMappings} ${changedMappings === 1 ? "mapping" : "mappings"} changed from the previous proposal.`,
+    );
+    priorPreview.current = preview;
+  }, [preview]);
+
   const toggleFilter = (filter: FilterKey): void => {
     setChangedOnly(false);
     setActiveFilters((current) => {
@@ -186,23 +225,114 @@ export function ReviewIsland({
   };
 
   const submitAcceptance = async (): Promise<void> => {
-    if (accepting || preview.counts.blocker_count > 0) {
+    if (
+      accepting ||
+      revisionBusy ||
+      status.revision_failure !== null ||
+      preview.counts.blocker_count > 0
+    ) {
       return;
     }
     setAccepting(true);
     setAcceptanceError(null);
+    const requestFingerprint = JSON.stringify([
+      preview.expected_job_revision,
+      preview.compiled_candidate_fingerprint,
+      preview.preview_fingerprint,
+      status.output_parent,
+      status.result_folder_name,
+    ]);
+    const idempotencyKey = mutationIdempotencyKey(
+      acceptanceMutation,
+      requestFingerprint,
+      idempotencyKeyFactory,
+    );
     try {
       await acceptPlan({
         candidate_fingerprint: preview.compiled_candidate_fingerprint,
         expected_revision: preview.expected_job_revision,
-        idempotency_key: idempotencyKeyFactory(),
+        idempotency_key: idempotencyKey,
         output_parent: status.output_parent,
         preview_fingerprint: preview.preview_fingerprint,
         result_folder_name: status.result_folder_name,
       });
+      acceptanceMutation.current = null;
     } catch (error) {
       setAcceptanceError(error instanceof Error ? error.message : "Acceptance was blocked.");
       setAccepting(false);
+    }
+  };
+
+  const submitRevision = async (): Promise<void> => {
+    const instruction = revisionInstruction.trim();
+    if (
+      revisionBusy ||
+      accepting ||
+      !status.revision_available ||
+      instruction.length === 0
+    ) {
+      return;
+    }
+    setRevisionBusy(true);
+    setRevisionError(null);
+    const requestFingerprint = JSON.stringify([
+      preview.expected_job_revision,
+      preview.compiled_candidate_fingerprint,
+      preview.preview_fingerprint,
+      instruction,
+    ]);
+    const idempotencyKey = mutationIdempotencyKey(
+      revisionMutation,
+      requestFingerprint,
+      idempotencyKeyFactory,
+    );
+    try {
+      await revisePlan({
+        candidate_fingerprint: preview.compiled_candidate_fingerprint,
+        expected_revision: preview.expected_job_revision,
+        idempotency_key: idempotencyKey,
+        instruction,
+        preview_fingerprint: preview.preview_fingerprint,
+      });
+      revisionMutation.current = null;
+      setRevisionInstruction("");
+    } catch (error) {
+      setRevisionError(error instanceof Error ? error.message : "Revision was blocked.");
+    } finally {
+      setRevisionBusy(false);
+    }
+  };
+
+  const submitKeepPrevious = async (): Promise<void> => {
+    if (revisionBusy || status.revision_failure === null) {
+      return;
+    }
+    setRevisionBusy(true);
+    setRevisionError(null);
+    const requestFingerprint = JSON.stringify([
+      preview.expected_job_revision,
+      preview.compiled_candidate_fingerprint,
+      preview.preview_fingerprint,
+    ]);
+    const idempotencyKey = mutationIdempotencyKey(
+      keepMutation,
+      requestFingerprint,
+      idempotencyKeyFactory,
+    );
+    try {
+      await keepPrevious({
+        candidate_fingerprint: preview.compiled_candidate_fingerprint,
+        expected_revision: preview.expected_job_revision,
+        idempotency_key: idempotencyKey,
+        preview_fingerprint: preview.preview_fingerprint,
+      });
+      keepMutation.current = null;
+    } catch (error) {
+      setRevisionError(
+        error instanceof Error ? error.message : "The prior proposal could not be kept.",
+      );
+    } finally {
+      setRevisionBusy(false);
     }
   };
 
@@ -373,7 +503,12 @@ export function ReviewIsland({
           </div>
           <Button
             className="fw-accept-button"
-            disabled={preview.counts.blocker_count > 0 || accepting}
+            disabled={
+              preview.counts.blocker_count > 0 ||
+              accepting ||
+              revisionBusy ||
+              status.revision_failure !== null
+            }
             intent="success"
             loading={accepting}
             onClick={() => void submitAcceptance()}
@@ -383,6 +518,28 @@ export function ReviewIsland({
           </Button>
         </div>
         {acceptanceError && <div className="fw-error" role="alert">{acceptanceError}</div>}
+        {revisionDelta && <div className="fw-revision-delta" role="status">{revisionDelta}</div>}
+        {status.revision_failure && (
+          <div className="fw-error" role="alert">
+            <strong>The replacement proposal did not pass Foldweave checks.</strong>
+            <span>{status.revision_failure}</span>
+            <div className="fw-revision-actions">
+              <Button
+                disabled={!status.revision_available || revisionBusy}
+                onClick={() => revisionInput.current?.focus()}
+              >
+                Try another change
+              </Button>
+              <Button
+                disabled={revisionBusy}
+                onClick={() => void submitKeepPrevious()}
+              >
+                Keep previous proposal
+              </Button>
+            </div>
+          </div>
+        )}
+        {revisionError && <div className="fw-error" role="alert">{revisionError}</div>}
         <div className="fw-revision-divider" />
         <label className="fw-revision-label" htmlFor="foldweave-revision">
           Describe a change to this proposal
@@ -391,18 +548,47 @@ export function ReviewIsland({
           id="foldweave-revision"
           onChange={(event) => setRevisionInstruction(event.currentTarget.value)}
           placeholder="For example: keep the meeting notes together, and move the final brief into Delivery."
+          ref={revisionInput}
           rows={3}
           value={revisionInstruction}
         />
         <div className="fw-revision-footer">
-          <span>Iterative revision is being connected in F1. No instruction will be sent yet.</span>
-          <Button disabled intent="primary" rightIcon="send-message">
+          <span>
+            {status.revision_available
+              ? `${status.revision_attempts_remaining} revision ${status.revision_attempts_remaining === 1 ? "attempt" : "attempts"} remaining.`
+              : "Start a new job to request another revision."}
+          </span>
+          <Button
+            disabled={
+              !status.revision_available ||
+              revisionInstruction.trim().length === 0 ||
+              revisionBusy ||
+              accepting
+            }
+            intent="primary"
+            loading={revisionBusy}
+            onClick={() => void submitRevision()}
+            rightIcon="send-message"
+          >
             Send changes
           </Button>
         </div>
       </section>
     </div>
   );
+}
+
+function mutationIdempotencyKey(
+  reference: { current: PendingMutationKey | null },
+  requestFingerprint: string,
+  factory: () => string,
+): string {
+  if (reference.current?.requestFingerprint === requestFingerprint) {
+    return reference.current.idempotencyKey;
+  }
+  const idempotencyKey = factory();
+  reference.current = { requestFingerprint, idempotencyKey };
+  return idempotencyKey;
 }
 
 function TrustItem({ icon, label, value }: { icon: React.ComponentProps<typeof Icon>["icon"]; label: string; value: string }): ReactElement {

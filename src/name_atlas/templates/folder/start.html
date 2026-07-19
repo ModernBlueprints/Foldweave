@@ -1,10 +1,15 @@
 {% extends "folder/base.html" %}
-{% block title %}Start · Reversible Name Atlas{% endblock %}
+{% set product_name = "Foldweave" if foldweave_active else "Name Atlas" %}
+{% block title %}Start · {% if foldweave_active %}Foldweave{% else %}Reversible Name Atlas{% endif %}{% endblock %}
 {% block content %}
   <section class="folder-panel folder-panel--start" aria-labelledby="start-title">
-    <div class="folder-kicker">Organize a folder</div>
+    <div class="folder-kicker">{% if foldweave_active %}Create a Foldweave{% else %}Organize a folder{% endif %}</div>
     <h1 id="start-title">Describe the result you want</h1>
-    <p class="folder-lede">Name Atlas plans the complete change and creates a separate result without changing your original folder.</p>
+    {% if foldweave_active %}
+      <p class="folder-lede">Foldweave plans a complete structure for your review. It creates no result or copy until you accept the exact proposal.</p>
+    {% else %}
+      <p class="folder-lede">Name Atlas plans the complete change and creates a separate result without changing your original folder.</p>
+    {% endif %}
 
     {% if state.blocker %}
       <div class="folder-alert" role="alert">
@@ -29,14 +34,18 @@
 
       <fieldset class="folder-path-control folder-path-control--secondary">
         <legend>Result location</legend>
-        <p class="folder-derived-path">Name Atlas derives a separate result next to the selected source. You can choose another existing parent folder.</p>
+        <p class="folder-derived-path">{{ product_name }} derives a separate result next to the selected source. You can choose another existing parent folder.</p>
         <button class="bp6-button folder-picker-button" type="button" data-picker-role="output_parent" data-picker-target="output-parent">Change result location…</button>
         <label for="output-parent">Absolute result-parent path</label>
         <input class="bp6-input" id="output-parent" name="output_parent" type="text" inputmode="text" autocomplete="off" spellcheck="false" required value="{{ state.output_value }}" placeholder="Derived from your selected folder">
         <small data-picker-status aria-live="polite"></small>
       </fieldset>
 
-      <p class="folder-source-promise"><strong>Your original folder will not be changed.</strong> Name Atlas will create and verify a separate result.</p>
+      {% if foldweave_active %}
+        <p class="folder-source-promise"><strong>Your original folder will not be changed.</strong> No result or copy is created before you review and accept the exact proposal.</p>
+      {% else %}
+        <p class="folder-source-promise"><strong>Your original folder will not be changed.</strong> Name Atlas will create and verify a separate result.</p>
+      {% endif %}
 
       <details class="folder-disclosure">
         <summary>What may be shared with GPT-5.6 in live mode?</summary>
@@ -44,8 +53,8 @@
           {% if not state.outbound_evidence_will_be_sent %}
             <p><strong>This displayed planning run makes no GPT or OpenAI API call.</strong> The mode label above identifies whether it is a recorded GPT-5.6 run or a deterministic development run. The disclosure below describes the live mode that uses the same bounded evidence contract.</p>
           {% endif %}
-          <p>Your original folder will not be changed. Name Atlas will create and verify a separate result. It sends GPT-5.6 your instruction, relative file names and folder structure, basic file metadata used to bind the plan, selected excerpts from eligible text and Markdown files, and supported Markdown-link context needed to plan the change. It does not send every file's bytes. Raw content hashes are kept local.</p>
-          <p>Name Atlas sets <code>store=false</code>, so it does not ask OpenAI to store the generated response for later retrieval through the Responses API. OpenAI's standard abuse-monitoring and prompt-caching retention may still apply.</p>
+          <p>Your original folder will not be changed. {% if foldweave_active %}Foldweave creates no result or copy until you accept the exact proposal.{% else %}Name Atlas will create and verify a separate result.{% endif %} It sends GPT-5.6 your instruction, relative file names and folder structure, basic file metadata used to bind the plan, selected excerpts from eligible text and Markdown files, and supported Markdown-link context needed to plan the change. It does not send every file's bytes. Raw content hashes are kept local.</p>
+          <p>{{ product_name }} sets <code>store=false</code>, so it does not ask OpenAI to store the generated response for later retrieval through the Responses API. OpenAI's standard abuse-monitoring and prompt-caching retention may still apply.</p>
         </div>
       </details>
 
@@ -53,7 +62,7 @@
         <label class="folder-consent" for="evidence-disclosure-acknowledged">
           <input id="evidence-disclosure-acknowledged" name="evidence_disclosure_acknowledged" type="checkbox" value="true" required>
           {% if state.outbound_evidence_will_be_sent %}
-            <span>I understand what Name Atlas sends to GPT-5.6 for this planning run.</span>
+            <span>I understand what {{ product_name }} sends to GPT-5.6 for this planning run.</span>
           {% else %}
             <span>I understand the live-mode disclosure and that this displayed planning run makes no GPT or OpenAI API call.</span>
           {% endif %}
@@ -61,7 +70,7 @@
       {% endif %}
 
       <button class="bp6-button bp6-intent-primary bp6-large folder-primary-action" type="submit">
-        Plan and create copy
+        {% if foldweave_active %}Plan and review structure{% else %}Plan and create copy{% endif %}
       </button>
     </form>
   </section>

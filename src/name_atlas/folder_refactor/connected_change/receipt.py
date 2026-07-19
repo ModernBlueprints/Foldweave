@@ -12,6 +12,7 @@ from name_atlas.folder_refactor.connected_change.accepted_plan import (
 from name_atlas.folder_refactor.connected_change.contracts import (
     CapsuleAppliedExecutionOrigin,
     FolderExecutionOrigin,
+    GptExecutionOrigin,
     GptPlannedExecutionOrigin,
 )
 from name_atlas.folder_refactor.connected_change.organized_tree import (
@@ -25,6 +26,10 @@ from name_atlas.folder_refactor.connected_change.receipt_contracts import (
 from name_atlas.folder_refactor.contracts import (
     FolderInventory,
     FolderVerificationReport,
+)
+from name_atlas.folder_refactor.foldweave_planning_contracts import (
+    FolderEvidenceLedgerV2,
+    GptPlannedExecutionOriginV2,
 )
 from name_atlas.folder_refactor.markdown_contracts import FolderReferenceGraph
 from name_atlas.folder_refactor.portable_artifacts import regular_file_measurement
@@ -99,7 +104,7 @@ def build_connected_receipt(
     change_ledger: FolderChangeLedger,
     report: FolderVerificationReport,
     execution_origin: FolderExecutionOrigin,
-    evidence_ledger: FolderEvidenceLedger | None = None,
+    evidence_ledger: FolderEvidenceLedger | FolderEvidenceLedgerV2 | None = None,
     artifact_commitments: tuple[FolderArtifactCommitment, ...],
     staged_members: tuple[FolderStagedDataMember, ...],
     staged_data_commitment: str,
@@ -142,7 +147,10 @@ def build_connected_receipt(
     if change_ledger.evidence_fingerprint != accepted_plan.evidence_fingerprint:
         raise ValueError("Change ledger does not bind the origin evidence identity.")
     if execution_role == "origin":
-        if not isinstance(execution_origin, GptPlannedExecutionOrigin):
+        if not isinstance(
+            execution_origin,
+            GptPlannedExecutionOrigin | GptPlannedExecutionOriginV2,
+        ):
             raise ValueError("An origin receipt requires gpt_planned authority.")
         if evidence_ledger is None:
             raise ValueError("An origin receipt requires its exact evidence ledger.")
@@ -160,7 +168,10 @@ def build_connected_receipt(
         raise ValueError("A receiver receipt cannot fabricate a GPT evidence ledger.")
     execution_plan_fingerprint = (
         execution_origin.accepted_plan_fingerprint
-        if isinstance(execution_origin, GptPlannedExecutionOrigin)
+        if isinstance(
+            execution_origin,
+            GptPlannedExecutionOrigin | GptPlannedExecutionOriginV2,
+        )
         else execution_origin.receiver_accepted_plan_fingerprint
     )
     if execution_plan_fingerprint != plan_fingerprint:
@@ -217,10 +228,68 @@ def validate_connected_evidence_ledger(
     inventory: FolderInventory,
     user_request: FolderUserRequestArtifact,
     accepted_plan: FolderAcceptedPlanV2,
-    execution_origin: GptPlannedExecutionOrigin,
-    evidence_ledger: FolderEvidenceLedger,
+    execution_origin: GptExecutionOrigin,
+    evidence_ledger: FolderEvidenceLedger | FolderEvidenceLedgerV2,
 ) -> None:
     """Require one origin ledger and execution-origin record to agree exactly."""
+
+    if isinstance(execution_origin, GptPlannedExecutionOriginV2):
+        if not isinstance(evidence_ledger, FolderEvidenceLedgerV2):
+            raise ValueError("V2 execution origin requires composite v2 evidence.")
+        expected_provider_calls = (
+            evidence_ledger.response_turn_count
+            if evidence_ledger.model_transport == "responses_api"
+            else 0
+        )
+        expected_api_use = evidence_ledger.model_transport == "responses_api"
+        expected_network_use = evidence_ledger.model_transport in {
+            "responses_api",
+            "chatgpt_hosted",
+            "codex_hosted",
+        }
+        if not (
+            evidence_ledger.job_id == job_id
+            and evidence_ledger.source_commitment == inventory.source_commitment
+            and evidence_ledger.request_fingerprint == user_request.request_fingerprint
+            and evidence_ledger.request_scope == accepted_plan.request_scope
+            and evidence_ledger.evidence_fingerprint
+            == accepted_plan.evidence_fingerprint
+            and evidence_ledger.accepted_plan_fingerprint
+            == canonical_sha256(accepted_plan)
+            and execution_origin.evidence_fingerprint
+            == evidence_ledger.evidence_fingerprint
+            and execution_origin.evidence_transcript_fingerprint
+            == evidence_ledger.transcript_fingerprint
+            and execution_origin.accepted_plan_fingerprint
+            == evidence_ledger.accepted_plan_fingerprint
+            and execution_origin.provider_call_count == expected_provider_calls
+            and execution_origin.returned_model_ids
+            == evidence_ledger.returned_model_ids
+            and execution_origin.store_false == evidence_ledger.store_false
+            and execution_origin.planning_basis == evidence_ledger.planning_basis
+            and execution_origin.model_transport == evidence_ledger.model_transport
+            and execution_origin.clarification_question
+            == evidence_ledger.initial_ledger.clarification_question
+            and execution_origin.clarification_answer
+            == evidence_ledger.initial_ledger.clarification_answer
+            and execution_origin.api_used == expected_api_use
+            and execution_origin.external_network_used == expected_network_use
+            and execution_origin.observable_transcript
+            == tuple(
+                record
+                for segment in evidence_ledger.segments
+                for record in segment.observable_records
+            )
+        ):
+            raise ValueError(
+                "Composite evidence, accepted plan, and v2 execution origin "
+                "do not agree."
+            )
+        if accepted_plan.evidence_schema_version != "folder-evidence-ledger.v2":
+            raise ValueError("Composite evidence requires accepted-plan v2 dispatch.")
+        return
+    if not isinstance(evidence_ledger, FolderEvidenceLedger):
+        raise ValueError("Historical execution origin requires v1 evidence.")
 
     expected_provider_kind = {
         "deterministic_development": "deterministic",

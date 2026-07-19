@@ -55,9 +55,10 @@ class FolderAcceptedPlanV2(StrictFrozenModel):
     source_commitment: str = Field(pattern=SHA256_PATTERN)
     request_fingerprint: str = Field(pattern=SHA256_PATTERN)
     request_scope: Literal["rename_and_move_every_file"] = "rename_and_move_every_file"
-    evidence_schema_version: Literal["folder-evidence-ledger.v1"] = (
-        "folder-evidence-ledger.v1"
-    )
+    evidence_schema_version: Literal[
+        "folder-evidence-ledger.v1",
+        "folder-evidence-ledger.v2",
+    ] = "folder-evidence-ledger.v1"
     evidence_fingerprint: str = Field(pattern=SHA256_PATTERN)
     execution_authority: Literal["gpt_plan", "change_file"]
     result_folder_name: str = Field(min_length=1, max_length=240)
@@ -103,6 +104,10 @@ def build_connected_accepted_plan(
     result_folder_name: str,
     target_by_file_id: Mapping[str, str],
     execution_authority: Literal["gpt_plan", "change_file"],
+    evidence_schema_version: Literal[
+        "folder-evidence-ledger.v1",
+        "folder-evidence-ledger.v2",
+    ] = "folder-evidence-ledger.v1",
 ) -> FolderAcceptedPlanV2:
     """Build and independently rebind one complete v2 accepted map."""
 
@@ -135,6 +140,7 @@ def build_connected_accepted_plan(
     plan = FolderAcceptedPlanV2(
         source_commitment=inventory.source_commitment,
         request_fingerprint=request_fingerprint(request),
+        evidence_schema_version=evidence_schema_version,
         evidence_fingerprint=evidence_fingerprint,
         execution_authority=execution_authority,
         result_folder_name=result_folder_name,
@@ -152,6 +158,10 @@ def convert_planner_accepted_plan(
     inventory: FolderInventory,
     request: str,
     plan: FolderAcceptedPlan,
+    evidence_schema_version: Literal[
+        "folder-evidence-ledger.v1",
+        "folder-evidence-ledger.v2",
+    ] = "folder-evidence-ledger.v1",
 ) -> FolderAcceptedPlanV2:
     """Convert one mechanically accepted v1 planner map into v2 authority."""
 
@@ -174,6 +184,7 @@ def convert_planner_accepted_plan(
         result_folder_name=plan.result_folder_name,
         target_by_file_id=target_by_file_id,
         execution_authority="gpt_plan",
+        evidence_schema_version=evidence_schema_version,
     )
     before = {
         mapping.file_id: (

@@ -10,12 +10,14 @@ import pytest
 
 from name_atlas.decision_cards import (
     C3_LIVE_CALL_CAP,
+    FOLDWEAVE_PROJECT_COST_MICRO_USD,
     HISTORICAL_LIVE_CALL_CAP,
     BudgetLedgerError,
     BudgetSnapshot,
     DecisionCardCapExhaustedError,
     PersistentBudgetLedger,
     microusd_to_usd,
+    migrate_foldweave_cost_cap,
     migrate_live_call_cap,
 )
 
@@ -117,6 +119,111 @@ def test_c3_migration_is_atomic_idempotent_and_preserves_history(
         "configured_live_call_cap": C3_LIVE_CALL_CAP,
     }
     assert not tuple(tmp_path.glob(".api_budget.json.*.tmp"))
+
+
+def test_foldweave_cost_migration_is_atomic_idempotent_and_preserves_history(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "api_budget.json"
+    _historical_ledger(path)
+    migrate_live_call_cap(path=path)
+    historical = PersistentBudgetLedger._read_path(path)
+    historical_values = historical.model_dump(mode="python")
+
+    migrated = migrate_foldweave_cost_cap(path=path)
+    migrated_bytes = path.read_bytes()
+    repeated = migrate_foldweave_cost_cap(path=path)
+
+    assert migrated.configured_live_call_cap == C3_LIVE_CALL_CAP
+    assert migrated.configured_cost_cap_microusd == (FOLDWEAVE_PROJECT_COST_MICRO_USD)
+    assert migrated.model_dump(mode="python") == {
+        **historical_values,
+        "configured_cost_cap_microusd": FOLDWEAVE_PROJECT_COST_MICRO_USD,
+    }
+    assert repeated == migrated
+    assert path.read_bytes() == migrated_bytes
+    assert not tuple(tmp_path.glob(".api_budget.json.*.tmp"))
+
+    reopened = PersistentBudgetLedger.open_existing_foldweave_planner(path=path)
+    assert reopened.snapshot == migrated
+
+
+def test_foldweave_installation_ledger_is_lazy_and_persists_first_reservation(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "state" / "api_budget.json"
+
+    ledger = PersistentBudgetLedger.open_foldweave_installation(path=path)
+
+    assert not path.parent.exists()
+    assert ledger.snapshot.live_requests_reserved == 0
+    assert ledger.snapshot.configured_live_call_cap == C3_LIVE_CALL_CAP
+    assert (
+        ledger.snapshot.configured_cost_cap_microusd == FOLDWEAVE_PROJECT_COST_MICRO_USD
+    )
+    assert not path.exists()
+
+    reserved = ledger.reserve_microusd(
+        reservation_microusd=250_000,
+        provider_attempts=1,
+    )
+
+    assert path.is_file()
+    assert reserved.live_requests_reserved == 1
+    assert reserved.provider_attempts_reserved == 1
+    assert reserved.committed_cost_microusd == 250_000
+    reopened = PersistentBudgetLedger.open_foldweave_installation(path=path)
+    assert reopened.snapshot == reserved
+
+
+def test_foldweave_cost_migration_write_failure_preserves_original(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "api_budget.json"
+    _historical_ledger(path)
+    migrate_live_call_cap(path=path)
+    original = path.read_bytes()
+
+    def fail_replace(source: object, destination: object) -> None:
+        del source, destination
+        raise OSError("injected atomic promotion failure")
+
+    monkeypatch.setattr(os, "replace", fail_replace)
+    with pytest.raises(BudgetLedgerError, match="written atomically"):
+        migrate_foldweave_cost_cap(path=path)
+
+    assert path.read_bytes() == original
+    assert not tuple(tmp_path.glob(".api_budget.json.*.tmp"))
+
+
+@pytest.mark.parametrize(
+    ("snapshot_update", "message"),
+    (
+        ({"configured_live_call_cap": 12}, "call authority"),
+        ({"configured_cost_cap_microusd": 20_000_000}, "not eligible"),
+        ({"live_requests_reserved": 0}, "historical provider authority"),
+    ),
+)
+def test_foldweave_cost_migration_rejects_incompatible_authority(
+    tmp_path: Path,
+    snapshot_update: dict[str, int],
+    message: str,
+) -> None:
+    path = tmp_path / "api_budget.json"
+    snapshot = BudgetSnapshot(
+        configured_live_call_cap=C3_LIVE_CALL_CAP,
+        configured_cost_cap_microusd=10_000_000,
+        live_requests_reserved=1,
+        provider_attempts_reserved=1,
+        committed_cost_microusd=679_000,
+        reported_estimated_cost_microusd=38_200,
+        updated_at=datetime.now(tz=ZoneInfo("Europe/Oslo")),
+    ).model_copy(update=snapshot_update)
+    path.write_text(snapshot.model_dump_json(), encoding="utf-8")
+
+    with pytest.raises(BudgetLedgerError, match=message):
+        migrate_foldweave_cost_cap(path=path)
 
 
 def test_c3_migration_write_failure_preserves_original_ledger(

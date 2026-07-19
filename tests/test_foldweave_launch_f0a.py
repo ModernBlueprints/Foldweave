@@ -82,8 +82,9 @@ def test_f0a_launch_injects_review_service_and_never_starts_provider(
     captured: dict[str, object] = {}
 
     class CapturedReviewService:
-        def __init__(self, *, job_path: Path) -> None:
+        def __init__(self, *, job_path: Path, **kwargs: object) -> None:
             captured["job_path"] = job_path
+            captured["review_service_kwargs"] = kwargs
 
     def capture_app(service: object, **kwargs: object) -> object:
         captured["service"] = service
