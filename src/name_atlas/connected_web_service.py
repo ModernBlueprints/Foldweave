@@ -155,6 +155,7 @@ class ConnectedBrowserRunService:
             idempotency_key=_web_idempotency_key(self._job_path, "organize"),
             provider=self._new_planner_provider(),
             progress_callback=self._transaction_progress,
+            idempotency_scope="exact_path",
         )
         return self._job_outcome(job)
 
@@ -176,6 +177,7 @@ class ConnectedBrowserRunService:
             job_path=self._job_path,
             idempotency_key=_web_idempotency_key(self._job_path, "apply"),
             progress_callback=self._transaction_progress,
+            idempotency_scope="exact_path",
         )
         return self._terminal_presentation(job)
 

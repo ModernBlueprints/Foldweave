@@ -12,6 +12,7 @@ import uuid
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Literal
 
 from name_atlas.folder_refactor.connected_change.contracts import (
     ConnectedChangeError,
@@ -33,12 +34,14 @@ from name_atlas.folder_refactor.connected_change.job_v2 import (
     FolderRefactorJobV2Writer,
     GptPlannedJobAuthorityV2,
     GptPlannerCheckpointV2,
+    LegacyFolderJobV1Evidence,
     build_new_capsule_job_v2,
     build_new_gpt_job_v2,
     evolve_job_v2,
     expected_final_result_path_v2,
     expected_pending_result_path_v2,
     find_idempotent_job_v2,
+    load_folder_job_record,
 )
 from name_atlas.folder_refactor.connected_change.receipt import (
     CONNECTED_CHANGE_PATH,
@@ -85,6 +88,8 @@ from name_atlas.verification.promotion import promote_directory_no_replace
 
 logger = logging.getLogger(__name__)
 
+FolderIdempotencyScope = Literal["exact_path", "jobs_directory"]
+
 
 class ConnectedChangeJobServiceError(RuntimeError):
     """One stable durable Connected Change service failure."""
@@ -106,6 +111,7 @@ class ConnectedChangeJobService:
         output_parent: Path,
         job_path: Path,
         idempotency_key: str,
+        idempotency_scope: FolderIdempotencyScope = "jobs_directory",
     ) -> FolderRefactorJobV2:
         """Persist one receiver job before deterministic matching begins."""
 
@@ -116,7 +122,7 @@ class ConnectedChangeJobService:
             change_file_path=change_file_path,
             idempotency_key=idempotency_key,
         )
-        return self._save_or_reuse(candidate)
+        return self._save_or_reuse(candidate, idempotency_scope=idempotency_scope)
 
     def create_planned_origin_job(
         self,
@@ -128,6 +134,7 @@ class ConnectedChangeJobService:
         idempotency_key: str,
         scan: FolderScan,
         planner_progress: FolderPlannerProgress,
+        idempotency_scope: FolderIdempotencyScope = "jobs_directory",
     ) -> FolderRefactorJobV2:
         """Persist one full-progress origin job before any provider turn."""
 
@@ -141,7 +148,7 @@ class ConnectedChangeJobService:
             job_id=planner_progress.job_id,
             planner_progress=planner_progress,
         )
-        return self._save_or_reuse(candidate)
+        return self._save_or_reuse(candidate, idempotency_scope=idempotency_scope)
 
     def start_application(
         self,
@@ -152,6 +159,7 @@ class ConnectedChangeJobService:
         job_path: Path,
         idempotency_key: str,
         progress_callback: FolderTransactionProgress | None = None,
+        idempotency_scope: FolderIdempotencyScope = "jobs_directory",
     ) -> FolderRefactorJobV2:
         """Create or resume one provider-free receiver transaction."""
 
@@ -161,6 +169,7 @@ class ConnectedChangeJobService:
             output_parent=output_parent,
             job_path=job_path,
             idempotency_key=idempotency_key,
+            idempotency_scope=idempotency_scope,
         )
         return self.run_or_resume(
             job.job_path,
@@ -178,6 +187,7 @@ class ConnectedChangeJobService:
         target_by_original_path: Mapping[str, str],
         idempotency_key: str,
         progress_callback: FolderTransactionProgress | None = None,
+        idempotency_scope: FolderIdempotencyScope = "jobs_directory",
     ) -> FolderRefactorJobV2:
         """Persist and execute one truthful development origin transaction."""
 
@@ -188,7 +198,10 @@ class ConnectedChangeJobService:
             user_request=request,
             idempotency_key=idempotency_key,
         )
-        job = self._save_or_reuse(candidate)
+        job = self._save_or_reuse(
+            candidate,
+            idempotency_scope=idempotency_scope,
+        )
         if job.lifecycle is FolderJobLifecycleV2.PLANNING:
             prepared = prepare_connected_change_origin(
                 job_id=job.job_id,
@@ -392,17 +405,33 @@ class ConnectedChangeJobService:
             source_root=source_root,
         )
 
-    def _save_or_reuse(self, candidate: FolderRefactorJobV2) -> FolderRefactorJobV2:
+    def _save_or_reuse(
+        self,
+        candidate: FolderRefactorJobV2,
+        *,
+        idempotency_scope: FolderIdempotencyScope,
+    ) -> FolderRefactorJobV2:
         with _idempotency_creation_lock(candidate.job_path.parent):
-            existing = find_idempotent_job_v2(
-                candidate.job_path.parent,
-                candidate.idempotency,
-            )
-            if existing is not None:
-                return existing
             if os.path.lexists(candidate.job_path):
+                record = load_folder_job_record(candidate.job_path)
+                if (
+                    isinstance(record, LegacyFolderJobV1Evidence)
+                    or record.idempotency != candidate.idempotency
+                ):
+                    raise FolderJobV2IdempotencyConflict(
+                        "Requested job path is already bound to another mutation."
+                    )
+                return record
+            if idempotency_scope == "jobs_directory":
+                existing = find_idempotent_job_v2(
+                    candidate.job_path.parent,
+                    candidate.idempotency,
+                )
+                if existing is not None:
+                    return existing
+            elif idempotency_scope != "exact_path":
                 raise FolderJobV2IdempotencyConflict(
-                    "Requested job path is already bound to another mutation."
+                    "Unsupported durable idempotency discovery scope."
                 )
             store = FolderRefactorJobV2Store(candidate.job_path)
             with store.writer() as writer:

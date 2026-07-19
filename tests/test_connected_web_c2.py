@@ -874,8 +874,16 @@ async def test_real_origin_receiver_restart_download_finder_and_tamper_refusal(
     receiver_output = tmp_path / "receiver-results"
     origin_output.mkdir()
     receiver_output.mkdir()
-    origin_job = tmp_path / "jobs" / "origin.json"
-    receiver_job = tmp_path / "jobs" / "receiver.json"
+    jobs = tmp_path / "shared-json-directory"
+    jobs.mkdir()
+    unrelated_json = jobs / "unrelated.json"
+    malformed_json = jobs / "malformed.json"
+    unrelated_json.write_bytes(b'{"unrelated":true}\n')
+    malformed_json.write_bytes(b"{not-json\n")
+    unrelated_before = unrelated_json.read_bytes()
+    malformed_before = malformed_json.read_bytes()
+    origin_job = jobs / "origin.json"
+    receiver_job = jobs / "receiver.json"
     origin_bridge = _FakeNativeBridge()
     origin_service = ConnectedBrowserRunService(job_path=origin_job)
     origin_app = create_folder_app(origin_service, native_bridge=origin_bridge)
@@ -1092,3 +1100,5 @@ async def test_real_origin_receiver_restart_download_finder_and_tamper_refusal(
     assert "Independent verification blocked" in tampered_restart_working.text
     assert tree_state(fixture.sofia_root) == sofia_before
     assert tree_state(fixture.martin_root) == martin_before
+    assert unrelated_json.read_bytes() == unrelated_before
+    assert malformed_json.read_bytes() == malformed_before

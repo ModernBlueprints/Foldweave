@@ -300,6 +300,7 @@ class NameAtlasMcpService:
                 request=request.user_request,
                 idempotency_key=request.idempotency_key,
                 provider_kind=("live" if request.mode == "live" else "recorded_replay"),
+                idempotency_scope="jobs_directory",
             )
             self._require_origin_retry(
                 job,
@@ -472,6 +473,7 @@ class NameAtlasMcpService:
                     project_root=self._project_root
                 ),
                 idempotency_key=request.idempotency_key,
+                idempotency_scope="jobs_directory",
             )
             self._require_application_retry(
                 job,

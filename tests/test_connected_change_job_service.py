@@ -23,6 +23,7 @@ from name_atlas.folder_refactor.connected_change.job_service import (
 from name_atlas.folder_refactor.connected_change.job_v2 import (
     FolderJobLifecycleV2,
     FolderJobV2IdempotencyConflict,
+    FolderJobV2LoadError,
 )
 from name_atlas.folder_refactor.connected_change.service import (
     ConnectedChangeRunResult,
@@ -292,6 +293,85 @@ def test_conflicting_idempotency_key_reuse_blocks(tmp_path: Path) -> None:
             job_path=tmp_path / "jobs" / "second.json",
             idempotency_key="receiver-conflict-key-01",
         )
+
+
+def test_exact_job_path_conflicting_binding_is_preserved_and_blocks(
+    tmp_path: Path,
+) -> None:
+    fixture = make_connected_change_fixture(tmp_path / "projects")
+    origin_output = tmp_path / "origin-output"
+    first_output = tmp_path / "receiver-a"
+    second_output = tmp_path / "receiver-b"
+    for path in (origin_output, first_output, second_output):
+        path.mkdir()
+    origin = create_connected_change_origin(
+        source_root=fixture.sofia_root,
+        output_parent=origin_output,
+        request=fixture.request,
+        result_folder_name=fixture.result_name,
+        target_by_original_path=fixture.target_paths,
+    )
+    service = ConnectedChangeJobService()
+    job_path = tmp_path / "shared-json-directory" / "receiver.json"
+    service.create_application_job(
+        change_file_path=origin.change_file_path,
+        source_root=fixture.martin_root,
+        output_parent=first_output,
+        job_path=job_path,
+        idempotency_key="exact-path-first-binding-0001",
+        idempotency_scope="exact_path",
+    )
+    first_job_bytes = job_path.read_bytes()
+
+    with pytest.raises(
+        FolderJobV2IdempotencyConflict,
+        match="Requested job path is already bound to another mutation",
+    ):
+        service.create_application_job(
+            change_file_path=origin.change_file_path,
+            source_root=fixture.martin_root,
+            output_parent=second_output,
+            job_path=job_path,
+            idempotency_key="exact-path-second-binding-0002",
+            idempotency_scope="exact_path",
+        )
+
+    assert job_path.read_bytes() == first_job_bytes
+    assert not tuple(first_output.iterdir())
+    assert not tuple(second_output.iterdir())
+
+
+def test_managed_job_directory_discovery_remains_strict(tmp_path: Path) -> None:
+    fixture = make_connected_change_fixture(tmp_path / "projects")
+    origin_output = tmp_path / "origin-output"
+    receiver_output = tmp_path / "receiver-output"
+    jobs = tmp_path / "managed-jobs"
+    for path in (origin_output, receiver_output, jobs):
+        path.mkdir()
+    origin = create_connected_change_origin(
+        source_root=fixture.sofia_root,
+        output_parent=origin_output,
+        request=fixture.request,
+        result_folder_name=fixture.result_name,
+        target_by_original_path=fixture.target_paths,
+    )
+    unrelated = jobs / "unrelated.json"
+    unrelated.write_bytes(b'{"unrelated":true}\n')
+    before = unrelated.read_bytes()
+
+    with pytest.raises(FolderJobV2LoadError, match="Unsupported durable job"):
+        ConnectedChangeJobService().create_application_job(
+            change_file_path=origin.change_file_path,
+            source_root=fixture.martin_root,
+            output_parent=receiver_output,
+            job_path=jobs / "receiver.json",
+            idempotency_key="managed-directory-strict-discovery",
+            idempotency_scope="jobs_directory",
+        )
+
+    assert unrelated.read_bytes() == before
+    assert not (jobs / "receiver.json").exists()
+    assert not tuple(receiver_output.iterdir())
 
 
 def test_restart_removes_owned_incomplete_pending_and_reexecutes(

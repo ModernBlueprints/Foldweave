@@ -17,6 +17,7 @@ from name_atlas.folder_refactor.connected_change.evidence import (
 from name_atlas.folder_refactor.connected_change.job_service import (
     ConnectedChangeJobService,
     ConnectedChangeJobServiceError,
+    FolderIdempotencyScope,
 )
 from name_atlas.folder_refactor.connected_change.job_v2 import (
     FolderJobLifecycleV2,
@@ -159,6 +160,7 @@ class ConnectedOriginPlanningService:
         request: str,
         idempotency_key: str,
         provider_kind: Literal["deterministic", "live", "recorded_replay"],
+        idempotency_scope: FolderIdempotencyScope = "jobs_directory",
     ) -> FolderRefactorJobV2:
         """Persist one resumable planner job without consuming a provider turn."""
 
@@ -178,6 +180,7 @@ class ConnectedOriginPlanningService:
             idempotency_key=idempotency_key,
             scan=scan,
             planner_progress=initial_progress,
+            idempotency_scope=idempotency_scope,
         )
 
     async def start(
@@ -191,6 +194,7 @@ class ConnectedOriginPlanningService:
         provider: PlannerProvider,
         progress_callback: FolderTransactionProgress | None = None,
         usage: tuple[FolderPlannerUsage, ...] = (),
+        idempotency_scope: FolderIdempotencyScope = "jobs_directory",
     ) -> FolderRefactorJobV2:
         """Create or reuse one job, then continue its exact planner state."""
 
@@ -201,6 +205,7 @@ class ConnectedOriginPlanningService:
             request=request,
             idempotency_key=idempotency_key,
             provider_kind=provider.provider_kind,
+            idempotency_scope=idempotency_scope,
         )
         return await self.resume(
             job.job_path,

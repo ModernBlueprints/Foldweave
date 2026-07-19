@@ -221,6 +221,96 @@ def test_apply_change_default_paths_are_separate_and_resume_exactly(
     assert "VERIFIED " in capsys.readouterr().out
 
 
+def test_explicit_job_ignores_unrelated_json_siblings_and_retries_exactly(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fixture = make_connected_change_fixture(tmp_path / "projects")
+    origin_output = tmp_path / "origin-output"
+    receiver_output = tmp_path / "receiver-output"
+    jobs = tmp_path / "shared-json-directory"
+    for path in (origin_output, receiver_output, jobs):
+        path.mkdir()
+    origin = create_connected_change_origin(
+        source_root=fixture.sofia_root,
+        output_parent=origin_output,
+        request=fixture.request,
+        result_folder_name=fixture.result_name,
+        target_by_original_path=fixture.target_paths,
+    )
+    unrelated_json = jobs / "unrelated.json"
+    malformed_json = jobs / "malformed.json"
+    unrelated_json.write_bytes(b'{"unrelated":true}\n')
+    malformed_json.write_bytes(b"{not-json\n")
+    unrelated_before = unrelated_json.read_bytes()
+    malformed_before = malformed_json.read_bytes()
+    job_path = jobs / "receiver.json"
+    arguments = [
+        str(origin.change_file_path),
+        "--source",
+        str(fixture.martin_root),
+        "--output",
+        str(receiver_output),
+        "--job",
+        str(job_path),
+    ]
+
+    first = run_apply_change(arguments)
+    first_output = capsys.readouterr()
+    job_before_retry = job_path.read_bytes()
+    repeated = run_apply_change(arguments)
+    repeated_output = capsys.readouterr()
+
+    assert first == repeated == 0
+    assert first_output.err == repeated_output.err == ""
+    assert first_output.out == repeated_output.out
+    assert job_path.read_bytes() == job_before_retry
+    assert unrelated_json.read_bytes() == unrelated_before
+    assert malformed_json.read_bytes() == malformed_before
+    assert len(tuple(receiver_output.iterdir())) == 1
+
+
+def test_explicit_corrupt_job_path_is_preserved_and_blocks(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fixture = make_connected_change_fixture(tmp_path / "projects")
+    origin_output = tmp_path / "origin-output"
+    receiver_output = tmp_path / "receiver-output"
+    jobs = tmp_path / "shared-json-directory"
+    for path in (origin_output, receiver_output, jobs):
+        path.mkdir()
+    origin = create_connected_change_origin(
+        source_root=fixture.sofia_root,
+        output_parent=origin_output,
+        request=fixture.request,
+        result_folder_name=fixture.result_name,
+        target_by_original_path=fixture.target_paths,
+    )
+    job_path = jobs / "receiver.json"
+    corrupt_bytes = b'{"schema_version":"folder-refactor-job.v2"}\n'
+    job_path.write_bytes(corrupt_bytes)
+
+    exit_code = run_apply_change(
+        [
+            str(origin.change_file_path),
+            "--source",
+            str(fixture.martin_root),
+            "--output",
+            str(receiver_output),
+            "--job",
+            str(job_path),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "APPLY BLOCKED FolderJobV2LoadError" in captured.err
+    assert job_path.read_bytes() == corrupt_bytes
+    assert not tuple(receiver_output.iterdir())
+
+
 def test_installed_name_atlas_command_uses_the_early_launcher(tmp_path: Path) -> None:
     fixture = make_connected_change_fixture(tmp_path / "projects")
     origin_output = tmp_path / "origin-output"

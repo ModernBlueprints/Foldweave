@@ -79,6 +79,7 @@ def run_apply_change(argv: Sequence[str] | None = None) -> int:
             output_parent=output_parent,
             job_path=job_path,
             idempotency_key=_cli_idempotency_key(job_path),
+            idempotency_scope="exact_path",
         )
     except (
         FolderJobV2Error,
