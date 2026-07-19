@@ -1,8 +1,8 @@
 # Reversible Name Atlas — Sole Connected Change Implementation Plan
 
-Status: **EXECUTION ACTIVE; C2 COMPLETE; C3 NEXT**
+Status: **EXECUTION ACTIVE; C3 COMPLETE; C4 NEXT**
 
-Phase: **C3_FINAL_GPT_EVIDENCE_AND_FIXTURES**
+Phase: **C4_REQUIRED_SHARED_MCP**
 
 Submission hold: **ACTIVE**
 
@@ -69,9 +69,10 @@ Before C+0, Connected Change, native-picker expansion, shared MCP, plugin
 packaging, budget migration, new provider calls, promotion, video, and
 submission had not begun. C0 subsequently selected `CONNECTED_CHANGE_GO`; C1
 completed the full engine and durable-service boundary, and C2 completed the
-browser and bounded native experience. C3 now owns the final fixture, budget,
-live GPT-5.6, and recorded-replay evidence while C4 and later surfaces remain
-deferred.
+browser and bounded native experience. C3 completed the final fixtures, sole
+budget-ledger migration, real GPT-5.6 evidence, exact replays, final receiver
+transaction, and release-bound refusal matrix. C4 now owns the required shared
+MCP surface and the one-time plugin decision; later surfaces remain deferred.
 
 ## 2. C+0 activation, timing, and profile decision
 
@@ -631,8 +632,40 @@ downstream consumer, owner, allowed cut, actual status, and actual verification.
 - **Downstream consumer:** C4 shared MCP and release proof.
 - **Owner:** primary integrator; bounded replay/privacy/claims reviewer permitted.
 - **Allowed cut:** no extra polished fixture or second semantic review.
-- **Actual status:** `NOT STARTED`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `COMPLETE`.
+- **Actual verification:** the final 24-file hero completed through real
+  `gpt-5.6` in three response turns and 16 evidence calls without a question;
+  the returned model was `gpt-5.6-sol`, `store=false` was bound, receipt
+  `e3e15fb57f396760a53aecf1549cd3ecb0937cf85039e90113d29b4b1f88f9b1`
+  verified, and organized-tree commitment
+  `a11ab49b9b48151aae4343c189c2eecae8c0a67a91cac45144656eb0ece02f7e`
+  was produced. The final four-file ambiguity transaction completed in three
+  turns and four evidence calls, asked exactly one question, retained both
+  presentations, and produced verified receipt
+  `9eba5c8d670106641dec8d6f6dc4366ea12454db2bd7eb8a86f27c2ca7c3b2a7`
+  with commitment
+  `80d9bee46958fe996fb837c618534d29f3f0d90aad531ee18ce29ffbc1b639f6`.
+  Exact sanitized recordings are SHA-256
+  `75a4ab5f6bc41068c666659fb671bfbd1dcee6a24dcbbe67ba16250dca81d6a1`
+  and
+  `cf8dc1ad3ad99ed99a2a10d273c713245584c89a34cf547d0a5dd9c23fdd623f`;
+  neither contains a credential, response ID, absolute path, protected content,
+  or hidden reasoning. Keyless replays reproduced both transactions; Martin's
+  differently arranged source applied the hero Change File with zero provider,
+  API, budget, or external-network use, converged to the same organized tree,
+  independently verified, and reconstructed exactly. The final hero now proves
+  changed-payload, changed-Markdown-prose, changed-relationship, protected-file,
+  and Change File fingerprint refusals; the dedicated symmetric fixture blocks
+  without guessing; and a BagIt-valid accepted-plan alteration returns exact
+  `artifact_digest_mismatch:accepted_plan`. The real bundled replay reached Done
+  at 1280×720 and 390×844 with no horizontal overflow, verified again, and
+  recreated the original layout. Cross-mode restart now blocks before provider
+  setup rather than displaying a false live/replay label. The sole ledger is at
+  9/13 requests and attempts, USD 9.736060 conservative exposure, USD 0.605515
+  reported estimated cost, and unchanged USD 10 authority. Final focused tests
+  passed 13/13; the complete regression passed **795/795 in 46.48 seconds**;
+  lock, Ruff lint, Ruff format, and diff checks pass. Independent replay/privacy
+  and end-to-end audits both returned `GO` after their findings were corrected.
 
 ### C4 — Required shared MCP and plugin decision
 

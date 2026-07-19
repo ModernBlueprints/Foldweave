@@ -33,6 +33,7 @@ packages = ["src/name_atlas"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "THIRD_PARTY_NOTICES.md" = "name_atlas/THIRD_PARTY_NOTICES.md"
+"sample_data/connected_change" = "name_atlas/sample_data/connected_change"
 "sample_data/hero" = "name_atlas/sample_data/hero"
 "sample_data/folder_a1" = "name_atlas/sample_data/folder_a1"
 

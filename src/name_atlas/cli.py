@@ -395,7 +395,7 @@ def run(
             decision_card_provider=decision_card_provider,
             package_validator=BagItPackageValidator(),
             replay_record_path=replay_record_path,
-            budget_ledger_path=BUDGET_LEDGER_PATH,
+            budget_ledger_path=(BUDGET_LEDGER_PATH if mode is RunMode.LIVE else None),
             case_path=case_path,
         )
     except (BudgetLedgerError, MigrationCaseError, PackageImportError) as exc:

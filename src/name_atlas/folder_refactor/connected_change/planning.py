@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -48,12 +49,33 @@ class ConnectedPlannerCheckpointWriter:
 
     writer: FolderRefactorJobV2Writer
     usage: tuple[FolderPlannerUsage, ...] = ()
+    usage_source: Callable[[], tuple[FolderPlannerUsage, ...]] | None = None
     latest_job: FolderRefactorJobV2 | None = field(default=None, init=False)
+
+    def current_usage(self) -> tuple[FolderPlannerUsage, ...]:
+        """Merge the persisted prefix with the provider's observed prefix."""
+
+        observed = self.usage_source() if self.usage_source is not None else ()
+        if not observed:
+            return self.usage
+        if observed[: len(self.usage)] == self.usage:
+            return observed
+        if observed[0].response_turn == len(self.usage) + 1:
+            combined = self.usage + observed
+            if tuple(item.response_turn for item in combined) == tuple(
+                range(1, len(combined) + 1)
+            ):
+                return combined
+        raise ConnectedChangeJobServiceError(
+            "planner_usage_prefix_mismatch",
+            "Provider usage differs from the durable append-only prefix.",
+        )
 
     def __call__(self, progress: FolderPlannerProgress) -> None:
         """Convert only accepted output; retain complete progress at every step."""
 
         current = self.writer.load()
+        usage = self.current_usage()
         if not isinstance(current.authority, GptPlannedJobAuthorityV2):
             raise ConnectedChangeJobServiceError(
                 "planner_authority_mismatch",
@@ -79,13 +101,13 @@ class ConnectedPlannerCheckpointWriter:
             execution_origin, evidence_ledger = build_planner_origin_evidence(
                 progress=progress,
                 accepted_plan=accepted_plan,
-                usage=self.usage,
+                usage=usage,
             )
 
         checkpoint = GptPlannerCheckpointV2.from_progress(
             progress,
             accepted_plan_fingerprint=accepted_plan_fingerprint,
-            usage=self.usage,
+            usage=usage,
         )
         authority = GptPlannedJobAuthorityV2(
             planner_checkpoint=checkpoint,
@@ -247,6 +269,7 @@ class ConnectedOriginPlanningService:
                     "Planner continuation requires GPT-planned job authority.",
                 )
             progress = job.authority.planner_checkpoint.progress
+            persisted_usage = job.authority.planner_checkpoint.usage
             if progress is None:
                 raise ConnectedChangeJobServiceError(
                     "planner_progress_missing",
@@ -271,7 +294,12 @@ class ConnectedOriginPlanningService:
             if refreshed.lifecycle.terminal:
                 return refreshed
             _require_same_job_source(refreshed, scan)
-            checkpoint = ConnectedPlannerCheckpointWriter(writer, usage=usage)
+            base_usage = usage or persisted_usage
+            checkpoint = ConnectedPlannerCheckpointWriter(
+                writer,
+                usage=base_usage,
+                usage_source=lambda: getattr(provider, "usage", ()),
+            )
             orchestrator = PlannerOrchestrator(
                 job_id=refreshed.job_id,
                 scan=scan,

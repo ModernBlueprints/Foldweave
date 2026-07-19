@@ -243,7 +243,7 @@ async def test_one_question_answer_continues_same_bounded_planner(
                         call_id="question",
                         question="Which report should lead the handoff?",
                         missing_facts=("lead_report",),
-                        evidence_ids=(evidence_id,),
+                        evidence_ids=(evidence_call.call_id,),
                     ),
                 ),
             ),

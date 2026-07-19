@@ -1,0 +1,4 @@
+# Connected Change fixture payloads are byte-exact evidence, not source text.
+sample_data/connected_change/ambiguity/** binary
+sample_data/connected_change/martin_apollo/** binary
+sample_data/connected_change/sofia_apollo/** binary

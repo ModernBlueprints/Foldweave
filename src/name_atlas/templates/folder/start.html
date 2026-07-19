@@ -42,7 +42,7 @@
         <summary>What may be shared with GPT-5.6 in live mode?</summary>
         <div>
           {% if not state.outbound_evidence_will_be_sent %}
-            <p><strong>This displayed development run makes no GPT or OpenAI API call.</strong> The disclosure below describes the live planning mode that will use the same bounded evidence contract.</p>
+            <p><strong>This displayed planning run makes no GPT or OpenAI API call.</strong> The mode label above identifies whether it is a recorded GPT-5.6 run or a deterministic development run. The disclosure below describes the live mode that uses the same bounded evidence contract.</p>
           {% endif %}
           <p>Your original folder will not be changed. Name Atlas will create and verify a separate result. It sends GPT-5.6 your instruction, relative file names and folder structure, basic file metadata used to bind the plan, selected excerpts from eligible text and Markdown files, and supported Markdown-link context needed to plan the change. It does not send every file's bytes. Raw content hashes are kept local.</p>
           <p>Name Atlas sets <code>store=false</code>, so it does not ask OpenAI to store the generated response for later retrieval through the Responses API. OpenAI's standard abuse-monitoring and prompt-caching retention may still apply.</p>
@@ -55,7 +55,7 @@
           {% if state.outbound_evidence_will_be_sent %}
             <span>I understand what Name Atlas sends to GPT-5.6 for this planning run.</span>
           {% else %}
-            <span>I understand the live-mode disclosure and that this displayed development run makes no GPT or OpenAI API call.</span>
+            <span>I understand the live-mode disclosure and that this displayed planning run makes no GPT or OpenAI API call.</span>
           {% endif %}
         </label>
       {% endif %}

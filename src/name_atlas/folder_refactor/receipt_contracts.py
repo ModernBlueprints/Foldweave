@@ -83,13 +83,39 @@ class FolderUserRequestArtifact(StrictFrozenModel):
 
 
 class FolderPlannerUsage(StrictFrozenModel):
-    """Observable per-turn usage reserved for truthful live A4 records."""
+    """Observable per-turn usage for one truthful live planner request."""
 
     response_turn: int = Field(ge=1, le=8)
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
     cached_input_tokens: int = Field(ge=0)
+    reasoning_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
+    latency_ms: float | None = Field(default=None, ge=0.0)
+    recorded_at: datetime | None = None
     estimated_cost_microusd: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def require_observable_usage_consistency(self) -> Self:
+        if self.cached_input_tokens > self.input_tokens:
+            raise ValueError("Cached input tokens cannot exceed input tokens.")
+        if self.reasoning_tokens is not None and (
+            self.reasoning_tokens > self.output_tokens
+        ):
+            raise ValueError("Reasoning tokens cannot exceed output tokens.")
+        if self.total_tokens is not None and self.total_tokens != (
+            self.input_tokens + self.output_tokens
+        ):
+            raise ValueError("Total tokens must equal input plus output tokens.")
+        if self.recorded_at is not None:
+            if self.recorded_at.tzinfo is None or self.recorded_at.utcoffset() is None:
+                raise ValueError("Planner usage timestamp must be timezone-aware.")
+            if (
+                self.recorded_at.utcoffset()
+                != self.recorded_at.astimezone(oslo_tz).utcoffset()
+            ):
+                raise ValueError("Planner usage timestamp must use Europe/Oslo.")
+        return self
 
 
 class FolderEvidenceLedger(StrictFrozenModel):
@@ -200,6 +226,12 @@ class FolderEvidenceLedger(StrictFrozenModel):
         usage_turns = tuple(item.response_turn for item in self.usage)
         if usage_turns != tuple(sorted(set(usage_turns))):
             raise ValueError("Usage records must use unique ascending turn numbers.")
+        if self.provider_kind == "live" and usage_turns != tuple(
+            range(1, self.response_turn_count + 1)
+        ):
+            raise ValueError(
+                "Every successful live response turn requires one usage record."
+            )
         if self.provider_kind != "live" and self.usage:
             raise ValueError("Only a live transcript may contain provider usage.")
         if self.transcript_fingerprint != canonical_sha256(

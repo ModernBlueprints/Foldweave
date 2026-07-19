@@ -119,6 +119,7 @@ def test_wheel_configuration_includes_notice_and_package_assets() -> None:
     assert wheel["packages"] == ["src/name_atlas"]
     assert wheel["force-include"] == {
         "THIRD_PARTY_NOTICES.md": "name_atlas/THIRD_PARTY_NOTICES.md",
+        "sample_data/connected_change": "name_atlas/sample_data/connected_change",
         "sample_data/folder_a1": "name_atlas/sample_data/folder_a1",
         "sample_data/hero": "name_atlas/sample_data/hero",
     }

@@ -405,7 +405,9 @@ class PlannerOrchestrator:
             return self._persist(
                 self._blocked(progress, "second_clarification_not_allowed")
             )
-        unknown = set(call.evidence_ids) - self._known_evidence_ids(progress)
+        unknown = set(call.evidence_ids) - self._known_clarification_evidence_ids(
+            progress
+        )
         if unknown:
             return self._persist(
                 self._blocked(progress, "unknown_clarification_evidence")
@@ -606,6 +608,25 @@ class PlannerOrchestrator:
             {"initial_inventory"}
             | {record.fingerprint for record in progress.evidence_ledger.records}
         )
+
+    def _known_clarification_evidence_ids(
+        self,
+        progress: FolderPlannerProgress,
+    ) -> frozenset[str]:
+        """Accept exact evidence digests and unambiguous observed tool-call IDs.
+
+        The Responses API naturally refers back to a tool result by its call ID.
+        Those IDs remain bound to the complete evidence record in the observable
+        transcript. Plan entries continue to require content-addressed evidence
+        fingerprints; this narrow alias applies only to the one user question.
+        """
+
+        records = progress.evidence_ledger.records
+        call_ids = tuple(record.call_id for record in records)
+        unique_call_ids = {
+            call_id for call_id in call_ids if call_ids.count(call_id) == 1
+        }
+        return self._known_evidence_ids(progress) | frozenset(unique_call_ids)
 
     def _require_bound_progress(self, progress: FolderPlannerProgress) -> None:
         if (

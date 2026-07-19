@@ -90,11 +90,23 @@ class ConnectedBrowserRunService:
         job_path: Path,
         service: ConnectedChangeJobService | None = None,
         planner_provider_factory: Callable[[], PlannerProvider] | None = None,
+        planner_label: str | None = None,
+        planner_note: str | None = None,
+        outbound_evidence_will_be_sent: bool | None = None,
+        default_request: str | None = None,
     ) -> None:
         self._job_path = job_path.expanduser().resolve(strict=False)
         self._service = service or ConnectedChangeJobService()
         self._planner_provider_factory = planner_provider_factory
         self._progress_callback: FolderProgressCallback | None = None
+        if planner_label is not None:
+            self.planner_label = planner_label
+        if planner_note is not None:
+            self.planner_note = planner_note
+        if outbound_evidence_will_be_sent is not None:
+            self.outbound_evidence_will_be_sent = outbound_evidence_will_be_sent
+        if default_request is not None:
+            self.default_request = default_request
 
     @property
     def run_in_worker_thread(self) -> bool:

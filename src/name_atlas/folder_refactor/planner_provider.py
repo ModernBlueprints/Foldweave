@@ -19,6 +19,7 @@ from name_atlas.folder_refactor.planner_contracts import (
     ProviderToolResponse,
     SubmitPlanCall,
 )
+from name_atlas.folder_refactor.receipt_contracts import FolderPlannerUsage
 from name_atlas.folder_refactor.serialization import (
     canonical_json_bytes,
     request_fingerprint,
@@ -70,6 +71,12 @@ class PlannerProvider(Protocol):
     @property
     def provider_kind(self) -> Literal["deterministic", "live", "recorded_replay"]:
         """Return the truthful origin used for persisted turn metadata."""
+        ...
+
+    @property
+    def usage(self) -> tuple[FolderPlannerUsage, ...]:
+        """Return the append-only live usage prefix, or an empty tuple."""
+
         ...
 
     async def exchange(
@@ -142,6 +149,10 @@ class ScriptedPlannerProvider:
 
         return len(self._outcomes) - self._next_index
 
+    @property
+    def usage(self) -> tuple[FolderPlannerUsage, ...]:
+        return ()
+
     async def exchange(
         self,
         turn_input: FolderPlannerTurnInput,
@@ -188,6 +199,10 @@ class DeterministicDevelopmentPlannerProvider:
     @property
     def provider_kind(self) -> Literal["deterministic"]:
         return "deterministic"
+
+    @property
+    def usage(self) -> tuple[FolderPlannerUsage, ...]:
+        return ()
 
     async def exchange(
         self,

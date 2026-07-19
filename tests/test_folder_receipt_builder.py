@@ -67,6 +67,7 @@ from name_atlas.folder_refactor.receipt_contracts import (
     FolderChangeLedger,
     FolderEvidenceLedger,
     FolderPathMapRow,
+    FolderPlannerUsage,
     FolderReceiptEnvelope,
     FolderStagedDataMember,
     FolderUserRequestArtifact,
@@ -716,7 +717,22 @@ def _folder_evidence_ledger(
         "clarification_question": None,
         "clarification_answer": None,
         "accepted_plan_fingerprint": canonical_sha256(accepted_plan),
-        "usage": (),
+        "usage": (
+            (
+                FolderPlannerUsage(
+                    response_turn=1,
+                    input_tokens=100,
+                    output_tokens=20,
+                    cached_input_tokens=0,
+                    reasoning_tokens=5,
+                    total_tokens=120,
+                    latency_ms=25.0,
+                    estimated_cost_microusd=1_100,
+                ),
+            )
+            if provider_kind == "live"
+            else ()
+        ),
     }
     draft = FolderEvidenceLedger.model_construct(
         **values,

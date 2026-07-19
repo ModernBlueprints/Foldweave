@@ -18,6 +18,10 @@ def run(argv: Sequence[str] | None = None) -> int:
         from name_atlas.connected_browser_cli import run_connected_browser
 
         return run_connected_browser(arguments[1:])
+    if arguments and arguments[0] == "demo":
+        from name_atlas.connected_browser_cli import run_connected_demo
+
+        return run_connected_demo(arguments[1:])
 
     from name_atlas.cli import run as run_legacy_cli
 
