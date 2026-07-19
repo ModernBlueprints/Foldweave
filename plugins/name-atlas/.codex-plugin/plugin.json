@@ -1,0 +1,35 @@
+{
+  "name": "name-atlas",
+  "version": "0.1.0",
+  "description": "Plan, apply, verify, and reconstruct connected-folder changes with Name Atlas.",
+  "author": {
+    "name": "Modern Blueprints",
+    "url": "https://github.com/ModernBlueprints"
+  },
+  "homepage": "https://github.com/ModernBlueprints/reversible-name-atlas",
+  "repository": "https://github.com/ModernBlueprints/reversible-name-atlas",
+  "license": "MIT",
+  "keywords": [
+    "connected-folders",
+    "file-organization",
+    "reversible-changes",
+    "mcp"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Reversible Name Atlas",
+    "shortDescription": "Plan once. Apply the same verified folder change elsewhere.",
+    "longDescription": "Plan one bounded connected-folder reorganization with GPT-5.6, or apply a verified Name Atlas Change File without another model call. Every operation uses the same local job, receipt, verifier, and reconstruction services as the Name Atlas browser and CLI.",
+    "developerName": "Modern Blueprints",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Organize a project folder with Name Atlas.",
+      "Apply a shared Name Atlas Change File.",
+      "Verify a Name Atlas result and recreate its source."
+    ]
+  }
+}

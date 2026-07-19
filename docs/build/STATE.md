@@ -1,6 +1,6 @@
 # Reversible Name Atlas — Current Build State
 
-Checkpoint: **Sunday 19 July 2026 at 07:54:49 CEST**
+Checkpoint: **Sunday 19 July 2026 at 08:20:23 CEST**
 
 Phase: **C5_OPTIONAL_CODEX_PLUGIN_AND_FEATURE_FREEZE**
 
@@ -16,14 +16,14 @@ Submission hold: **ACTIVE**
   EXECUTION**.
 - Amended Connected Change goal: **ACTIVE**.
 - Selected profile: **CONNECTED_CHANGE_GO**.
-- Feature freeze: **Monday 20 July 2026 at 14:00 CEST**; **1 day, 6 hours,
-  5 minutes, 11 seconds remaining at checkpoint**.
-- Release candidate: **Monday 20 July 2026 at 20:00 CEST**; **1 day, 12 hours,
-  5 minutes, 11 seconds remaining at checkpoint**.
-- Recording ready: **Tuesday 21 July 2026 at 02:00 CEST**; **1 day, 18 hours,
-  5 minutes, 11 seconds remaining at checkpoint**.
+- Feature freeze: **Monday 20 July 2026 at 14:00 CEST**; **1 day, 5 hours,
+  39 minutes, 37 seconds remaining at checkpoint**.
+- Release candidate: **Monday 20 July 2026 at 20:00 CEST**; **1 day, 11 hours,
+  39 minutes, 37 seconds remaining at checkpoint**.
+- Recording ready: **Tuesday 21 July 2026 at 02:00 CEST**; **1 day, 17 hours,
+  39 minutes, 37 seconds remaining at checkpoint**.
 - Submission deadline: **Wednesday 22 July 2026 at 02:00 CEST**; **2 days,
-  18 hours, 5 minutes, 11 seconds remaining at checkpoint**.
+  17 hours, 39 minutes, 37 seconds remaining at checkpoint**.
 - Submission hold: **ACTIVE**.
 
 ## Repository checkpoint
@@ -61,7 +61,8 @@ cleanliness. Fresh Git controls current repository facts.
 - Sole budget migration: **COMPLETE; HISTORY PRESERVED**.
 - Required shared MCP: **COMPLETE AND VERIFIED**.
 - Codex plugin gate: **GO**.
-- Codex plugin implementation: **NOT STARTED**.
+- Codex plugin implementation: **IN PROGRESS; LOCAL INSTALLATION PASSED; CLEAN
+  PUBLIC-CLONE ACCEPTANCE PENDING**.
 - Feature freeze: **PENDING; ABSOLUTE BOUNDARY ACTIVE**.
 - Release materials: **STALE — PRESERVED SECOND-CYCLE RELEASE MATERIAL; MUST BE
   REGENERATED AFTER THE SELECTED PRODUCT PROFILE REACHES FEATURE FREEZE**.
@@ -162,6 +163,47 @@ cleanliness. Fresh Git controls current repository facts.
   before feature freeze; the thin package is estimated below four hours and
   reuses the same MCP server.
 
+## C5 plugin evidence in progress
+
+- Official plugin-creator scaffold and validator: **PASSED**.
+- Repository surfaces: `.agents/plugins/marketplace.json` and
+  `plugins/name-atlas/{.codex-plugin/plugin.json,.mcp.json,README.md}`; the MCP
+  configuration contains only relative `uv run --frozen name-atlas mcp`
+  authority and no developer path or copied product implementation.
+- Local installed cache:
+  `/Users/nikolai/.codex/plugins/cache/personal/name-atlas/0.1.0`; manifest
+  SHA-256
+  `8c8ce078f42f496bc58164ee542b416392a3b1330e893dbc55fcdac7e9c8449b`
+  and MCP-config SHA-256
+  `f681577e00871014227589ccb98aba78e46728207409d8ebd2257ece9d3be154`
+  exactly match the repository source.
+- Fresh installed-plugin Codex task:
+  `019f78fe-5fc9-7392-b452-975af8447d3b`; `name-atlas.verify_result` returned
+  receipt
+  `7776d996a851ff6109aa12a6f7a8268369974fc3bf4977446f2950b43e99b2f8`,
+  organized tree
+  `a11ab49b9b48151aae4343c189c2eecae8c0a67a91cac45144656eb0ece02f7e`,
+  and no failed check.
+- Installed-cache direct acceptance:
+  `.name-atlas/c5-plugin-install-20260719T0805+0200/installed-plugin-acceptance.json`;
+  a keyless 24-file replay, verified Change File, source-free verification, and
+  exact original-layout reconstruction passed with receipt
+  `c9a70f18db0e08911d86e482b3ef687f6ef0345c0936bc568994b67d67217434`.
+  Live mode returned exact blocker `live_credential_missing`. Budget SHA-256
+  stayed
+  `c76f578db7d571b8297b9ba48467b8680e5759979370a81c978b0d72d31edecb`.
+- Preserved setup attempts: one Codex prompt pointed to a nonexistent result and
+  failed closed; two mutating calls were cancelled by the noninteractive Codex
+  host before Name Atlas received them. No job, provider call, result, or budget
+  mutation followed those cancellations.
+- Focused plugin/MCP suite: **16 passed**.
+- Complete regression: **811 passed in 63.67 seconds**.
+- Lock, Ruff lint, Ruff format over 153 files, and diff checks: **PASSED**.
+- Remaining C5 gate: commit/push the candidate, clone that public revision into
+  an unrelated clean path, run frozen installation, install from that clone's
+  repository marketplace, prove a fresh task and installed-cache invocation,
+  then record feature freeze.
+
 ## Credentials, budget, and inactive later surfaces
 
 - Process `OPENAI_API_KEY`: **ABSENT; NO VALUE READ**.
@@ -174,31 +216,32 @@ cleanliness. Fresh Git controls current repository facts.
 - Further live GPT calls: **NOT REQUIRED OR PLANNED**.
 - Browser/native QA servers: **STOPPED**.
 - Shared MCP implementation and direct/Codex qualification: **COMPLETE**.
-- Plugin packaging, promotion, public-release, video, and submission operations:
-  **NOT STARTED**.
+- Plugin packaging/local installation: **IN PROGRESS; LOCAL ACCEPTANCE PASSED**.
+- Promotion, public-release, video, and submission operations: **NOT STARTED**.
 
 ## Compact recovery capsule
 
 - Phase: `C5_OPTIONAL_CODEX_PLUGIN_AND_FEATURE_FREEZE`.
 - Branch/A3/C0: `revision/ai-first-folder-refactor` / `e3803d2` / `a5ea342`.
 - Active profile/current milestone: `CONNECTED_CHANGE_GO / C4 COMPLETE; PLUGIN
-  GO; C5 NEXT`.
-- Latest checks: `12 focused MCP; 807 full; lock; Ruff lint; Ruff format; diff;
-  direct seven-tool transaction; actual Codex invocation; two final audits GO`.
+  GO; C5 IN PROGRESS`.
+- Latest checks: `16 focused plugin/MCP; 811 full; official plugin validator;
+  local install; fresh Codex verify; installed-cache keyless replay, verify,
+  reconstruction, and missing-key blocker; lock; Ruff lint; Ruff format; diff`.
 - Change File/matcher/job/provenance: `C1 COMPLETE AND VERIFIED`.
 - Receipt/verifier/reconstruction: `C1/C3 COMPLETE AND VERIFIED`.
 - Browser/native picker: `C2/C3 COMPLETE AND VERIFIED`.
 - GPT live/replay: `TWO NEW LIVE TRANSACTIONS AND TWO EXACT REPLAYS COMPLETE`.
-- MCP/plugin: `COMPLETE AND VERIFIED / GATE GO; IMPLEMENTATION NOT STARTED`.
+- MCP/plugin: `COMPLETE AND VERIFIED / GATE GO; LOCAL ACCEPTANCE PASSED; CLEAN
+  PUBLIC-CLONE ACCEPTANCE PENDING`.
 - Feature freeze/release materials: `ABSOLUTE BOUNDARY ACTIVE / STALE`.
 - Submission hold: `ACTIVE`.
 - Blockers: `NONE`.
-- Next operation: use the official plugin-creator workflow to add one thin
-  repository marketplace/plugin wrapper around the existing MCP server, then
-  prove clean-clone installation, refreshed new-task discovery, installed-cache
-  invocation, keyless replay, and missing-key live behavior before feature
-  freeze.
+- Next operation: commit and push the validated thin plugin candidate, clone the
+  public revision into an unrelated clean path, install its marketplace/plugin
+  in an isolated Codex home, and prove refreshed new-task discovery plus
+  installed-cache keyless invocation before feature freeze.
 
 ## Exact next operation
 
-`Begin C5 with the official plugin-creator workflow, implement only the thin admitted Codex plugin around the verified shared MCP server, prove installed-copy execution from a clean clone, and then enter feature freeze.`
+`Commit and push the validated C5 plugin candidate, then perform frozen install, marketplace/plugin installation, new-task discovery, and installed-cache invocation from an unrelated clean public clone before recording feature freeze.`

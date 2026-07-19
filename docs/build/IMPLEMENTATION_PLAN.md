@@ -773,9 +773,31 @@ downstream consumer, owner, allowed cut, actual status, and actual verification.
 - **Owner:** primary integrator. Plugin creation can be delegated only after GO;
   final integration remains primary.
 - **Allowed cut:** plugin packaging and every earlier optional presentation item.
-- **Actual status:** `NOT STARTED — PLUGIN GATE GO`.
-- **Actual verification:** `NOT RUN`; the official plugin-creator workflow is
-  the next operation. No plugin file exists at this checkpoint.
+- **Actual status:** `IN PROGRESS — PLUGIN GATE GO`.
+- **Actual verification:** the official plugin-creator workflow generated one
+  thin `name-atlas` plugin, relative `.mcp.json`, and repository marketplace;
+  its official validator passes. Local marketplace installation created cache
+  `/Users/nikolai/.codex/plugins/cache/personal/name-atlas/0.1.0`, whose manifest
+  and MCP-config hashes exactly match the repository plugin. Fresh Codex task
+  `019f78fe-5fc9-7392-b452-975af8447d3b` invoked installed
+  `name-atlas.verify_result` and returned the expected receipt
+  `7776d996a851ff6109aa12a6f7a8268369974fc3bf4977446f2950b43e99b2f8`
+  and tree
+  `a11ab49b9b48151aae4343c189c2eecae8c0a67a91cac45144656eb0ece02f7e`.
+  The installed cached config then completed a 24-file keyless replay, Change
+  File retrieval, source-free verification, and exact reconstruction with
+  receipt
+  `c9a70f18db0e08911d86e482b3ef687f6ef0345c0936bc568994b67d67217434`,
+  while live mode returned exact `live_credential_missing` and the budget
+  digest remained
+  `c76f578db7d571b8297b9ba48467b8680e5759979370a81c978b0d72d31edecb`.
+  The first Codex verification prompt used a nonexistent evidence path and
+  failed closed; two attempted noninteractive mutating calls were cancelled by
+  the Codex host before reaching Name Atlas and created no job or budget change.
+  These are preserved test-attempt facts, not product defects. **16 focused
+  plugin/MCP tests and 811 full-suite tests pass**; lock, Ruff lint, Ruff format
+  over 153 files, and diff checks pass. Clean-public-clone marketplace install,
+  cache-copy invocation, and final feature-freeze proof remain pending.
 
 ### C6 — Release candidate
 

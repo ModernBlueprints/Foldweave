@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "name-atlas": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--frozen",
+        "name-atlas",
+        "mcp"
+      ]
+    }
+  }
+}
