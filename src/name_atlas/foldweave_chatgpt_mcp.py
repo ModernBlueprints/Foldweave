@@ -7,6 +7,7 @@ import logging
 import re
 import sys
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, NoReturn, cast
 
@@ -15,9 +16,13 @@ from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from pydantic import BeforeValidator, Field, JsonValue, model_validator
 
+from name_atlas.folder_refactor.connected_change.job_v2 import (
+    CapsuleAppliedJobAuthorityV2,
+)
 from name_atlas.folder_refactor.connected_change.job_v3 import (
     FolderJobLifecycleV3,
     FolderRefactorJobV3,
+    GptDerivativeJobAuthorityV3,
     GptHostedJobAuthorityV3,
     build_keep_previous_action,
 )
@@ -29,6 +34,7 @@ from name_atlas.folder_refactor.contracts import (
 )
 from name_atlas.folder_refactor.foldweave_host_contracts import (
     FolderHostPlanRevisionV1,
+    HostModelTransport,
 )
 from name_atlas.folder_refactor.serialization import (
     canonical_json_bytes,
@@ -38,15 +44,18 @@ from name_atlas.foldweave_host_service import (
     FoldweaveHostPlanningService,
     FoldweaveHostServiceError,
 )
-from name_atlas.foldweave_local_handles import OpaqueLocalItemHandle
+from name_atlas.foldweave_local_handles import (
+    LocalHandleChannel,
+    OpaqueLocalItemHandle,
+)
 from name_atlas.native_bridge import NativePathRole, NativeSelectionStatus
 
-WIDGET_RESOURCE_URI = "ui://foldweave/review-v10.html"
+WIDGET_RESOURCE_URI = "ui://foldweave/review-v16.html"
 WIDGET_MIME_TYPE = "text/html;profile=mcp-app"
 WIDGET_JS_NAME = "foldweave-chatgpt-widget.js"
 WIDGET_CSS_NAME = "foldweave-chatgpt-widget.css"
 
-_FIRST_INSTRUCTION_BLOCK = (
+_CHATGPT_FIRST_INSTRUCTION_BLOCK = (
     "Foldweave never changes a selected source. Origin workflow: choose source "
     "and output handles, call plan_change, inspect only bounded evidence, submit "
     "one complete plan, then call get_plan_preview. The user may revise through "
@@ -54,27 +63,94 @@ _FIRST_INSTRUCTION_BLOCK = (
     "job_status and verify_result. ChatGPT supplies model inference; this server "
     "never calls the Foldweave Responses API or its direct budget ledger."
 )
-if len(_FIRST_INSTRUCTION_BLOCK) > 512:
+_CODEX_FIRST_INSTRUCTION_BLOCK = (
+    "Foldweave never changes a selected source. Codex workflow: choose source "
+    "and output handles, call plan_change, inspect only bounded evidence, submit "
+    "one complete plan, then call get_plan_preview. Revise through revise_plan "
+    "and submit_plan_revision or accept the exact preview. Poll job_status, then "
+    "retrieve, verify, or reconstruct through the bounded tools. Codex supplies "
+    "model inference; this server never calls the Foldweave Responses API."
+)
+if (
+    max(
+        len(_CHATGPT_FIRST_INSTRUCTION_BLOCK),
+        len(_CODEX_FIRST_INSTRUCTION_BLOCK),
+    )
+    > 512
+):
     raise AssertionError("The hosted MCP workflow instruction exceeds 512 characters.")
 
-SERVER_INSTRUCTIONS = (
-    _FIRST_INSTRUCTION_BLOCK.ljust(512)
-    + "Every mutation is bound to an opaque local handle, durable job, exact "
+_COMMON_INSTRUCTIONS = (
+    "Every mutation is bound to an opaque local handle, durable job, exact "
     "fingerprints, and expected revision. Mutations that accept a caller retry "
     "key bind it durably; clarification retries bind the exact question or "
     "answer. Never invent a handle, local path, proof result, or approval. The "
     "model proposes; fixed "
     "Foldweave code scans, compiles, renders, executes, receipts, and verifies; "
-    "only the user accepts. Current F0c qualification exposes the complete hosted "
-    "origin review/revision/accept/verify path. Receiver preparation, Change File "
-    "retrieval, and reconstruction are later surfaces and are intentionally not "
-    "advertised by this server. Every successful bounded-evidence result returns "
-    "the authoritative current evidence_fingerprint and permitted_evidence_ids. "
-    "Use those exact values in submit_plan. Every plan entry must cite only a "
-    "permitted ID; initial_inventory is valid for inventory-based moves. Never "
-    "put a call ID, file ID, or fingerprint into evidence_ids, and never submit "
-    "an empty or placeholder probe plan."
+    "only the user accepts. Origin and receiver preparation both stop at review. "
+    "An unchanged receiver remains model-free; revise_plan creates one immutable "
+    "hosted derivative child. Verified jobs expose bounded Change File, verifier, "
+    "and transaction-specific reconstruction operations. Every successful "
+    "bounded-evidence result returns "
+    "the authoritative current evidence_fingerprint, permitted_evidence_ids, "
+    "and one citation_evidence_id. Use citation_evidence_id verbatim in the "
+    "relevant submit_plan or submit_plan_revision entries; it can be "
+    "initial_inventory or an evidence-record fingerprint. Never use a call ID, "
+    "file ID, or any value absent from permitted_evidence_ids as an evidence ID, "
+    "and never submit an empty or placeholder probe plan. For a path-only sparse "
+    "revision, cite exactly initial_inventory in every revision entry unless an "
+    "exact permitted evidence ID was already returned before revise_plan. Evidence "
+    "tools are intentionally unavailable after revise_plan reserves the revision; "
+    "do not call them while the job is revising."
+    " Submit exactly one plan entry for every inventory file whose protected "
+    "flag is false, even when evidence_eligible is false. Omit protected files "
+    "and explicit empty directories because deterministic Foldweave code "
+    "injects them. If submit_plan rejects the candidate, call "
+    "get_compiler_failures and retry the corrected complete plan with a fresh "
+    "call_id."
 )
+SERVER_INSTRUCTIONS = _CHATGPT_FIRST_INSTRUCTION_BLOCK.ljust(512) + _COMMON_INSTRUCTIONS
+CODEX_SERVER_INSTRUCTIONS = (
+    _CODEX_FIRST_INSTRUCTION_BLOCK.ljust(512) + _COMMON_INSTRUCTIONS
+)
+
+McpServerSurface = Literal["chatgpt_hosted", "codex_hosted"]
+ExecutionChannel = Literal["chatgpt_hosted", "codex_mcp"]
+PublicPlanningBasis = Literal["fresh", "derivative", "none"]
+PublicModelTransport = Literal["chatgpt_hosted", "codex_hosted", "none"]
+PublicExecutionOrigin = Literal[
+    "gpt_planned",
+    "gpt_revised_from_change_file",
+    "capsule_applied",
+    "none",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class _McpProfile:
+    surface: McpServerSurface
+    handle_channel: LocalHandleChannel
+    model_transport: HostModelTransport
+    execution_channel: ExecutionChannel
+    instructions: str
+
+
+_MCP_PROFILES: Mapping[McpServerSurface, _McpProfile] = {
+    "chatgpt_hosted": _McpProfile(
+        surface="chatgpt_hosted",
+        handle_channel="chatgpt_hosted",
+        model_transport="chatgpt_hosted",
+        execution_channel="chatgpt_hosted",
+        instructions=SERVER_INSTRUCTIONS,
+    ),
+    "codex_hosted": _McpProfile(
+        surface="codex_hosted",
+        handle_channel="codex_hosted",
+        model_transport="codex_hosted",
+        execution_channel="codex_mcp",
+        instructions=CODEX_SERVER_INSTRUCTIONS,
+    ),
+}
 
 WIDGET_RESOURCE_META: dict[str, Any] = {
     "ui": {
@@ -106,6 +182,13 @@ _WIDGET_TOOL_META: dict[str, Any] = {
 }
 _WIDGET_CALLABLE_META: dict[str, Any] = {
     "ui": {"visibility": ["app"]},
+    "openai/widgetAccessible": True,
+}
+_MODEL_ONLY_TOOL_META: dict[str, Any] = {
+    "ui": {"visibility": ["model"]},
+}
+_MODEL_AND_WIDGET_CALLABLE_META: dict[str, Any] = {
+    "ui": {"visibility": ["model", "app"]},
     "openai/widgetAccessible": True,
 }
 
@@ -161,7 +244,14 @@ class FoldweaveHostedJobStatusV1(StrictFrozenModel):
     proposal_revision: int = Field(ge=0, le=2)
     source_commitment: str = Field(pattern=SHA256_PATTERN)
     request_fingerprint: str = Field(pattern=SHA256_PATTERN)
-    model_transport: Literal["chatgpt_hosted"] = "chatgpt_hosted"
+    planning_basis: Literal["fresh", "derivative", "none"]
+    model_transport: Literal["chatgpt_hosted", "codex_hosted", "none"]
+    execution_origin: Literal[
+        "gpt_planned",
+        "gpt_revised_from_change_file",
+        "capsule_applied",
+        "none",
+    ]
     direct_api_used: Literal[False] = False
     direct_budget_reserved: Literal[False] = False
     has_preview: bool
@@ -209,6 +299,13 @@ class FoldweaveEvidenceResultV1(StrictFrozenModel):
     job_revision: int = Field(ge=0)
     evidence_fingerprint: str = Field(pattern=SHA256_PATTERN)
     permitted_evidence_ids: tuple[str, ...] = Field(min_length=1)
+    citation_evidence_id: str | None = Field(
+        min_length=1,
+        description=(
+            "Exact evidence ID to copy into the current plan entry, or null when "
+            "the evidence call failed."
+        ),
+    )
     tool_name: Literal[
         "list_inventory_page",
         "read_text_excerpt",
@@ -225,6 +322,15 @@ class FoldweaveEvidenceResultV1(StrictFrozenModel):
     def require_one_outcome(self):
         if (self.result is None) == (self.error_code is None):
             raise ValueError("Evidence output requires exactly one outcome.")
+        if (self.result is None) != (self.citation_evidence_id is None):
+            raise ValueError(
+                "Successful evidence requires exactly one recommended citation ID."
+            )
+        if (
+            self.citation_evidence_id is not None
+            and self.citation_evidence_id not in self.permitted_evidence_ids
+        ):
+            raise ValueError("Recommended citation ID must be currently permitted.")
         return self
 
 
@@ -259,7 +365,14 @@ class FoldweaveHostedReviewStatusV1(StrictFrozenModel):
     candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
     preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
     authorization_context_fingerprint: str = Field(pattern=SHA256_PATTERN)
-    model_transport: Literal["chatgpt_hosted"] = "chatgpt_hosted"
+    planning_basis: Literal["fresh", "derivative", "none"]
+    model_transport: Literal["chatgpt_hosted", "codex_hosted", "none"]
+    execution_origin: Literal[
+        "gpt_planned",
+        "gpt_revised_from_change_file",
+        "capsule_applied",
+        "none",
+    ]
     direct_api_used: Literal[False] = False
     direct_budget_reserved: Literal[False] = False
     revision_available: bool
@@ -353,19 +466,48 @@ class FoldweaveVerificationResultV1(StrictFrozenModel):
     failed_check_ids: tuple[str, ...]
 
 
+class FoldweaveChangeFileResultV1(StrictFrozenModel):
+    """Verified Change File identity and one path-free local item handle."""
+
+    schema_version: Literal["foldweave-change-file-result.v1"] = (
+        "foldweave-change-file-result.v1"
+    )
+    job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    item: OpaqueLocalItemHandle
+    change_file_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    originating_receipt_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+
+class FoldweaveReconstructionResultV1(StrictFrozenModel):
+    """Path-free proof for one transaction-specific reconstruction."""
+
+    schema_version: Literal["foldweave-reconstruction-result.v1"] = (
+        "foldweave-reconstruction-result.v1"
+    )
+    job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    item: OpaqueLocalItemHandle
+    receipt_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    source_commitment: str = Field(pattern=SHA256_PATTERN)
+    restored_file_count: int = Field(ge=1, le=500)
+    restored_bytes: int = Field(ge=0)
+    restored_empty_directory_count: int = Field(ge=0, le=1_000)
+
+
 def build_foldweave_chatgpt_server(
     service: FoldweaveHostPlanningService | None = None,
     *,
+    surface: McpServerSurface = "chatgpt_hosted",
     asset_root: Path | None = None,
     host: str = "127.0.0.1",
     port: int = 8000,
 ) -> FastMCP[None]:
     """Build one MCP Apps server over the shared durable host-planning service."""
 
+    profile = _MCP_PROFILES[surface]
     coordinator = service or FoldweaveHostPlanningService()
     server: FastMCP[None] = FastMCP(
         name="Foldweave",
-        instructions=SERVER_INSTRUCTIONS,
+        instructions=profile.instructions,
         log_level="WARNING",
         host=host,
         port=port,
@@ -395,6 +537,7 @@ def build_foldweave_chatgpt_server(
             "only a short-lived opaque handle, never a local path."
         ),
         annotations=_annotations(read_only=False, idempotent=False),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     async def choose_local_item(
@@ -403,7 +546,7 @@ def build_foldweave_chatgpt_server(
         try:
             status, item, reason_code = await coordinator.choose_local_item(
                 role=role,
-                channel="chatgpt_hosted",
+                channel=profile.handle_channel,
             )
             output = FoldweaveLocalSelectionResultV1(
                 status=cast(NativeSelectionStatus, status).value,
@@ -429,7 +572,7 @@ def build_foldweave_chatgpt_server(
                 request=request,
                 disclosure_acknowledged=evidence_disclosure_acknowledged,
                 idempotency_key=idempotency_key,
-                model_transport="chatgpt_hosted",
+                model_transport=profile.model_transport,
             )
             return _success(
                 _project_job_status(job),
@@ -446,6 +589,7 @@ def build_foldweave_chatgpt_server(
             "opaque local handles without calling the direct Responses API."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def create_or_resume_planning_job(
@@ -471,6 +615,7 @@ def build_foldweave_chatgpt_server(
             "workflow; the host must still inspect evidence and submit a plan."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def plan_change(
@@ -489,16 +634,51 @@ def build_foldweave_chatgpt_server(
         )
 
     @server.tool(
+        name="prepare_change_application",
+        title="Prepare a shared Foldweave change for review",
+        description=(
+            "Verify one Change File, deterministically match the selected local "
+            "project, and stop at an exact receiver review without model, API, "
+            "or direct-budget use."
+        ),
+        annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
+        structured_output=True,
+    )
+    def prepare_change_application(
+        change_file_handle: OpaqueHandle,
+        source_handle: OpaqueHandle,
+        output_handle: OpaqueHandle,
+        idempotency_key: IdempotencyKey,
+    ) -> FoldweaveHostedJobStatusV1:
+        try:
+            job = coordinator.prepare_change_application(
+                change_file_handle=change_file_handle,
+                source_handle=source_handle,
+                output_handle=output_handle,
+                idempotency_key=idempotency_key,
+                channel=profile.handle_channel,
+            )
+            return _success(
+                _project_job_status(job),
+                "Foldweave prepared the deterministic receiver review.",
+            )
+        except Exception as exc:
+            return _failure(exc, "change_application_preparation_failed")
+
+    @server.tool(
         name="list_inventory_page",
         title="List bounded Foldweave inventory evidence",
         description=(
             "Read one deterministic page of path-relative file metadata from "
             "the exact durable hosted job. The result includes the authoritative "
-            "current evidence_fingerprint and permitted_evidence_ids to use "
-            "verbatim in submit_plan. Use initial_inventory for ordinary "
-            "inventory-based moves; never invent an evidence ID."
+            "current evidence_fingerprint, permitted_evidence_ids, and "
+            "citation_evidence_id. Cite that exact citation_evidence_id in "
+            "submit_plan or submit_plan_revision; for inventory-based moves it "
+            "is initial_inventory. Never use a file ID as an evidence ID."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def list_inventory_page(
@@ -524,9 +704,11 @@ def build_foldweave_chatgpt_server(
         title="Read a bounded Foldweave text excerpt",
         description=(
             "Read only a counted UTF-8 excerpt for one eligible stable file ID "
-            "in the exact hosted job."
+            "in the exact hosted job. Cite the returned citation_evidence_id "
+            "verbatim when this excerpt supports a plan or revision entry."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def read_text_excerpt(
@@ -551,9 +733,12 @@ def build_foldweave_chatgpt_server(
         title="Inspect bounded supported-link evidence",
         description=(
             "Read one deterministic page of supported relative Markdown-link "
-            "relationships for an eligible file ID."
+            "relationships for an eligible file ID. Cite the returned "
+            "citation_evidence_id verbatim when these relationships support a "
+            "plan or revision entry."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def inspect_markdown_links(
@@ -584,6 +769,7 @@ def build_foldweave_chatgpt_server(
             "mechanical compiler failures are not clarifications."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def request_clarification(
@@ -614,6 +800,7 @@ def build_foldweave_chatgpt_server(
             "question fingerprint still match."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def answer_clarification(
@@ -643,9 +830,15 @@ def build_foldweave_chatgpt_server(
         title="Submit a complete Foldweave plan",
         description=(
             "Compile one complete host-model plan deterministically and stop at "
-            "review without creating any output."
+            "review without creating any output. Include exactly one entry for "
+            "every inventory file whose protected flag is false, including "
+            "files whose evidence_eligible flag is false. Omit protected files "
+            "and explicit empty directories because deterministic Foldweave "
+            "code injects them. After rejection, call get_compiler_failures and "
+            "retry the corrected complete plan with a fresh call_id."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def submit_plan(
@@ -670,11 +863,10 @@ def build_foldweave_chatgpt_server(
             "exact hosted job without changing it."
         ),
         annotations=_annotations(read_only=True, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
-    def get_compiler_failures(
-        job_id: JobId,
-    ) -> FoldweaveCompilerFailuresV1:
+    def get_compiler_failures(job_id: JobId) -> FoldweaveCompilerFailuresV1:
         try:
             failures = tuple(
                 FoldweaveCompilerFailurePublicV1(
@@ -699,9 +891,14 @@ def build_foldweave_chatgpt_server(
         title="Reserve a Foldweave proposal revision",
         description=(
             "Bind the user's exact revision instruction to the visible candidate "
-            "before the ChatGPT host model submits one sparse replacement."
+            "before the ChatGPT host model submits one sparse replacement. "
+            "Evidence tools become intentionally unavailable after this reservation. "
+            'For a path-only revision, use evidence_ids ["initial_inventory"] in '
+            "every sparse entry unless an exact permitted evidence ID was already "
+            "returned before calling revise_plan; never use a file ID."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def revise_plan(
@@ -720,6 +917,7 @@ def build_foldweave_chatgpt_server(
                 preview_fingerprint=preview_fingerprint,
                 instruction=instruction,
                 idempotency_key=idempotency_key,
+                model_transport=profile.model_transport,
             )
             return _success(
                 _project_job_status(job),
@@ -733,9 +931,18 @@ def build_foldweave_chatgpt_server(
         title="Submit a sparse Foldweave plan revision",
         description=(
             "Compile a strict sparse hosted revision into one complete immutable "
-            "replacement preview while preserving the prior valid proposal."
+            "replacement preview while preserving the prior valid proposal. Each "
+            "entry contains exactly file_id, replacement_target_path, rationale, "
+            "and evidence_ids. Every evidence_ids value must come verbatim from a "
+            "successful evidence result's citation_evidence_id or "
+            "permitted_evidence_ids; never substitute a file ID or call ID. For a "
+            "path-only sparse revision, set every entry's evidence_ids exactly to "
+            '["initial_inventory"] unless another exact permitted ID was returned '
+            "before revise_plan. Do not call evidence tools after the revision is "
+            "reserved."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
+        meta=_MODEL_ONLY_TOOL_META,
         structured_output=True,
     )
     def submit_plan_revision(
@@ -772,9 +979,7 @@ def build_foldweave_chatgpt_server(
         job_id: JobId,
         expected_revision: Annotated[int, Field(ge=0)],
         preview_fingerprint: Sha256,
-        channel: Literal["chatgpt_hosted"] = "chatgpt_hosted",
     ) -> FoldweaveChatGptReviewV1:
-        del channel
         try:
             job = coordinator.status(job_id)
             if job.revision != expected_revision:
@@ -804,6 +1009,7 @@ def build_foldweave_chatgpt_server(
             "calling a model, or creating output."
         ),
         annotations=_annotations(read_only=True, idempotent=True),
+        meta=_MODEL_AND_WIDGET_CALLABLE_META,
         structured_output=True,
     )
     def job_status(job_id: JobId) -> FoldweaveHostedJobStatusV1:
@@ -823,7 +1029,7 @@ def build_foldweave_chatgpt_server(
             "proposal to a fresh exact review checkpoint."
         ),
         annotations=_annotations(read_only=False, idempotent=True),
-        meta=_WIDGET_CALLABLE_META,
+        meta=_MODEL_AND_WIDGET_CALLABLE_META,
         structured_output=True,
     )
     def keep_previous_proposal(
@@ -837,9 +1043,7 @@ def build_foldweave_chatgpt_server(
         preview_fingerprint: Sha256,
         candidate_fingerprint: Sha256,
         idempotency_key: IdempotencyKey,
-        channel: Literal["chatgpt_hosted"] = "chatgpt_hosted",
     ) -> FoldweaveChatGptReviewV1:
-        del channel
         try:
             current = coordinator.status(job_id)
             retry = build_keep_previous_action(
@@ -925,7 +1129,6 @@ def build_foldweave_chatgpt_server(
         preview_fingerprint: Sha256,
         candidate_fingerprint: Sha256,
         idempotency_key: IdempotencyKey,
-        channel: Literal["chatgpt_hosted"] = "chatgpt_hosted",
     ) -> FoldweaveChatGptReviewV1:
         try:
             current = coordinator.status(job_id)
@@ -948,7 +1151,7 @@ def build_foldweave_chatgpt_server(
                 candidate_fingerprint=candidate_fingerprint,
                 result_folder_name=current.candidate_plan.result_folder_name,
                 idempotency_key=idempotency_key,
-                channel=channel,
+                channel=profile.execution_channel,
             )
             return _success(
                 _project_review(job),
@@ -965,15 +1168,13 @@ def build_foldweave_chatgpt_server(
             "durable result without model or direct-budget use."
         ),
         annotations=_annotations(read_only=True, idempotent=True),
-        meta=_WIDGET_CALLABLE_META,
+        meta=_MODEL_AND_WIDGET_CALLABLE_META,
         structured_output=True,
     )
     def verify_result(
         job_id: JobId,
         organized_tree_commitment: Sha256,
-        channel: Literal["chatgpt_hosted"] = "chatgpt_hosted",
     ) -> FoldweaveVerificationResultV1:
-        del channel
         try:
             verification = coordinator.verify_result(job_id)
             if verification.organized_tree_commitment != organized_tree_commitment:
@@ -992,6 +1193,78 @@ def build_foldweave_chatgpt_server(
         except Exception as exc:
             return _failure(exc, "verification_failed")
 
+    @server.tool(
+        name="get_change_file",
+        title="Get the verified Foldweave Change File",
+        description=(
+            "Return one expiring opaque local item handle plus the exact verified "
+            "Change File and originating-receipt identities, never a local path."
+        ),
+        annotations=_annotations(read_only=True, idempotent=True),
+        meta=_WIDGET_CALLABLE_META,
+        structured_output=True,
+    )
+    def get_change_file(job_id: JobId) -> FoldweaveChangeFileResultV1:
+        try:
+            item, change_file_fingerprint, receipt_fingerprint = (
+                coordinator.get_change_file(
+                    job_id=job_id,
+                    channel=profile.handle_channel,
+                )
+            )
+            return _success(
+                FoldweaveChangeFileResultV1(
+                    job_id=job_id,
+                    item=item,
+                    change_file_fingerprint=change_file_fingerprint,
+                    originating_receipt_fingerprint=receipt_fingerprint,
+                ),
+                "Foldweave returned the verified path-free Change File identity.",
+            )
+        except Exception as exc:
+            return _failure(exc, "change_file_unavailable")
+
+    @server.tool(
+        name="recreate_original",
+        title="Recreate the selected original layout",
+        description=(
+            "Create or reverify the transaction's fixed absent sibling "
+            "reconstruction destination without overwriting any item or exposing "
+            "a local path. The durable job's immutable prebound operation authority "
+            "makes retries idempotent."
+        ),
+        annotations=_annotations(read_only=False, idempotent=True),
+        meta=_WIDGET_CALLABLE_META,
+        structured_output=True,
+    )
+    def recreate_original(job_id: JobId) -> FoldweaveReconstructionResultV1:
+        try:
+            (
+                item,
+                receipt_fingerprint,
+                source_commitment,
+                restored_file_count,
+                restored_bytes,
+                restored_empty_directory_count,
+            ) = coordinator.recreate_original(
+                job_id=job_id,
+                channel=profile.handle_channel,
+            )
+            return _success(
+                FoldweaveReconstructionResultV1(
+                    job_id=job_id,
+                    item=item,
+                    receipt_fingerprint=receipt_fingerprint,
+                    source_commitment=source_commitment,
+                    restored_file_count=restored_file_count,
+                    restored_bytes=restored_bytes,
+                    restored_empty_directory_count=(restored_empty_directory_count),
+                ),
+                "Foldweave recreated and verified this transaction's source.",
+            )
+        except Exception as exc:
+            return _failure(exc, "reconstruction_failed")
+
     return server
 
 
@@ -1009,6 +1282,15 @@ def build_foldweave_mcp_parser() -> argparse.ArgumentParser:
         "--transport",
         choices=("stdio", "streamable-http"),
         default="stdio",
+    )
+    parser.add_argument(
+        "--surface",
+        choices=("auto", "chatgpt-hosted", "codex-hosted"),
+        default="auto",
+        help=(
+            "Trusted server profile. Auto selects Codex for STDIO and ChatGPT "
+            "for Streamable HTTP; the Secure MCP Tunnel uses chatgpt-hosted."
+        ),
     )
     parser.add_argument(
         "--host",
@@ -1032,7 +1314,17 @@ def run_foldweave_mcp_server(argv: Sequence[str] | None = None) -> int:
     if not 1 <= options.port <= 65_535:
         build_foldweave_mcp_parser().error("--port must be between 1 and 65535")
     logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
-    server = build_foldweave_chatgpt_server(host=options.host, port=options.port)
+    if options.surface == "auto":
+        surface: McpServerSurface = (
+            "codex_hosted" if options.transport == "stdio" else "chatgpt_hosted"
+        )
+    else:
+        surface = cast(McpServerSurface, options.surface.replace("-", "_"))
+    server = build_foldweave_chatgpt_server(
+        host=options.host,
+        port=options.port,
+        surface=surface,
+    )
     server.run(transport=options.transport)
     return 0
 
@@ -1056,23 +1348,34 @@ def _run_evidence(
             call_id=call_id,
             **arguments,
         )
+        evidence_state = _host_evidence_state(job)
+        citation_evidence_id: str | None = None
+        if error_code is None:
+            if tool_name == "list_inventory_page":
+                citation_evidence_id = "initial_inventory"
+            else:
+                matching_record = next(
+                    (
+                        record
+                        for record in reversed(evidence_state.records)
+                        if record.call_id == call_id and record.tool_name == tool_name
+                    ),
+                    None,
+                )
+                if matching_record is None:
+                    raise RuntimeError(
+                        "Successful hosted evidence lacks its durable citation record."
+                    )
+                citation_evidence_id = matching_record.fingerprint
         output = FoldweaveEvidenceResultV1(
             job_id=job.job_id,
             job_revision=job.revision,
-            evidence_fingerprint=(
-                _require_chatgpt_authority(
-                    job
-                ).planning_state.evidence_state.evidence_fingerprint
-            ),
+            evidence_fingerprint=evidence_state.evidence_fingerprint,
             permitted_evidence_ids=(
                 "initial_inventory",
-                *(
-                    record.fingerprint
-                    for record in _require_chatgpt_authority(
-                        job
-                    ).planning_state.evidence_state.records
-                ),
+                *(record.fingerprint for record in evidence_state.records),
             ),
+            citation_evidence_id=citation_evidence_id,
             tool_name=tool_name,
             call_id=call_id,
             result=result,
@@ -1084,17 +1387,37 @@ def _run_evidence(
 
 
 def _project_job_status(job: FolderRefactorJobV3) -> FoldweaveHostedJobStatusV1:
-    authority = _require_chatgpt_authority(job)
+    authority = job.authority
     preview = job.preview
-    state = authority.planning_state
-    question = state.clarification_question
+    if isinstance(authority, GptHostedJobAuthorityV3):
+        request_fingerprint = authority.planning_state.request_fingerprint
+        question = authority.planning_state.clarification_question
+    elif isinstance(authority, GptDerivativeJobAuthorityV3):
+        request_fingerprint = (
+            authority.parent_binding.parent_candidate.request_fingerprint
+        )
+        question = None
+    elif isinstance(authority, CapsuleAppliedJobAuthorityV2):
+        request_fingerprint = (
+            authority.change_file_binding.change_file.core.request_fingerprint
+        )
+        question = None
+    else:
+        raise FoldweaveHostServiceError(
+            "host_authority_mismatch",
+            "The job is not available through the reviewed MCP surface.",
+        )
+    planning_basis, model_transport, execution_origin = _public_provenance(job)
     output = FoldweaveHostedJobStatusV1(
         job_id=job.job_id,
         lifecycle=job.lifecycle.value,
         job_revision=job.revision,
         proposal_revision=job.proposal_revision,
         source_commitment=job.source_inventory.source_commitment,
-        request_fingerprint=state.request_fingerprint,
+        request_fingerprint=request_fingerprint,
+        planning_basis=planning_basis,
+        model_transport=model_transport,
+        execution_origin=execution_origin,
         has_preview=preview is not None,
         candidate_fingerprint=(
             preview.compiled_candidate_fingerprint if preview is not None else None
@@ -1115,7 +1438,7 @@ def _project_job_status(job: FolderRefactorJobV3) -> FoldweaveHostedJobStatusV1:
 
 
 def _project_review(job: FolderRefactorJobV3) -> FoldweaveChatGptReviewV1:
-    _require_chatgpt_authority(job)
+    planning_basis, model_transport, execution_origin = _public_provenance(job)
     preview = job.preview
     candidate = job.candidate_plan
     if (
@@ -1168,6 +1491,9 @@ def _project_review(job: FolderRefactorJobV3) -> FoldweaveChatGptReviewV1:
             candidate_fingerprint=preview.compiled_candidate_fingerprint,
             preview_fingerprint=preview.preview_fingerprint,
             authorization_context_fingerprint=_authorization_context(job),
+            planning_basis=planning_basis,
+            model_transport=model_transport,
+            execution_origin=execution_origin,
             revision_available=revision_available,
             revision_attempts_remaining=max(0, 2 - job.revision_attempt_count),
             revision_failure=(
@@ -1306,18 +1632,70 @@ def _authorization_context_values(
     )
 
 
-def _require_chatgpt_authority(
+def _require_hosted_authority(
     job: FolderRefactorJobV3,
-) -> GptHostedJobAuthorityV3:
+) -> GptHostedJobAuthorityV3 | GptDerivativeJobAuthorityV3:
     authority = job.authority
-    if not isinstance(authority, GptHostedJobAuthorityV3) or (
-        authority.model_transport != "chatgpt_hosted"
-    ):
+    if not isinstance(
+        authority,
+        (GptHostedJobAuthorityV3, GptDerivativeJobAuthorityV3),
+    ) or authority.model_transport not in {"chatgpt_hosted", "codex_hosted"}:
         raise FoldweaveHostServiceError(
             "host_authority_mismatch",
-            "The job does not use ChatGPT-hosted Foldweave planning.",
+            "The job does not use ChatGPT- or Codex-hosted planning.",
         )
     return authority
+
+
+def _host_evidence_state(job: FolderRefactorJobV3):
+    authority = _require_hosted_authority(job)
+    if isinstance(authority, GptHostedJobAuthorityV3):
+        return authority.planning_state.evidence_state
+    if authority.pending_host_revision is not None:
+        return authority.pending_host_revision.evidence_state
+    ledger = authority.evidence_ledger
+    if ledger is not None and hasattr(ledger.initial_ledger, "evidence_state"):
+        return ledger.initial_ledger.evidence_state
+    raise FoldweaveHostServiceError(
+        "host_evidence_unavailable",
+        "The hosted derivative has no durable evidence state.",
+    )
+
+
+def _public_provenance(
+    job: FolderRefactorJobV3,
+) -> tuple[PublicPlanningBasis, PublicModelTransport, PublicExecutionOrigin]:
+    authority = job.authority
+    if isinstance(authority, GptHostedJobAuthorityV3):
+        execution_origin: PublicExecutionOrigin = (
+            authority.execution_origin.kind
+            if authority.execution_origin is not None
+            else "none"
+        )
+        return "fresh", authority.model_transport, execution_origin
+    if isinstance(authority, GptDerivativeJobAuthorityV3):
+        if authority.model_transport not in {"chatgpt_hosted", "codex_hosted"}:
+            raise FoldweaveHostServiceError(
+                "host_authority_mismatch",
+                "The derivative job uses another model transport.",
+            )
+        execution_origin = (
+            authority.execution_origin.kind
+            if authority.execution_origin is not None
+            else "none"
+        )
+        return "derivative", authority.model_transport, execution_origin
+    if isinstance(authority, CapsuleAppliedJobAuthorityV2):
+        execution_origin = (
+            authority.execution_origin.kind
+            if authority.execution_origin is not None
+            else "none"
+        )
+        return "none", "none", execution_origin
+    raise FoldweaveHostServiceError(
+        "host_authority_mismatch",
+        "The job is not available through the reviewed MCP surface.",
+    )
 
 
 def _question_fingerprint(question: str | None) -> str | None:
@@ -1417,7 +1795,7 @@ _POSIX_ABSOLUTE = re.compile(r"(?:^|[\s\"'(])/(?!/)[^\s\"')]+")
 _HOME_ABSOLUTE = re.compile(r"(?:^|[\s\"'(])~/")
 _WINDOWS_ABSOLUTE = re.compile(r"(?:^|[\s\"'(])[A-Za-z]:[\\/]")
 _UNC_ABSOLUTE = re.compile(r"(?:^|[\s\"'(])\\\\[^\\\s]+[\\/]")
-_COMMON_LOCAL_PATH = re.compile(r"/(?:Users|Volumes|private|tmp|home)/")
+_COMMON_LOCAL_PATH = re.compile(r"(?:^|[\s\"'(])/(?:Users|Volumes|private|tmp|home)/")
 _FILE_URL = re.compile(r"\bfile:/{1,3}", re.IGNORECASE)
 _SECRET_VALUE = re.compile(
     r"(?:\bsk-(?:proj-)?[A-Za-z0-9_-]{8,}|\bBearer\s+[A-Za-z0-9._~-]{8,})"

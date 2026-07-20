@@ -29,7 +29,9 @@ const DEFAULT_TIMEOUT_MS = 20_000;
 const MAX_TOOL_RESULT_WRAPPERS = 3;
 const FOLDWEAVE_STRUCTURED_SCHEMAS = new Set([
   "foldweave-chatgpt-review.v1",
+  "foldweave-change-file-result.v1",
   "foldweave-hosted-job-status.v1",
+  "foldweave-reconstruction-result.v1",
   "foldweave-verification-result.v1",
 ]);
 
@@ -41,7 +43,7 @@ export class McpAppsHostBridge implements ChatGptHostBridge {
   >();
   private nextRequestId = 0;
   private initialized: Promise<void> | null = null;
-  private mcpMessageCapability: boolean | null = null;
+  private standardBridgeReady = false;
   private listening = false;
 
   constructor(
@@ -51,15 +53,11 @@ export class McpAppsHostBridge implements ChatGptHostBridge {
 
   async connect(): Promise<void> {
     this.startListening();
-    if (
-      typeof this.hostWindow.openai?.callTool === "function" ||
-      typeof this.hostWindow.openai?.sendFollowUpMessage === "function"
-    ) {
-      return;
-    }
     try {
       await this.initialize();
+      this.standardBridgeReady = true;
     } catch (error) {
+      this.standardBridgeReady = false;
       if (this.hostWindow.openai !== undefined) {
         return;
       }
@@ -112,38 +110,60 @@ export class McpAppsHostBridge implements ChatGptHostBridge {
   }
 
   async sendFollowUpMessage(prompt: string): Promise<void> {
-    if (typeof this.hostWindow.openai?.sendFollowUpMessage === "function") {
-      await this.hostWindow.openai!.sendFollowUpMessage!({
+    const openAiRuntime = this.hostWindow.openai;
+    if (typeof openAiRuntime?.sendFollowUpMessage === "function") {
+      await openAiRuntime.sendFollowUpMessage({
         prompt,
         scrollToBottom: true,
       });
       return;
     }
-    await this.initialize();
-    if (this.mcpMessageCapability !== true) {
-      throw new Error(
-        "The ChatGPT host does not advertise widget follow-up messages.",
-      );
+    if (!this.standardBridgeReady) {
+      try {
+        await this.initialize();
+        this.standardBridgeReady = true;
+      } catch (error) {
+        this.standardBridgeReady = false;
+        const delayedOpenAiRuntime = this.hostWindow.openai;
+        if (typeof delayedOpenAiRuntime?.sendFollowUpMessage === "function") {
+          await delayedOpenAiRuntime.sendFollowUpMessage({
+            prompt,
+            scrollToBottom: true,
+          });
+          return;
+        }
+        throw error;
+      }
     }
-    const result = await this.request("ui/message", {
+    const delayedOpenAiRuntime = this.hostWindow.openai;
+    if (typeof delayedOpenAiRuntime?.sendFollowUpMessage === "function") {
+      await delayedOpenAiRuntime.sendFollowUpMessage({
+        prompt,
+        scrollToBottom: true,
+      });
+      return;
+    }
+    // ui/message is a notification in the MCP Apps contract. It must not use
+    // request/response semantics: an ambiguous retry could create two model
+    // turns and therefore two planning attempts.
+    this.notify("ui/message", {
       role: "user",
       content: [{ type: "text", text: prompt }],
     });
-    if (isRecord(result) && result.isError === true) {
-      throw new Error("The ChatGPT host rejected the follow-up message.");
-    }
   }
 
   private async selectTransport(
     requiredCompatibilityMethod: "callTool" | "sendFollowUpMessage",
   ): Promise<"mcp-apps" | "compatibility"> {
-    if (typeof this.hostWindow.openai?.[requiredCompatibilityMethod] === "function") {
-      return "compatibility";
+    if (this.standardBridgeReady) {
+      return "mcp-apps";
     }
     try {
       await this.initialize();
+      this.standardBridgeReady = true;
       return "mcp-apps";
     } catch (error) {
+      this.standardBridgeReady = false;
       if (typeof this.hostWindow.openai?.[requiredCompatibilityMethod] === "function") {
         return "compatibility";
       }
@@ -158,12 +178,7 @@ export class McpAppsHostBridge implements ChatGptHostBridge {
         appInfo: { name: "foldweave-review-widget", version: "0.1.0" },
         appCapabilities: {},
         protocolVersion: PROTOCOL_VERSION,
-      }).then((result) => {
-        this.mcpMessageCapability =
-          isRecord(result) &&
-          isRecord(result.hostCapabilities) &&
-          isRecord(result.hostCapabilities.message) &&
-          isRecord(result.hostCapabilities.message.text);
+      }).then(() => {
         this.notify("ui/notifications/initialized", {});
       });
     }

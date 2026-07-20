@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier
@@ -287,6 +288,113 @@ def test_destination_reservation_has_one_race_winner_and_releases_on_block(
     )
     assert accepted_after_release.lifecycle is FolderJobLifecycleV3.EXECUTING
     assert accepted_after_release.destination_reservation is not None
+    assert tuple(output.iterdir()) == ()
+
+
+def test_accept_and_revision_race_has_one_authority_winner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Acceptance and revision cannot both advance the same visible preview."""
+
+    fixture = make_connected_change_fixture(tmp_path / "projects")
+    output = tmp_path / "output"
+    output.mkdir()
+    service = FoldweaveReviewService()
+    review = asyncio.run(
+        service.prepare_planned_origin_review(
+            source_root=fixture.sofia_root,
+            output_parent=output,
+            job_path=tmp_path / "jobs" / "accept-revise-race.json",
+            request=DETERMINISTIC_DEVELOPMENT_REQUEST,
+            idempotency_key="f1-accept-revise-race",
+            provider=DeterministicDevelopmentPlannerProvider(),
+        )
+    )
+    assert review.preview is not None
+    assert review.candidate_plan is not None
+    mapping = next(
+        item for item in review.candidate_plan.file_mappings if not item.protected
+    )
+
+    def stop_before_copy(
+        _service: FoldweaveReviewService,
+        _writer,
+        job: FolderRefactorJobV3,
+        *,
+        progress_callback,
+    ) -> FolderRefactorJobV3:
+        del progress_callback
+        return job
+
+    monkeypatch.setattr(FoldweaveReviewService, "_execute_locked", stop_before_copy)
+    barrier = Barrier(2)
+
+    def accept_visible_preview() -> FolderRefactorJobV3:
+        barrier.wait(timeout=5)
+        return service.accept(
+            review.job_path,
+            expected_revision=review.revision,
+            preview_fingerprint=review.preview.preview_fingerprint,
+            candidate_fingerprint=review.preview.compiled_candidate_fingerprint,
+            output_parent=output,
+            result_folder_name=review.candidate_plan.result_folder_name,
+            idempotency_key="f1-race-accept",
+            channel="native_app",
+        )
+
+    def revise_visible_preview() -> FolderRefactorJobV3:
+        barrier.wait(timeout=5)
+        return asyncio.run(
+            service.revise(
+                review.job_path,
+                expected_revision=review.revision,
+                preview_fingerprint=review.preview.preview_fingerprint,
+                candidate_fingerprint=review.preview.compiled_candidate_fingerprint,
+                instruction="Move one member into the race-test section.",
+                idempotency_key="f1-race-revise",
+                provider=_ScriptedRevisionProvider(
+                    FolderPlanRevisionV1(
+                        base_candidate_fingerprint=(
+                            review.preview.compiled_candidate_fingerprint
+                        ),
+                        entries=(
+                            FolderPlanRevisionEntryV1(
+                                file_id=mapping.file_id,
+                                replacement_target_path=(
+                                    f"race/{Path(mapping.target_path).name}"
+                                ),
+                                rationale="Apply the exact visible revision.",
+                                evidence_ids=("initial_inventory",),
+                            ),
+                        ),
+                    )
+                ),
+            )
+        )
+
+    outcomes: list[FolderRefactorJobV3] = []
+    failures: list[Exception] = []
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = (
+            executor.submit(accept_visible_preview),
+            executor.submit(revise_visible_preview),
+        )
+        for future in futures:
+            try:
+                outcomes.append(future.result(timeout=10))
+            except Exception as exc:  # test captures the losing authority path
+                failures.append(exc)
+
+    durable = service.status(review.job_path)
+    assert len(outcomes) == 1
+    assert len(failures) == 1
+    assert durable == outcomes[0]
+    assert durable.lifecycle in {
+        FolderJobLifecycleV3.EXECUTING,
+        FolderJobLifecycleV3.REVIEWING,
+    }
+    assert (durable.execution_authorization is None) != (durable.proposal_revision == 0)
     assert tuple(output.iterdir()) == ()
 
 

@@ -16,17 +16,26 @@ from name_atlas.folder_refactor.connected_change.accepted_plan import (
 )
 from name_atlas.folder_refactor.connected_change.contracts import (
     MAX_CHANGE_FILE_BYTES,
+    MAX_CONNECTED_CHANGE_GENERATION,
     ConnectedChangeCore,
+    ConnectedChangeCoreV2,
     ConnectedChangeError,
     ConnectedChangeFile,
+    ConnectedChangeFileAny,
+    ConnectedChangeFileV2,
+    ConnectedChangeLineageV1,
     ConnectedChangeLinkSlot,
     ConnectedChangeMember,
+    ConnectedChangeMemberBindingV1,
     connected_change_core_fingerprint,
+    connected_change_core_v2_fingerprint,
     connected_change_file_fingerprint,
+    connected_change_file_v2_fingerprint,
     connected_change_member_id,
 )
 from name_atlas.folder_refactor.connected_change.receipt_contracts import (
     FolderReceiptEnvelopeV2,
+    FolderReceiptEnvelopeV3,
 )
 from name_atlas.folder_refactor.contracts import (
     FolderAcceptedPlan,
@@ -223,6 +232,113 @@ def build_connected_change_core(
     )
 
 
+def build_connected_change_core_v2(
+    complete_core: ConnectedChangeCore,
+    *,
+    lineage: ConnectedChangeLineageV1,
+) -> ConnectedChangeCoreV2:
+    """Promote one complete generated Core into the versioned lineage family."""
+
+    if not isinstance(complete_core, ConnectedChangeCore):
+        _reject(
+            "change_file_schema_invalid",
+            "A v2 Core requires one complete validated v1-compatible Core.",
+        )
+    return ConnectedChangeCoreV2(
+        **complete_core.model_dump(mode="python", exclude={"schema_version"}),
+        lineage=lineage,
+    )
+
+
+def build_connected_change_lineage(
+    *,
+    parent_change_file: ConnectedChangeFileAny,
+    parent_candidate_fingerprint: str,
+    revision_instruction_fingerprint: str,
+    member_bindings: Sequence[ConnectedChangeMemberBindingV1],
+    parent_candidate: FolderAcceptedPlanV2 | None = None,
+) -> ConnectedChangeLineageV1:
+    """Build one complete immediate-parent binding without embedding the parent."""
+
+    if not isinstance(parent_change_file, ConnectedChangeFile | ConnectedChangeFileV2):
+        _reject(
+            "change_file_lineage_invalid",
+            "Lineage parent must be a verified Connected Change File.",
+        )
+    parent_generation = (
+        parent_change_file.core.lineage.generation
+        if isinstance(parent_change_file, ConnectedChangeFileV2)
+        else 0
+    )
+    generation = parent_generation + 1
+    if generation > MAX_CONNECTED_CHANGE_GENERATION:
+        _reject(
+            "change_file_lineage_generation_exceeded",
+            "A Foldweave Change File cannot exceed lineage generation "
+            f"{MAX_CONNECTED_CHANGE_GENERATION}.",
+        )
+    parent_member_ids = tuple(
+        member.logical_member_id for member in parent_change_file.core.members
+    )
+    ordered_bindings = tuple(
+        sorted(member_bindings, key=lambda item: item.parent_logical_member_id)
+    )
+    bound_parent_ids = tuple(
+        binding.parent_logical_member_id for binding in ordered_bindings
+    )
+    if len(bound_parent_ids) != len(parent_member_ids) or set(bound_parent_ids) != set(
+        parent_member_ids
+    ):
+        _reject(
+            "change_file_lineage_invalid",
+            "Immediate-parent lineage must bind every parent logical member once.",
+        )
+    if parent_candidate is None:
+        # Historical callers only had the producer-side plan committed by the
+        # parent Change File. Keep that strict behavior for compatibility.
+        finalized_parent_candidate = (
+            parent_change_file.originating_receipt.receipt.compiled_candidate_fingerprint
+            if isinstance(parent_change_file, ConnectedChangeFileV2)
+            else (
+                parent_change_file.originating_receipt.receipt.accepted_plan_fingerprint
+            )
+        )
+        if finalized_parent_candidate != parent_candidate_fingerprint:
+            _reject(
+                "change_file_lineage_invalid",
+                "Parent candidate fingerprint differs from the finalized parent "
+                "receipt.",
+            )
+    elif not (
+        canonical_sha256(parent_candidate) == parent_candidate_fingerprint
+        and parent_candidate.request_fingerprint
+        == parent_change_file.core.request_fingerprint
+        and parent_candidate.result_folder_name
+        == parent_change_file.core.requested_result_folder_name
+    ):
+        _reject(
+            "change_file_lineage_invalid",
+            "Receiver-parent candidate does not bind the imported proposal.",
+        )
+    return ConnectedChangeLineageV1(
+        generation=generation,
+        parent_generation=parent_generation,
+        parent_change_file_schema_version=parent_change_file.schema_version,
+        parent_core_schema_version=parent_change_file.core.schema_version,
+        parent_change_file_fingerprint=(parent_change_file.change_file_fingerprint),
+        parent_core_fingerprint=parent_change_file.core_fingerprint,
+        parent_originating_receipt_fingerprint=(
+            parent_change_file.originating_receipt.receipt_fingerprint
+        ),
+        parent_organized_tree_commitment=(
+            parent_change_file.originating_receipt.receipt.organized_tree.commitment
+        ),
+        parent_candidate_fingerprint=parent_candidate_fingerprint,
+        revision_instruction_fingerprint=revision_instruction_fingerprint,
+        member_bindings=ordered_bindings,
+    )
+
+
 def create_connected_change_file(
     core: ConnectedChangeCore,
     *,
@@ -244,6 +360,36 @@ def create_connected_change_file(
     change_file = ConnectedChangeFile(
         **provisional.model_dump(mode="python", exclude={"change_file_fingerprint"}),
         change_file_fingerprint=connected_change_file_fingerprint(provisional),
+    )
+    if len(canonical_json_bytes(change_file)) > MAX_CHANGE_FILE_BYTES:
+        _reject(
+            "change_file_too_large",
+            f"Change File exceeds {MAX_CHANGE_FILE_BYTES} bytes.",
+        )
+    return change_file
+
+
+def create_connected_change_file_v2(
+    core: ConnectedChangeCoreV2,
+    *,
+    originating_receipt: FolderReceiptEnvelopeV3 | Mapping[str, Any],
+) -> ConnectedChangeFileV2:
+    """Finalize one self-contained Foldweave envelope around a v3 receipt."""
+
+    receipt = _validated_originating_receipt_v3(
+        originating_receipt,
+        core=core,
+    )
+    provisional = ConnectedChangeFileV2.model_construct(
+        schema_version="connected-change-file.v2",
+        core=core,
+        core_fingerprint=connected_change_core_v2_fingerprint(core),
+        originating_receipt=receipt,
+        change_file_fingerprint="0" * 64,
+    )
+    change_file = ConnectedChangeFileV2(
+        **provisional.model_dump(mode="python", exclude={"change_file_fingerprint"}),
+        change_file_fingerprint=connected_change_file_v2_fingerprint(provisional),
     )
     if len(canonical_json_bytes(change_file)) > MAX_CHANGE_FILE_BYTES:
         _reject(
@@ -307,6 +453,97 @@ def parse_connected_change_file(data: bytes) -> ConnectedChangeFile:
             "Change File must use exact canonical JSON serialization.",
         )
     return change_file
+
+
+def parse_connected_change_file_v2(data: bytes) -> ConnectedChangeFileV2:
+    """Strictly parse and verify one bounded Foldweave Change File envelope."""
+
+    raw = _strict_bounded_change_file_object(data)
+    if raw.get("schema_version") != "connected-change-file.v2":
+        _reject(
+            "change_file_schema_invalid",
+            "Change File does not declare connected-change-file.v2.",
+        )
+    _require_exact_envelope_fields(raw)
+    core_raw = raw.get("core")
+    if not isinstance(core_raw, dict):
+        _reject("change_file_schema_invalid", "Change File Core must be an object.")
+    _require_raw_fingerprints(raw, core_raw)
+    try:
+        change_file = ConnectedChangeFileV2.model_validate_json(data, strict=True)
+    except ValidationError as exc:
+        if _raw_receiver_targets_are_invalid(core_raw):
+            _reject("receiver_target_invalid", str(exc))
+        _reject("change_file_schema_invalid", str(exc))
+    _validated_originating_receipt_v3(
+        change_file.originating_receipt,
+        core=change_file.core,
+    )
+    if canonical_json_bytes(change_file) != data:
+        _reject(
+            "change_file_schema_invalid",
+            "Change File must use exact canonical JSON serialization.",
+        )
+    return change_file
+
+
+def parse_connected_change_file_any(data: bytes) -> ConnectedChangeFileAny:
+    """Strictly dispatch canonical Change File bytes across v1 and v2."""
+
+    raw = _strict_bounded_change_file_object(data)
+    schema_version = raw.get("schema_version")
+    if schema_version == "connected-change-file.v1":
+        return parse_connected_change_file(data)
+    if schema_version == "connected-change-file.v2":
+        return parse_connected_change_file_v2(data)
+    _reject(
+        "change_file_schema_invalid",
+        "Change File schema version is unsupported.",
+    )
+
+
+def _strict_bounded_change_file_object(data: bytes) -> dict[str, Any]:
+    if not isinstance(data, bytes):
+        _reject("change_file_schema_invalid", "Change File input must be bytes.")
+    if len(data) > MAX_CHANGE_FILE_BYTES:
+        _reject(
+            "change_file_too_large",
+            f"Change File exceeds {MAX_CHANGE_FILE_BYTES} bytes.",
+        )
+    try:
+        return strict_json_object(data)
+    except FolderPortableArtifactError as exc:
+        _reject("change_file_schema_invalid", str(exc))
+
+
+def _require_exact_envelope_fields(raw: Mapping[str, Any]) -> None:
+    if set(raw) != {
+        "schema_version",
+        "core",
+        "core_fingerprint",
+        "originating_receipt",
+        "change_file_fingerprint",
+    }:
+        _reject("change_file_schema_invalid", "Change File fields are not exact.")
+
+
+def _require_raw_fingerprints(
+    raw: Mapping[str, Any],
+    core_raw: Mapping[str, Any],
+) -> None:
+    expected_core = canonical_sha256(core_raw)
+    envelope_payload = {
+        key: value for key, value in raw.items() if key != "change_file_fingerprint"
+    }
+    expected_envelope = canonical_sha256(envelope_payload)
+    if (
+        raw.get("core_fingerprint") != expected_core
+        or raw.get("change_file_fingerprint") != expected_envelope
+    ):
+        _reject(
+            "change_file_fingerprint_mismatch",
+            "Change File canonical fingerprint does not match its contents.",
+        )
 
 
 def _raw_receiver_targets_are_invalid(core_raw: Mapping[str, Any]) -> bool:
@@ -566,6 +803,69 @@ def _validated_originating_receipt(
         _reject(
             "change_file_fingerprint_mismatch",
             "Originating receipt authorities do not match the Change File Core.",
+        )
+    return parsed
+
+
+def _validated_originating_receipt_v3(
+    receipt: FolderReceiptEnvelopeV3 | Mapping[str, Any],
+    *,
+    core: ConnectedChangeCoreV2,
+) -> FolderReceiptEnvelopeV3:
+    try:
+        parsed = (
+            receipt
+            if isinstance(receipt, FolderReceiptEnvelopeV3)
+            else FolderReceiptEnvelopeV3.model_validate_json(
+                canonical_json_bytes(dict(receipt)),
+                strict=True,
+            )
+        )
+    except (TypeError, ValueError, ValidationError) as exc:
+        _reject(
+            "change_file_schema_invalid",
+            f"Originating receipt is not a strict v3 receipt: {exc}",
+        )
+    receipt_core = parsed.receipt
+    if receipt_core.execution_role not in {"origin", "derivative"}:
+        _reject(
+            "change_file_schema_invalid",
+            "Originating receipt must declare origin or derivative execution.",
+        )
+    if not (
+        receipt_core.connected_change_core_schema_version == "connected-change-core.v2"
+        and receipt_core.connected_change_core_fingerprint
+        == connected_change_core_v2_fingerprint(core)
+    ):
+        _reject(
+            "change_file_fingerprint_mismatch",
+            "Originating receipt does not commit this v2 Change File Core.",
+        )
+    if receipt_core.execution_role == "derivative" and not (
+        receipt_core.imported_change_file_fingerprint
+        == core.lineage.parent_change_file_fingerprint
+        and receipt_core.originating_receipt_fingerprint
+        == core.lineage.parent_originating_receipt_fingerprint
+    ):
+        _reject(
+            "change_file_fingerprint_mismatch",
+            "Derivative receipt does not bind the immediate parent lineage.",
+        )
+    if not (
+        receipt_core.source_commitment == core.origin_source_commitment
+        and receipt_core.request_fingerprint == core.request_fingerprint
+        and receipt_core.source_file_count == core.expected_file_count
+        and receipt_core.map_row_count == core.expected_file_count
+        and receipt_core.supported_link_count == core.expected_supported_link_count
+        and receipt_core.organized_tree.commitment
+        == core.expected_organized_tree_commitment
+        and receipt_core.lineage_generation == core.lineage.generation
+        and receipt_core.evidence_fingerprint in core.origin_proof_identifiers
+        and receipt_core.accepted_plan_fingerprint in core.origin_proof_identifiers
+    ):
+        _reject(
+            "change_file_fingerprint_mismatch",
+            "Originating receipt authorities do not match the v2 Change File Core.",
         )
     return parsed
 

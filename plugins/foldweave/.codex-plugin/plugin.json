@@ -1,0 +1,33 @@
+{
+  "name": "foldweave",
+  "version": "0.1.0+codex.20260720050522",
+  "description": "Review, revise, apply, verify, and reconstruct connected-folder changes with Foldweave.",
+  "author": {
+    "name": "Modern Blueprints",
+    "url": "https://github.com/ModernBlueprints"
+  },
+  "license": "MIT",
+  "keywords": [
+    "connected-folders",
+    "file-organization",
+    "review-before-execution",
+    "mcp"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Foldweave",
+    "shortDescription": "Change the structure. Keep the connections.",
+    "longDescription": "Plan a bounded connected-folder change with Codex host inference, review or revise the exact proposal before execution, apply a shared Foldweave Change File deterministically, and verify or reconstruct the result. The plugin uses Foldweave's existing local job, compiler, receipt, verifier, and reconstruction services rather than copying product logic.",
+    "developerName": "Modern Blueprints",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Plan a connected-folder change with Foldweave and show me the exact proposal before execution.",
+      "Prepare a shared Foldweave Change File for review, then help me revise or accept it.",
+      "Verify a Foldweave result and recreate the source layout for this transaction."
+    ]
+  }
+}

@@ -104,6 +104,12 @@ body.folder-app {
   text-align: center;
 }
 
+.folder-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .folder-main {
   width: min(100% - 2rem, 70rem);
   margin: 0 auto;
@@ -145,6 +151,43 @@ body.folder-app {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.folder-planning-modes {
+  margin-top: 1.5rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--folder-border);
+}
+
+.folder-planning-modes h2,
+.folder-pairing-code h2 {
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+}
+
+.folder-planning-modes > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.folder-planning-modes article {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  border: 1px solid var(--folder-border);
+  border-radius: 0.65rem;
+  background: rgb(16 20 25 / 55%);
+}
+
+.folder-planning-modes p {
+  margin: 0;
+  color: var(--folder-muted);
+  line-height: 1.5;
+}
+
+.folder-planning-modes a {
+  color: var(--folder-focus);
 }
 
 .folder-choice {
@@ -346,6 +389,88 @@ body.folder-app {
   padding: 0.9rem 1rem;
   border-radius: 0.55rem;
   line-height: 1.45;
+}
+
+.folder-pairing-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid var(--folder-border);
+  border-radius: 0.65rem;
+  background: var(--folder-panel-raised);
+}
+
+.folder-pairing-status > span:last-child {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.folder-pairing-status small {
+  color: var(--folder-muted);
+  line-height: 1.45;
+}
+
+.folder-status-signal {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.folder-pairing-status--connected {
+  border-color: rgb(50 164 103 / 55%);
+  color: #7ad7a2;
+}
+
+.folder-pairing-status--awaiting_local_approval,
+.folder-pairing-status--local_only,
+.folder-pairing-status--reconnecting {
+  border-color: rgb(217 158 11 / 55%);
+  color: #f0cf78;
+}
+
+.folder-pairing-status--revoked,
+.folder-pairing-status--expired,
+.folder-pairing-status--local_state_invalid {
+  border-color: rgb(219 90 97 / 55%);
+  color: #f29ca0;
+}
+
+.folder-pairing-code {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid rgb(72 175 240 / 50%);
+  border-radius: 0.7rem;
+  background: rgb(72 175 240 / 7%);
+}
+
+.folder-pairing-code output {
+  display: block;
+  width: fit-content;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--folder-border);
+  border-radius: 0.45rem;
+  background: #0b0f14;
+  color: var(--folder-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(1.25rem, 4vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.folder-pairing-code p,
+.folder-pairing-form small {
+  color: var(--folder-muted);
+  line-height: 1.5;
+}
+
+.folder-pairing-actions {
+  margin-top: 1.25rem;
 }
 
 .folder-alert > span,
@@ -637,6 +762,11 @@ body.folder-app {
     display: none;
   }
 
+  .folder-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
   .folder-mode {
     align-self: stretch;
     max-width: none;
@@ -659,7 +789,8 @@ body.folder-app {
 
   .folder-proof-grid,
   .folder-actions,
-  .folder-home-choices {
+  .folder-home-choices,
+  .folder-planning-modes > div {
     grid-template-columns: 1fr;
   }
 

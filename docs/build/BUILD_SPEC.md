@@ -1701,6 +1701,15 @@ cross-device, cross-job, malformed, or scope-incompatible input. Reconnects bind
 the same canonical request and cannot duplicate a provider call, job, answer,
 result, or reconstruction.
 
+The per-job capability is a local, device-key-derived authority whose hash,
+device, grant, scope set, and expiry are immutable in JobV3. Public MCP input
+binds only the opaque job ID; after the gateway and companion verify the exact
+device/grant/scope/request envelope, the local host rederives and validates the
+capability internally. Its raw bearer value never crosses the gateway, enters
+an MCP tool schema or result, appears in `structuredContent` or `_meta`, reaches
+the model/widget, or enters browser/widget state. The inclusive lifetime remains
+thirty minutes, after which a fresh job is required.
+
 ### IO-019 — App and cross-surface state
 
 Durable state is `FolderRefactorJobV3`, never localStorage, Zustand, widget
@@ -1849,8 +1858,14 @@ generation plus one. Generation `32` is the inclusive maximum, so creation of a
 generation-33 child blocks before receipt or artifact construction. Canonical
 UTF-8 bytes for the complete immediate-parent lineage object, including member
 bindings, are limited to 1,048,576 bytes inclusive; 1,048,577 bytes blocks.
-Both limits are verified before execution authorization can yield an exportable
-child and are covered at the boundary and one beyond it. The complete Change
+The byte ceiling is a defensive parser and future-schema limit: the current v2
+schema permits at most 500 fixed-shape member bindings, so no valid current-v2
+lineage can naturally reach one MiB. Acceptance therefore requires both the raw
+size guard at 1,048,576/1,048,577 bytes and a canonical maximum-valid-current-
+schema lineage containing all 500 bindings. Do not add padding or expand the
+500-member product boundary merely to manufacture a one-MiB valid object. The
+generation limit and the applicable byte/shape limits are verified before
+execution authorization can yield an exportable child. The complete Change
 File still remains within the inherited 16 MiB raw-file limit.
 
 The fixed graph is:
@@ -1878,7 +1893,8 @@ All new work uses strict `folder-refactor-job.v3`. Its allowed transitions are:
 
 | From | Allowed next state | Condition |
 |---|---|---|
-| created origin/derivative job | `planning` | A live or replay planner is required. |
+| created origin job | `planning` | A live or replay planner is required. |
+| created derivative child from a reviewed imported proposal | `revising` | The immutable parent preview is the bound base for the first complete derivative replacement. |
 | created receiver-parent job | `matching` | An imported Change File is being verified and rebound. |
 | `matching` | `reviewing` | Deterministic matching and compilation produce one complete valid receiver preview. |
 | `planning` | `awaiting_clarification` | The sole permitted model clarification is required. |
@@ -1898,6 +1914,11 @@ job-specific failure. `stale`, `blocked`, and `verified` are terminal. An
 unchanged receiver-parent transaction never enters `planning`,
 `awaiting_clarification`, or `revising`; it follows
 `matching → reviewing → executing → verified`.
+
+Only a new origin job begins in `planning`. A derivative child created from an
+already reviewed imported proposal begins in `revising` because its immutable
+parent candidate and preview are the exact base of its first model turn; it
+reaches `reviewing` only after the complete derivative proposal compiles.
 
 ### CASE-014 — Immutable preview DTO
 
@@ -1974,11 +1995,15 @@ ChatGPT-hosted planning is real only when the model supplied by the user's
 ChatGPT session calls Foldweave's bounded host-planning tools and submits a
 complete proposal or sparse revision. Foldweave makes no hidden Responses API
 call, reads no API key, and reserves or mutates no direct budget. The remote
-widget uses the standard MCP Apps bridge first: `ui/message` for **Send
-changes** so the instruction re-enters the host-model loop, and `tools/call`
-for deterministic refresh, exact acceptance, verification, Change File
-retrieval, and reconstruction. `window.openai.sendFollowUpMessage` and
-`window.openai.callTool` are compatibility extensions, not the sole interface.
+widget uses the standard MCP Apps bridge as its portable baseline. Inside
+ChatGPT, **Send changes** feature-detects and prefers the documented
+`window.openai.sendFollowUpMessage` extension so the instruction re-enters the
+host-model loop; when that extension is absent, it emits one standard
+`ui/message` notification. It selects exactly one follow-up transport and never
+retries through the other transport after dispatch or rejection. Deterministic
+refresh, exact acceptance, verification, Change File retrieval, and
+reconstruction remain standard-first `tools/call` operations, with
+`window.openai.callTool` only as the compatibility fallback.
 
 ChatGPT may inspect only bounded job-scoped inventory pages, eligible excerpts,
 and supported-link facts. It cannot access the filesystem, paths, credentials,
@@ -2223,13 +2248,15 @@ missing-key cases; safe endpoint/redirect behavior; picker cancellation and
 invalid role; copied-app launch; shutdown/no-orphan; and strict legacy
 verification/reconstruction.
 
-Also require lineage generation `32` acceptance and `33` refusal; canonical
-lineage metadata at 1,048,576 bytes acceptance and 1,048,577 refusal; valid v1
-Change File unchanged application; immutable v1 parent to self-contained v2
-child revision; v2 child application without the v1 file; incompatible legacy
-version refusal; and simultaneous parent/child same-output acceptance proving
-one deterministic reservation winner or a fail-closed no-winner result with no
-partial output. Native checks include port conflict and second-launch behavior.
+Also require lineage generation `32` acceptance and `33` refusal; the defensive
+lineage-size guard at 1,048,576 bytes acceptance and 1,048,577 refusal; one
+canonical valid lineage containing the current-schema maximum of 500 member
+bindings; valid v1 Change File unchanged application; immutable v1 parent to
+self-contained v2 child revision; v2 child application without the v1 file;
+incompatible legacy version refusal; and simultaneous parent/child same-output
+acceptance proving one deterministic reservation winner or a fail-closed
+no-winner result with no partial output. Native checks include port conflict and
+second-launch behavior.
 
 ### VER-024 — Clean release and reconstruction matrix
 

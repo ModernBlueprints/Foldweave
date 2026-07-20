@@ -19,5 +19,23 @@
         <small>Use a {{ product_name }} Change File locally without another AI planning run.</small>
       </a>
     </nav>
+
+    {% if foldweave_active %}
+      <section class="folder-planning-modes" aria-labelledby="planning-modes-title">
+        <h2 id="planning-modes-title">Choose how Foldweave plans</h2>
+        <div>
+          <article>
+            <strong>Direct API</strong>
+            <p>Use exact GPT-5.6 through the Responses API with a key held only by trusted Python.</p>
+            {% if native_settings_available %}<a href="/settings">Open secure settings</a>{% endif %}
+          </article>
+          <article>
+            <strong>ChatGPT-hosted</strong>
+            <p>Use your ChatGPT session through a paired local companion, without a Foldweave Responses API call.</p>
+            {% if pairing_available %}<a href="/pairing">Manage ChatGPT pairing</a>{% endif %}
+          </article>
+        </div>
+      </section>
+    {% endif %}
   </section>
 {% endblock %}

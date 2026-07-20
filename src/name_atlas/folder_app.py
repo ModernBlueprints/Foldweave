@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import hmac
 import json
 import os
@@ -12,7 +13,7 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
 from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI, Request, Response
@@ -23,6 +24,12 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from name_atlas.folder_refactor.naming import validate_result_folder_name
 from name_atlas.folder_refactor.receipt_contracts import FolderRestoreReport
+from name_atlas.foldweave_pairing_service import (
+    PairingApplicationLifecycle,
+    PairingLifecycleError,
+    PairingLifecycleOperations,
+    create_default_pairing_service,
+)
 from name_atlas.native_bridge import (
     MacOSNativePathBridge,
     NativeOpenStatus,
@@ -34,6 +41,25 @@ from name_atlas.native_settings import NativeSettingsResult, NativeSettingsServi
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=PACKAGE_ROOT / "templates")
+
+
+def _static_asset_version(*relative_paths: str) -> str:
+    """Fingerprint built assets so every changed release invalidates local caches."""
+
+    digest = hashlib.sha256()
+    for relative_path in relative_paths:
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update((PACKAGE_ROOT / "static" / relative_path).read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()[:16]
+
+
+FOLDER_ASSET_VERSION = _static_asset_version("folder.css")
+REVIEW_ASSET_VERSION = _static_asset_version(
+    "review/review.css",
+    "review/review.js",
+)
 MAX_FORM_BODY_BYTES = 32_768
 MAX_REQUEST_CHARACTERS = 8_000
 PLANNER_LABEL = "Deterministic A3 planner — no API call"
@@ -119,7 +145,7 @@ class FolderRunPresentation:
     change_file_fingerprint: str | None = None
     originating_receipt_fingerprint: str | None = None
     organized_tree_commitment: str | None = None
-    execution_role: str | None = None
+    execution_role: Literal["origin", "receiver", "derivative"] | None = None
     technical_facts: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
@@ -144,7 +170,7 @@ class FolderRunPresentation:
             raise ValueError("A Done presentation cannot contain a failed core proof.")
         if self.data_root != self.result_root / "data":
             raise ValueError("The user folder must be the result's data directory.")
-        if self.execution_role not in {None, "origin", "receiver"}:
+        if self.execution_role not in {None, "origin", "receiver", "derivative"}:
             raise ValueError("Result execution role is unsupported.")
 
 
@@ -530,6 +556,7 @@ class _FolderWebState:
     outbound_evidence_will_be_sent: bool = False
     foldweave_active: bool = False
     native_settings_available: bool = False
+    pairing_available: bool = False
     current_stage: int = 0
     completed_stage_count: int = 0
     result: FolderRunPresentation | None = None
@@ -564,6 +591,7 @@ def create_folder_app(
     planner_note: str | None = None,
     native_bridge: NativePathBridge | None = None,
     native_settings: NativeSettingsService | None = None,
+    pairing_service: PairingLifecycleOperations | None = None,
     health_instance_nonce: str | None = None,
 ) -> FastAPI:
     """Create one loopback UI around the injected durable transaction service."""
@@ -576,6 +604,11 @@ def create_folder_app(
     elif planner_note is None:
         planner_note = "This deterministic development transaction makes no API call."
     desktop_bridge = native_bridge or MacOSNativePathBridge()
+    active_pairing_service = (
+        pairing_service
+        if pairing_service is not None
+        else (create_default_pairing_service() if review_enabled else None)
+    )
 
     checkpoint_error: str | None = None
     try:
@@ -605,6 +638,7 @@ def create_folder_app(
     )
     state.foldweave_active = review_enabled
     state.native_settings_available = native_settings is not None
+    state.pairing_available = active_pairing_service is not None
     default_request = getattr(service, "default_request", None)
     if (
         connected_enabled
@@ -616,6 +650,8 @@ def create_folder_app(
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         try:
+            if isinstance(active_pairing_service, PairingApplicationLifecycle):
+                await active_pairing_service.start_background_runtime()
             if (
                 checkpoint is not None
                 and checkpoint.resume_required
@@ -627,13 +663,17 @@ def create_folder_app(
                 )
             yield
         finally:
-            if state.worker is not None and not state.worker.done():
-                if _uses_worker_thread(service):
-                    await _await_mutating_worker(state.worker)
-                else:
-                    state.worker.cancel()
-                    with suppress(asyncio.CancelledError):
-                        await state.worker
+            try:
+                if isinstance(active_pairing_service, PairingApplicationLifecycle):
+                    await active_pairing_service.stop_background_runtime()
+            finally:
+                if state.worker is not None and not state.worker.done():
+                    if _uses_worker_thread(service):
+                        await _await_mutating_worker(state.worker)
+                    else:
+                        state.worker.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await state.worker
 
     app = FastAPI(
         title="Foldweave" if review_enabled else "Reversible Name Atlas",
@@ -652,6 +692,7 @@ def create_folder_app(
     app.state.review_enabled = review_enabled
     app.state.native_path_bridge = desktop_bridge
     app.state.native_settings = native_settings
+    app.state.pairing_service = active_pairing_service
     instance_nonce = health_instance_nonce or secrets.token_hex(32)
     if len(instance_nonce) != 64 or any(
         character not in "0123456789abcdef" for character in instance_nonce
@@ -739,6 +780,87 @@ def create_folder_app(
         result = await asyncio.to_thread(native_settings.remove)
         state.notice = _native_settings_message(result)
         return _redirect("/settings")
+
+    @app.get("/pairing", response_class=HTMLResponse, include_in_schema=False)
+    async def pairing(request: Request) -> Response:
+        if active_pairing_service is None:
+            return HTMLResponse("ChatGPT pairing is unavailable.", status_code=404)
+        pairing_view = await active_pairing_service.view()
+        return TEMPLATES.TemplateResponse(
+            request=request,
+            name="folder/pairing.html",
+            context={
+                **_base_context(
+                    state=state,
+                    planner_label=planner_label,
+                    planner_note=planner_note,
+                ),
+                "pairing": pairing_view,
+            },
+        )
+
+    @app.post("/pairing/register", include_in_schema=False)
+    async def register_pairing(request: Request) -> Response:
+        if active_pairing_service is None:
+            return HTMLResponse("ChatGPT pairing is unavailable.", status_code=404)
+        try:
+            gateway_url, device_name = await _parse_pairing_registration_form(
+                request,
+                expected_csrf_token=state.csrf_token,
+            )
+            await active_pairing_service.register(
+                gateway_url=gateway_url,
+                device_name=device_name,
+            )
+        except FolderFormError as exc:
+            return HTMLResponse(str(exc), status_code=422)
+        except PairingLifecycleError as exc:
+            state.notice = f"{exc.message} ({exc.code})"
+            return _redirect("/pairing")
+        state.notice = (
+            "The one-time pairing code is ready. Confirm this installation "
+            "locally, then complete authorization in ChatGPT."
+        )
+        return _redirect("/pairing")
+
+    @app.post("/pairing/approve", include_in_schema=False)
+    async def approve_pairing(request: Request) -> Response:
+        if active_pairing_service is None:
+            return HTMLResponse("ChatGPT pairing is unavailable.", status_code=404)
+        try:
+            await _parse_settings_action_form(
+                request,
+                expected_csrf_token=state.csrf_token,
+            )
+            await active_pairing_service.approve_locally()
+        except FolderFormError as exc:
+            return HTMLResponse(str(exc), status_code=422)
+        except PairingLifecycleError as exc:
+            state.notice = f"{exc.message} ({exc.code})"
+            return _redirect("/pairing")
+        state.notice = (
+            "Local approval is confirmed. This alone does not authorize ChatGPT; "
+            "finish the authorization there."
+        )
+        return _redirect("/pairing")
+
+    @app.post("/pairing/revoke", include_in_schema=False)
+    async def revoke_pairing(request: Request) -> Response:
+        if active_pairing_service is None:
+            return HTMLResponse("ChatGPT pairing is unavailable.", status_code=404)
+        try:
+            await _parse_settings_action_form(
+                request,
+                expected_csrf_token=state.csrf_token,
+            )
+            await active_pairing_service.revoke()
+        except FolderFormError as exc:
+            return HTMLResponse(str(exc), status_code=422)
+        except PairingLifecycleError as exc:
+            state.notice = f"{exc.message} ({exc.code})"
+            return _redirect("/pairing")
+        state.notice = "The ChatGPT pairing was revoked and removed locally."
+        return _redirect("/pairing")
 
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def root(request: Request) -> Response:
@@ -872,7 +994,11 @@ def create_folder_app(
             state.change_file_value = str(change_file)
             state.source_value = str(source_root)
             state.output_value = str(output_parent)
-            state.request_value = "Applying the selected Name Atlas Change File"
+            state.request_value = (
+                "Applying the selected Foldweave Change File"
+                if state.foldweave_active
+                else "Applying the selected Name Atlas Change File"
+            )
             state.journey = FolderJourney.APPLY
             _begin_working_state(state)
             state.worker = asyncio.create_task(
@@ -1804,6 +1930,33 @@ async def _parse_settings_action_form(
         raise FolderFormError("The settings security token is invalid or expired.")
 
 
+async def _parse_pairing_registration_form(
+    request: Request,
+    *,
+    expected_csrf_token: str,
+) -> tuple[str, str]:
+    fields = await _parse_urlencoded_fields(
+        request,
+        expected_names={"csrf_token", "device_name", "gateway_url"},
+        form_name="ChatGPT pairing",
+    )
+    if not hmac.compare_digest(fields["csrf_token"], expected_csrf_token):
+        raise FolderFormError("The pairing security token is invalid or expired.")
+    gateway_url = fields["gateway_url"].strip()
+    device_name = fields["device_name"].strip()
+    if not gateway_url or len(gateway_url) > 2_048 or "\x00" in gateway_url:
+        raise FolderFormError("The Foldweave gateway URL is invalid.")
+    if (
+        not device_name
+        or len(device_name) > 80
+        or any(
+            ord(character) < 32 or ord(character) == 127 for character in device_name
+        )
+    ):
+        raise FolderFormError("The Foldweave device name is invalid.")
+    return gateway_url, device_name
+
+
 async def _parse_urlencoded_fields(
     request: Request,
     *,
@@ -2173,6 +2326,9 @@ def _base_context(
         "notice": state.notice,
         "foldweave_active": state.foldweave_active,
         "native_settings_available": state.native_settings_available,
+        "pairing_available": state.pairing_available,
+        "folder_asset_version": FOLDER_ASSET_VERSION,
+        "review_asset_version": REVIEW_ASSET_VERSION,
     }
 
 

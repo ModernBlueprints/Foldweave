@@ -12,7 +12,11 @@ import httpx
 import pytest
 from connected_change_fixtures import make_connected_change_fixture, tree_state
 
-from name_atlas.folder_app import create_folder_app
+from name_atlas.folder_app import (
+    FOLDER_ASSET_VERSION,
+    REVIEW_ASSET_VERSION,
+    create_folder_app,
+)
 from name_atlas.folder_refactor.connected_change.receipt import (
     CONNECTED_CHANGE_PATH,
 )
@@ -188,6 +192,10 @@ async def test_f0a_browser_origin_receiver_review_restart_accept_and_receipts(
         assert review.status_code == 200
         assert 'id="foldweave-review-root"' in review.text
         assert "Nothing has been copied yet" in review.text
+        assert f"/static/folder.css?v={FOLDER_ASSET_VERSION}" in review.text
+        assert f"/static/review/review.css?v={REVIEW_ASSET_VERSION}" in review.text
+        assert f"/static/review/review.js?v={REVIEW_ASSET_VERSION}" in review.text
+        assert "20260719" not in review.text
         assert preview.status_code == 200
         assert preview.headers["cache-control"] == "no-store"
         origin_preview = preview.json()
@@ -245,6 +253,9 @@ async def test_f0a_browser_origin_receiver_review_restart_accept_and_receipts(
         assert accepted.json() == {"lifecycle": "verified", "done_url": "/done"}
         assert done.status_code == 200
         assert "Your new folder is ready" in done.text
+        assert "Foldweave created a separate copy" in done.text
+        assert "Reversible Name Atlas" not in done.text
+        assert "Name Atlas created" not in done.text
         assert "Original folder</dt><dd>Unchanged" in done.text
 
         origin_checkpoint = restarted_origin_service.web_checkpoint()
@@ -333,6 +344,9 @@ async def test_f0a_browser_origin_receiver_review_restart_accept_and_receipts(
         assert receiver_accepted.json()["lifecycle"] == "verified"
         assert receiver_done.status_code == 200
         assert "Your new folder is ready" in receiver_done.text
+        assert "Foldweave created a separate copy" in receiver_done.text
+        assert "Reversible Name Atlas" not in receiver_done.text
+        assert "Name Atlas created" not in receiver_done.text
         receiver_checkpoint = receiver_service.web_checkpoint()
         assert receiver_checkpoint is not None
         assert receiver_checkpoint.result is not None

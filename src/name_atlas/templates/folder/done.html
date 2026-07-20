@@ -1,5 +1,5 @@
 {% extends "folder/base.html" %}
-{% block title %}Done · Reversible Name Atlas{% endblock %}
+{% block title %}Done · {% if foldweave_active %}Foldweave{% else %}Reversible Name Atlas{% endif %}{% endblock %}
 {% block content %}
   <section class="folder-panel folder-panel--done" aria-labelledby="done-title">
     <div class="folder-verdict">
@@ -7,7 +7,7 @@
       <span><small>Independent receipt verification</small><strong>VERIFIED</strong></span>
     </div>
     <h1 id="done-title">Your new folder is ready</h1>
-    <p class="folder-lede">Name Atlas created a separate copy, preserved supported links, and independently verified the result.</p>
+    <p class="folder-lede">{% if foldweave_active %}Foldweave{% else %}Name Atlas{% endif %} created a separate copy, preserved supported links, and independently verified the result.</p>
 
     <dl class="folder-proof-grid">
       <div><dt>Original files present</dt><dd>{{ state.result.source_file_count }} of {{ state.result.source_file_count }}, exactly once</dd></div>

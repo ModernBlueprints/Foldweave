@@ -1,15 +1,15 @@
 # Foldweave build state
 
-Observed: **Monday 20 July 2026 at 02:28:24 CEST** using
+Observed: **Monday 20 July 2026 at 12:25:11 CEST** using
 `oslo_tz = ZoneInfo("Europe/Oslo")`.
 
-Phase: **WAITING_FOR_CHATGPT_DEVELOPER_ACCESS — INDEPENDENT F1 WORK CONTINUES**
+Phase: **F0D CONSUMER GATEWAY QUALIFICATION AND F2 LIVE-TRANSPORT CLOSURE**
 
 Submission hold: **ACTIVE**
 
-Blocker: **F0C EXTERNAL HOST CAPABILITY — ChatGPT advertises and acknowledges
-the widget follow-up request but creates no host-model turn or Foldweave tool
-call. `DEVELOPER_MODE_VERIFIED` is not achieved.**
+Global blocker: **NONE**. The remaining F0d Cloudflare login is a narrow
+user-owned prerequisite; local authority, MCP, engine, test, and release work
+continues independently.
 
 ## Activation and repository
 
@@ -19,167 +19,157 @@ call. `DEVELOPER_MODE_VERIFIED` is not achieved.**
 | Historical R+0 | Saturday 18 July 2026 at 00:51:51 CEST — `PRESERVED` |
 | Historical A+0 | Saturday 18 July 2026 at 15:37:55 CEST — `PRESERVED` |
 | Historical C+0 | Saturday 18 July 2026 at 23:31:39 CEST — `PRESERVED` |
-| Preceding Connected Change goal | `COMPLETED THROUGH C7; SUPERSEDED FOR FUTURE EXECUTION` |
-| Amended Foldweave goal | `ACTIVE` |
-| Foldweave F+0 | Sunday 19 July 2026 at 17:18:14 CEST |
+| Foldweave F+0 | Sunday 19 July 2026 at 17:18:14 CEST — `ACTIVE` |
 | Current branch | `revision/foldweave-native-review` |
-| Exact predecessor | `1023999f2acc7b806775b407dc01a15af3447e90` |
-| Governance commit locator | Parent `1023999f2acc7b806775b407dc01a15af3447e90`; subject `docs: establish Foldweave native-review scaffold`; exact SHA belongs in the handoff |
-| `main` | `1023999f2acc7b806775b407dc01a15af3447e90` — unchanged |
-| `origin/main` | `1023999f2acc7b806775b407dc01a15af3447e90` — unchanged |
-| Previous local revision | `revision/ai-first-folder-refactor` at `1023999f2acc7b806775b407dc01a15af3447e90` — unchanged |
-| Previous remote revision | `origin/revision/ai-first-folder-refactor` at `1023999f2acc7b806775b407dc01a15af3447e90` — unchanged |
+| Checkpoint parent and pre-commit remote branch | `23220768d26990cb8f980f77be41510bc2a7bfd7`; identify the resulting checkpoint by fresh Git rather than self-reference |
+| Exact predecessor, `main`, `origin/main`, and previous revision | `1023999f2acc7b806775b407dc01a15af3447e90` — unchanged |
 | Historical portable branch | local and remote `revision/portable-change-receipt` at `4baec1ed7b8553775527e3be506edab584b2b8b3` — unchanged |
+| Working tree at observation | the complete integrated Foldweave checkpoint is staged; no unrelated work was discarded; verify post-commit cleanliness with fresh Git |
 
-The exact governance commit SHA, clean post-commit state, and remote Foldweave
-branch SHA cannot be asserted by the file contained in that commit. They must be
-reported from fresh post-commit evidence in the scaffold handoff.
+## Remaining fixed windows
 
-## Remaining fixed windows at the observed time
-
-| Boundary | Absolute Oslo time | Remaining |
+| Boundary | Absolute Oslo time | Remaining at observation |
 |---|---|---:|
-| Feature freeze | Tuesday 21 July 2026 at 01:00 CEST | 22 hours, 31 minutes, 36 seconds |
-| Release candidate | Tuesday 21 July 2026 at 06:00 CEST | 27 hours, 31 minutes, 36 seconds |
-| Recording readiness | Tuesday 21 July 2026 at 10:00 CEST | 31 hours, 31 minutes, 36 seconds |
-| Submission | Wednesday 22 July 2026 at 02:00 CEST | 47 hours, 31 minutes, 36 seconds |
+| Feature freeze | Tuesday 21 July 2026 at 01:00 CEST | 12 hours, 34 minutes, 48 seconds |
+| Release candidate | Tuesday 21 July 2026 at 06:00 CEST | 17 hours, 34 minutes, 48 seconds |
+| Recording readiness | Tuesday 21 July 2026 at 10:00 CEST | 21 hours, 34 minutes, 48 seconds |
+| Submission | Wednesday 22 July 2026 at 02:00 CEST | 37 hours, 34 minutes, 48 seconds |
 
-These windows continue to elapse. F+0 recorded activation and the scaled
-targets; it did not reset the 44-hour envelope. The effective F0a target is
-Sunday 19 July 2026 at 21:55:42 CEST.
+These windows continue to elapse. F+0 did not reset the 44-hour envelope.
 
 ## Observed implementation status
 
 | Surface | Status |
 |---|---|
 | A1–A3 and C0–C7 inherited foundation | `VERIFIED COMPLETE` |
-| Foldweave branding | `F0A REVIEW SURFACE COMPLETE`; full active-surface rename remains F3 |
-| Job v3 and immutable preview | `F0A VERIFIED COMPLETE` |
-| Review and exact acceptance | `F0A VERIFIED COMPLETE`; F1 append-only mutation history, exact-request rehydration, and cross-job destination reservation verified |
-| Bounded revision | `F0B LIVE ORIGIN PATH VERIFIED`; F1 root retry authority verified; derivative child and complete multi-surface engine remain |
-| Change File v2 and receipt/verifier v3 | `NOT STARTED` |
-| Serial derivative collaboration | `NOT STARTED` |
-| Native Foldweave app | `F0B VERIFIED COMPLETE — GO` |
-| Keychain settings | `F0B PACKAGED CONFIGURE/STATUS/REMOVE VERIFIED`; final state not configured |
-| New direct GPT planner evidence | `F0B LIVE ORIGIN REVIEW/REVISION/ACCEPTANCE VERIFIED`; F4 evidence matrix remains |
-| ChatGPT developer integration | `WAITING_FOR_CHATGPT_DEVELOPER_ACCESS`; preview/tool path works, but host follow-up creates no model turn and `DEVELOPER_MODE_VERIFIED` is not achieved |
-| Consumer gateway and companion | `NOT STARTED` |
-| ChatGPT distribution states | `DEVELOPER_MODE_VERIFIED: NOT ACHIEVED`; all later states `NOT STARTED` |
-| Reviewed MCP and Codex update | `NOT STARTED` |
-| Budget migration | `COMPLETE`; sole USD 40 ledger preserved, current call cap 13 fully reserved; F4 may set the final count cap |
-| Feature freeze | `PENDING`; absolute boundary Tuesday 21 July 2026 at 01:00 CEST |
-| Foldweave release materials | `STALE FOR THE FOLDWEAVE RELEASE — PRESERVED VERIFIED NAME ATLAS PREDECESSOR MATERIAL; MUST BE REGENERATED AFTER FOLDWEAVE FEATURE FREEZE` |
-| Devpost submission | `NOT PERFORMED` |
+| Foldweave F0a review authority | `VERIFIED COMPLETE — GO` |
+| Foldweave F0b packaged native/direct path | `VERIFIED COMPLETE — GO` |
+| Foldweave F0c ChatGPT developer integration | `VERIFIED COMPLETE — DEVELOPER_MODE_VERIFIED` |
+| Foldweave F1 complete review/revision engine | `VERIFIED COMPLETE — 1,102-TEST REGRESSION GREEN` |
+| Job v3 and immutable preview | `VERIFIED COMPLETE` |
+| Review/revision/exact acceptance | origin, receiver, direct, hosted, CLI, browser, native, and MCP paths `VERIFIED COMPLETE` |
+| Change File v2 and receipt/verifier v3 | deterministic domain, portability, lineage, race, compatibility, and product-native review matrices complete; live-transport qualification remains |
+| Serial derivative collaboration | deterministic Sofia → Martin → Sofia, self-contained CF2, raw/T1 application, convergence, and participant reconstruction complete; mandatory live/packaged evidence remains |
+| Native Foldweave app and Keychain | `F0B VERIFIED COMPLETE`; final F3/F6 active-brand and release polish remain |
+| Direct GPT evidence | live root review/revision/acceptance verified; F4 direct derivative matrix remains |
+| ChatGPT-hosted evidence | live root review/revision/acceptance/verification/Change File/reconstruction verified; live receiver derivative remains |
+| Consumer gateway and companion | local device/grant/scope/per-job-capability authority implemented and regression-green; live Cloudflare/OAuth/WSS qualification pending |
+| ChatGPT distribution | `DEVELOPER_MODE_VERIFIED`; consumer pairing/publication states not yet achieved |
+| Reviewed MCP/Codex | shared MCP and predecessor plugin exist; Foldweave installed-copy F4 qualification remains |
+| Budget migration | `COMPLETE`; sole USD 40 ledger preserved |
+| Feature freeze | `PENDING` |
+| Foldweave release materials | `STALE FOR THE FOLDWEAVE RELEASE`; predecessor evidence preserved |
+| Devpost submission | `NOT PERFORMED`; hold active |
 
-## Current environment and budget facts
+## F0c completion evidence
 
-- The process environment contains no `OPENAI_API_KEY`; no value was read or
-  exposed.
-- Ignored `.env.local` exists with owner-only mode `0600`; its contents were not
-  read.
-- The sole ledger remains `.name-atlas/api_budget.json`, schema
-  `gpt-budget.v1`, model `gpt-5.6`, SHA-256
+- Actual macOS ChatGPT task and visible Foldweave widget were used through the
+  official Secure MCP Tunnel. No Chrome or Brave automation was used.
+- Hosted job: `d8392e05e1e841c7850c28c7a6e4ce82`.
+- Revised preview: job revision 24, proposal revision 1, candidate
+  `5f96104f0c37825e21a389b0024cacd5af84908a9be8b443c1f801cf1319b83f`,
+  preview
+  `f9504c0e062cb7ab05b88fe9959f10b878d977e4a5df5b71f5f99f71f835c384`.
+- The actual widget action **Accept this structure and create copy** persisted
+  exact `chatgpt_hosted` authorization and advanced the job to revision 26
+  `verified`.
+- Verified artifacts: receipt
+  `e8acaa4b74db7722ff8d39de8bc7a28d8c1a34b9e16dc2eddef6c33d5c778fa7`,
+  verification
+  `b8d20f23e5aba8d24a64ae8f2608e3de0398ce920a03c7c174c28d44e95dacde`,
+  Change File
+  `0bf3caf6bdbbac5657db00af2eee8b7769dbf9d980feb4e3725f19b9abf5538b`,
+  organized tree
+  `c234aabe97f7cccfaf6b8c025a2b34c2d4b50a4c350ba52245b8941ac8d6158e`.
+- The widget's **Verify again**, **Get Change File**, and **Recreate original**
+  actions passed. Only opaque handles crossed the widget boundary.
+- Independent CLI verification passed and both independent reconstructions
+  matched the selected source exactly by path and bytes.
+- The v3 public-CLI dispatch defect found by this check was corrected and has a
+  passing verify/restore regression.
+- The sole direct ledger remained byte-identical at SHA-256
   `7f4142aaee9bc6bb14f88c91541d9d611ef5abd1d7f4f958cd3434d401f75f0a`.
-- The ledger is monotonically migrated to USD 40 monetary authority while
-  preserving the cumulative call cap 13. It records 13 requests reserved, 13
-  provider attempts reserved, USD 12.734470 conservative committed exposure,
-  and USD 0.874860 reported estimated cost. The current call cap is exhausted;
-  only F4 may set its final count after the complete remaining call graph is
-  frozen.
-- Cloudflare CLI, verified account credentials, deployment, gateway URL, and
-  pairing evidence are absent.
-- No Apple Developer ID code-signing identity is installed.
-- The macOS ChatGPT application and the current Codex desktop environment are
-  present. A standalone `/Applications/Codex.app` is absent, and the discovered
-  legacy `codex` shell executable fails to start; this is an implementation-time
-  Codex installation/qualification risk, not a scaffold blocker.
-- The installed personal plugin is still branded Name Atlas.
-- The packaged Keychain qualification ended with no Foldweave item configured.
-- The official Secure MCP Tunnel and Foldweave hosted MCP process were active
-  for the F0c retry, then stopped cleanly as development qualification
-  processes; no tunnel or hosted-MCP process remains active.
+
+## Current environment and budget
+
+- The process environment contains no `OPENAI_API_KEY`; no value was exposed.
+- Ignored `.env.local` exists with owner-only mode `0600`; its value has not
+  been printed or committed.
+- The sole ledger remains `.name-atlas/api_budget.json`, schema
+  `gpt-budget.v1`, model `gpt-5.6`, monetary cap USD 40, call cap 13, 13
+  requests/attempts reserved, USD 12.734470 conservative exposure, and USD
+  0.874860 reported estimated cost.
+- The Secure MCP Tunnel and hosted Foldweave MCP process remain active for
+  current developer qualification; process IDs 32146/32157/32159 were observed.
+- Wrangler 4.112.0 is installed but not authenticated. A keychain-backed OAuth
+  login is pending in Codex's in-app browser. No KV namespace, Worker, custom
+  domain, paid plan, or public gateway has been provisioned or deployed.
+- No Apple Developer ID identity is installed; the tested unsigned/ad-hoc
+  Apple-Silicon judge build remains the truthful release profile.
 
 ## Latest verified commands
 
-- `uv lock --check` — passed; 62 packages resolved.
-- `PYTHONDONTWRITEBYTECODE=1 uv run --no-sync pytest -p no:cacheprovider` —
-  passed; 956 tests in 80.20 seconds with one existing Starlette warning.
-- `PYTHONDONTWRITEBYTECODE=1 uv run --no-sync pytest -p no:cacheprovider
-  tests/test_foldweave*.py` — passed; all 109 Foldweave tests in 10.25
-  seconds.
-- Focused independent F0b/native/provider suites — passed; 60 tests and 45
-  tests in the two bounded audits.
-- `npm run typecheck` — passed with strict library checking.
-- `npm test` — passed; 8 Vitest tests.
-- `npm run build` — passed; production review assets regenerated.
-- `uv run --no-sync ruff check .` — passed.
-- `uv run --no-sync ruff format --check .` — passed; 194 files already
-  formatted.
-- PyInstaller production build, arm64/file checks, and strict ad-hoc
-  `codesign` verification — passed; unrelated-location launch passed.
-- Product-native receipt verification returned `VERIFIED` for receipt
-  `116616c0b6fd857c9885177ef80e02e4e574f82d5ec82e00ef2b773ffa005fdd`;
-  source/reconstruction comparison was exact.
-- The actual packaged picker timeout/selection and Keychain
-  configure/status/remove paths passed without provider or output mutation.
-- Restart preserved job SHA-256
-  `c8320d759aa39000a05f221509defa0aff708c2d80edb1439488e2a793a0284d`
-  and the ledger SHA above; final quit left no process.
-- Sensitive-value/path scan, `git diff --check`, and
-  `git diff --cached --check` — passed.
-- The independent adversarial audit returned F0b `COMPLETE — GO`.
-- Focused F0c Python tests passed 42/42; the complete Python regression passed
-  936/936 in 77.90 seconds; frontend Vitest passed 34/34; strict TypeScript and
-  both production review/widget builds passed; the 1,357,465-byte wheel contains
-  both packaged widget assets; lock, Ruff lint, Ruff format over 188 files, and
-  both Git diff checks passed.
-- The clean-room and post-developer-mode in-app ChatGPT retries both advertised
-  and acknowledged the standard request-based `ui/message`, then produced no
-  new ChatGPT turn, no Foldweave tool call, and no job mutation.
-- Hosted job `405990b5925e47b7884aa04d49c8f639` remains in `reviewing` at
-  revision 9 with preview fingerprint
-  `99a0e9f06229198c2279627fb31f32f4ba7d7ab684294a1d169461044fe46ebf`,
-  no revision attempt, authorization, result, or output. Its SHA-256 is
-  `0c7b28a976a030250c4b6e38f01f9b914f65204f8ac981054918c5644646c6de`.
+- Complete Python regression after all public-authority corrections:
+  **1,102 passed in 130.81 seconds**.
+- Primary-integrator post-correction companion, public-capability, MCP, host,
+  native, and derivative authority matrix: **110 passed**.
+- The independent audit's reproduced standalone loopback ContextVar defect was
+  corrected before deployment. The production companion now uses in-process
+  ASGI dispatch with one shared identity and host service; the new context and
+  composition regressions pass.
+- The same audit found that the first capability propagation design exposed a
+  raw bearer through MCP `structuredContent`, contrary to UX-022. That design
+  was removed before deployment: MCP and widget surfaces carry no raw
+  capability, while the local host rederives and validates the immutable
+  30-minute JobV3 binding from the verified device/grant/scope/job context.
+- The bounded independent re-audit found no HIGH or MEDIUM issue, independently
+  passed **83** public-authority Python tests plus the complete frontend and
+  gateway suites, and returned code-level public-deployment readiness `GO`.
+- Deterministic F2 closure matrix: **67 passed**; adjacent real
+  parent/child-race and product-native Martin T1→T2 matrix: **25 passed**.
+- Frontend strict TypeScript passed; Vitest passed **54/54**; Vite review and
+  ChatGPT-widget production builds passed.
+- Gateway strict TypeScript passed; Worker tests passed **31/31**; Wrangler
+  production dry build passed at 219.63 KiB raw / 47.13 KiB gzip. The subsequent
+  accidental request for a nonexistent `deploy:dry-run` npm script failed after
+  the real `build` script had already passed; `package.json` confirms `build`
+  itself is the dry-run deployment command.
+- `uv lock --check` resolved 63 packages; Ruff lint passed; Ruff format reports
+  **220 files already formatted**; unstaged and cached `git diff --check` pass.
 
 ## Exact next operation
 
-`Publish the verified F1 review-authority foundation, then implement the immutable receiver-parent/derivative-child review path and its direct and hosted sparse-revision authority. Preserve the exact F0c host-access wait; retry F0c only when ChatGPT host/workspace access or host behavior changes, without substituting the direct API or formally starting F0d.`
+`Preserve and publish the independently audited, regression-green
+F1/deterministic-F2 checkpoint; then authenticate Wrangler
+through Codex's in-app browser, provision the real free-tier gateway resources,
+deploy, and qualify OAuth, pairing, outbound WSS, reconnect, origin, and receiver
+derivative transactions before beginning the remaining direct/ChatGPT live F2
+matrix and F3/F4 release qualification.`
 
 ## Compact recovery capsule
 
-- **Phase:** `WAITING_FOR_CHATGPT_DEVELOPER_ACCESS — INDEPENDENT F1 WORK CONTINUES`
-- **Branch / predecessor:** `revision/foldweave-native-review` /
-  `1023999f2acc7b806775b407dc01a15af3447e90`
-- **Current F milestone:** F0c waits on the ChatGPT host capability boundary;
-  independent F1 work continues; F0a and F0b returned verified `GO`; F+0 is
-  Sunday 19 July 2026 at 17:18:14 CEST
-- **Latest verified commands:** lock passed; 956 Python tests and all 109
-  Foldweave tests passed; Ruff lint/format over 194 files and Git diff checks
-  passed; prior 34 frontend tests, strict TypeScript, and Vite builds remain the
-  latest verified frontend evidence
-- **Job / preview:** F0a authority and F0b direct native
-  review/revision/acceptance `VERIFIED COMPLETE`
-- **Change File / receipt / verifier / reconstruction:** predecessor evidence
-  complete; Foldweave v2/v3 work `NOT STARTED`
-- **Native / browser:** packaged F0b native gate `VERIFIED COMPLETE — GO`;
-  browser fallback remains available
-- **Direct / live / replay:** live F0b origin transaction `VERIFIED COMPLETE`;
-  broader F4 evidence remains
-- **ChatGPT / gateway / companion:** F0c
-  `WAITING_FOR_CHATGPT_DEVELOPER_ACCESS`; `DEVELOPER_MODE_VERIFIED` not
-  achieved; formal F0d consumer gateway remains `NOT STARTED`
-- **MCP / Codex:** predecessor installed plugin complete; Foldweave update
-  `NOT STARTED`
-- **Budget:** sole ledger migrated to USD 40; call cap 13 fully reserved; F4
-  retains authority to set the final count cap
-- **Feature freeze:** pending; absolute boundary Tuesday 21 July 2026 at 01:00
-  CEST; 22 hours, 31 minutes, 36 seconds remained at this checkpoint
+- **Phase:** `F0D CONSUMER GATEWAY QUALIFICATION AND F2 LIVE-TRANSPORT CLOSURE`
+- **Branch / checkpoint parent:** `revision/foldweave-native-review` /
+  `23220768d26990cb8f980f77be41510bc2a7bfd7`; resolve the checkpoint commit
+  from fresh Git
+- **Current milestone:** F0c and F1 complete; deterministic F2 complete; F0d
+  live public deployment and F2 live transports in progress
+- **Job / preview:** hosted job `d8392e05e1e841c7850c28c7a6e4ce82`,
+  revision 26 `verified`; candidate/preview fingerprints recorded above
+- **Change File / receipt / verifier / reconstruction:** v2/v3 deterministic,
+  portability, race, lineage, and product-native matrices complete; live direct
+  and hosted derivative evidence remains
+- **Native / browser:** F0b complete; browser fallback available
+- **Direct / live / replay:** direct F0b complete; hosted F0c complete; F4 matrix
+  remains
+- **ChatGPT / gateway / companion:** `DEVELOPER_MODE_VERIFIED`; local public
+  capability authority regression-green; Cloudflare login/deployment pending
+- **MCP / Codex:** MCP derivative boundary implemented; Foldweave installed-copy
+  Codex qualification remains
+- **Budget:** sole USD 40 ledger unchanged; direct call cap 13 fully reserved
+- **Feature freeze:** Tuesday 21 July 2026 at 01:00 CEST
 - **Release materials:** stale for Foldweave; predecessor materials preserved
 - **Submission hold:** `ACTIVE`
-- **Blockers:** F0c external ChatGPT host/workspace capability; the acknowledged
-  follow-up request produces no model turn or tool call
-- **Next operation:** publish the F1 review-authority foundation, then implement
-  immutable receiver parent and derivative child review/revision authority;
-  preserve F0c evidence and retry only after a host/access change, without
-  starting formal F0d or using a hidden direct-API substitute
+- **Blockers:** no global blocker; narrow user-owned Cloudflare login pending
+- **Next operation:** publish the independently audited green checkpoint, then
+  authenticate/deploy and qualify F0d through the in-app browser

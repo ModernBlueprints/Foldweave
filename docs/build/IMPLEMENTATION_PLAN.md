@@ -1,9 +1,10 @@
 # Foldweave — Sole Native-Review Implementation Plan
 
-Status: **FOLDWEAVE EXECUTION ACTIVE; F0A REVIEW AUTHORITY AND F0B NATIVE APPLICATION COMPLETE; F0C WAITING FOR CHATGPT DEVELOPER ACCESS; INDEPENDENT F1 WORK CONTINUES;
-CONNECTED-CHANGE C0–C7 BASELINE COMPLETE; SUBMISSION HOLD ACTIVE**
+Status: **FOLDWEAVE EXECUTION ACTIVE; F0A–F0C AND F1 COMPLETE; F0D PUBLIC
+DEPLOYMENT AND F2 LIVE-TRANSPORT QUALIFICATION IN PROGRESS; CONNECTED-CHANGE
+C0–C7 BASELINE COMPLETE; SUBMISSION HOLD ACTIVE**
 
-Phase: **WAITING_FOR_CHATGPT_DEVELOPER_ACCESS — INDEPENDENT F1 WORK CONTINUES**
+Phase: **F0D CONSUMER GATEWAY QUALIFICATION AND F2 LIVE-TRANSPORT CLOSURE**
 
 Submission hold: **ACTIVE**
 
@@ -1468,52 +1469,54 @@ completed Foldweave.
 - **Owner:** primary integrator; independent transport/provenance reviewer.
 - **Allowed cut:** no ChatGPT capability cut; developer tunnel is qualification,
   not the consumer topology.
-- **Actual status:** `WAITING — WAITING_FOR_CHATGPT_DEVELOPER_ACCESS` after the
-  bounded initial implementation and two material corrections. F0c positive
-  qualification is `NO-GO`; `DEVELOPER_MODE_VERIFIED` was not achieved. This
-  is the exact external-access/host-behavior disposition, not
-  `FOLDWEAVE_PROFILE_NO_GO` and not completion.
-- **Actual verification:** the provider-free host-planning service, bounded
-  evidence tools, opaque local handles, durable `chatgpt_hosted` job authority,
-  shared review widget, deterministic tool calls, exact acceptance bindings,
-  and direct-ledger isolation are implemented. A fresh ChatGPT task reached the
-  local service through the official Secure MCP Tunnel, used real bounded tools
-  to create a 24-file proposal, stopped in `reviewing`, and rendered the exact
-  immutable preview. No result existed before acceptance. The current portable
-  widget contract uses `text/html;profile=mcp-app` and nested `_meta.ui`
-  metadata while retaining the applicable OpenAI compatibility aliases. The
-  widget prefers `window.openai.sendFollowUpMessage` when actually present and
-  otherwise uses the version-matched MCP Apps 1.0.1 request-based `ui/message`
-  contract, awaits its result, checks `isError`, and requires advertised
-  `hostCapabilities.message.text`.
+- **Actual status:** `COMPLETE — DEVELOPER_MODE_VERIFIED`; positive
+  qualification completed Monday 20 July 2026 at 10:56:30 CEST through the
+  visible Foldweave widget in the actual macOS ChatGPT application.
+- **Actual verification:** the earlier failed host-follow-up attempts remain
+  preserved as evidence. After the bridge correction and the user enabled
+  Developer Mode, a new ChatGPT-hosted transaction used the real Secure MCP
+  Tunnel, bounded host-planning tools, opaque local handles, and no Foldweave
+  Responses API key. Job `d8392e05e1e841c7850c28c7a6e4ce82` produced a
+  complete 24-file proposal, rendered the immutable review widget, and stopped
+  without output. The host then performed the requested path-only revision,
+  preserving all unlisted mappings and moving the three specified note files
+  into `05-research/notes`. The revised job reached revision 24, proposal
+  revision 1, candidate
+  `5f96104f0c37825e21a389b0024cacd5af84908a9be8b443c1f801cf1319b83f`,
+  and preview
+  `f9504c0e062cb7ab05b88fe9959f10b878d977e4a5df5b71f5f99f71f835c384`.
 
-  The initial implementation established the host-planning transaction and
-  real preview. Correction 1 closed tool-result-envelope, nullable-field, and
-  request-versus-notification defects. Correction 2 aligned the resource and
-  capability contract with the exact official SDK/examples and repeated the
-  transaction in a clean ChatGPT task. In that clean task the host advertised
-  text-message capability and acknowledged the `ui/message` request but created
-  no user/model turn and made no Foldweave tool call. After the user enabled
-  developer mode, the primary integrator reloaded that exact in-app ChatGPT
-  task and repeated one bounded revision request; after 25 seconds the task
-  still contained only its original user/assistant turn and no model activity.
-  The durable job remained byte-identical at SHA-256
-  `0c7b28a976a030250c4b6e38f01f9b914f65204f8ac981054918c5644646c6de`,
-  lifecycle `reviewing`, job revision 9, proposal revision 0, zero revision
-  attempts, zero execution authorization, and no result. The output directory
-  remained empty. The direct ledger remained byte-identical at SHA-256
-  `7f4142aaee9bc6bb14f88c91541d9d611ef5abd1d7f4f958cd3434d401f75f0a`.
-  No direct provider fallback, fabricated revision, premature acceptance, or
-  output mutation occurred. Current evidence therefore locates the remaining
-  premise at the ChatGPT host/session/workspace capability boundary. Formal F0d
-  progression remains prohibited because F0d depends on F0c; F1 and other work
-  independent of a host-generated revision continue under the activated goal.
-  The preserved checkpoint passes 42 focused Python tests, 34 frontend tests,
-  strict TypeScript, the production Vite build, all 936 Python regression
-  tests, `uv lock --check`, Ruff lint, Ruff format over 188 files, and both Git
-  diff checks. The production widget assets are checked into the Python package;
-  the 1,357,465-byte verification wheel contains both exact JS and CSS assets
-  and requires no runtime Node build.
+  The primary integrator clicked the actual visible widget action **Accept this
+  structure and create copy** in Codex's in-app browser. Authorization bound
+  that exact job revision, candidate, preview, source commitment
+  `8afa2f86d2ed2fe5a5b7b935d107351887685310e8c225f3a7d161c20691df69`,
+  destination, `chatgpt_hosted` channel, and idempotency hash. The durable job
+  advanced through revision 25 `executing` to revision 26 `verified`, and the
+  widget rendered **Verified — Your new folder is ready**. The separate result
+  contains 24 files and one explicit empty directory, with receipt
+  `e8acaa4b74db7722ff8d39de8bc7a28d8c1a34b9e16dc2eddef6c33d5c778fa7`,
+  verification
+  `b8d20f23e5aba8d24a64ae8f2608e3de0398ce920a03c7c174c28d44e95dacde`,
+  Change File
+  `0bf3caf6bdbbac5657db00af2eee8b7769dbf9d980feb4e3725f19b9abf5538b`,
+  and organized-tree commitment
+  `c234aabe97f7cccfaf6b8c025a2b34c2d4b50a4c350ba52245b8941ac8d6158e`.
+  The widget's **Verify again**, **Get Change File**, and **Recreate original**
+  actions also completed. Only opaque local handles crossed the widget boundary;
+  the widget reported exact Change File/receipt identities and recreated all 24
+  files plus the empty directory. Independent CLI verification passed, and both
+  the CLI-created and widget-created reconstructions matched the selected source
+  exactly by path and bytes.
+
+  This qualification exposed one narrow public-CLI defect: the existing v3
+  verifier and reconstruction engine were unreachable because the legacy CLI
+  registry stopped at receipt v2. The dispatcher now strictly admits v3 to the
+  same provider-free verifier/reconstructor, and the new v3 verify/restore
+  regression passes. The sole direct ledger remained byte-identical at SHA-256
+  `7f4142aaee9bc6bb14f88c91541d9d611ef5abd1d7f4f958cd3434d401f75f0a`;
+  there was no direct request, reservation, provider attempt, hidden fallback,
+  or fabricated model metadata. F0d may now proceed, but only after its public
+  device/scope/capability authority defects are corrected and qualified.
 
 ### F0d — Consumer gateway gate
 
@@ -1549,20 +1552,35 @@ completed Foldweave.
   reviewers.
 - **Allowed cut:** custom domain and public directory approval; no gateway,
   pairing, companion, or ChatGPT-hosted-product cut.
-- **Actual status:** `IN PROGRESS` — the shared durable review authority,
-  append-only revision mutation bindings, exact-request job rehydration,
-  cross-job destination reservation, reviewed origin/receiver CLI, and strict
-  embedded-ID job discovery are implemented. Immutable receiver parent and
-  derivative child authority, derivative revision, keep-parent recovery, and
-  the remaining cross-surface matrix are next.
-- **Actual verification:** the complete Python regression passed 956/956; all
-  Foldweave tests passed 109/109; the focused corrected CLI/locator/reservation
-  audit passed 27/27 and returned `GO`; lock, Ruff lint, Ruff format over 194
-  files, and Git diff checks passed. A product-native 24-file replay job stopped
-  in `reviewing` with no output, then exact CLI acceptance, receipt verification,
-  reconstruction, and byte-for-byte source comparison passed. F1 is not complete
-  until the derivative parent/child and remaining race/cross-surface outcomes
-  pass.
+- **Actual status:** `IN PROGRESS — LOCAL PUBLIC AUTHORITY IMPLEMENTED AND
+  REGRESSION-GREEN; LIVE CLOUDFLARE/OAUTH/WSS QUALIFICATION PENDING`. F0c is
+  complete, so the dependency gate is open. Worker, OAuth, pairing, Durable
+  Object relay, outbound companion, native supervisor, pairing UI, bounded MCP
+  tools, and the complete device/grant/scope/per-job-capability chain are now
+  implemented locally. No consumer claim is active before the real topology
+  passes.
+- **Actual verification:** the Worker propagates one signed public-invocation
+  context bound to the exact device, session, OAuth grant, scope set, request,
+  sequence, nonce, body digest, and operation digest. The companion revalidates
+  it before local MCP dispatch. Root and receiver creation mint a restart-stable
+  30-minute job capability whose hash alone is immutable in JobV3. Public MCP
+  input carries only the opaque job ID after gateway/companion verification; the
+  trusted local host rederives and validates the capability internally. A
+  derivative child receives a distinct local capability atomically, while
+  opaque local handles remain bound to the exact device/session/grant tuple.
+  Revoked, expired, missing, wrong-grant, wrong-device, wrong-job, guessed, and
+  duplicate authority paths fail closed. The raw capability never enters an MCP
+  input or result, `structuredContent`, `_meta`, model/widget state, gateway
+  state, browser storage, logs, or rendered content. Gateway strict TypeScript,
+  31 Worker tests, the primary integrator's 110-test authority/derivative subset,
+  the independent reviewer's 83-test public-authority subset, 54 widget tests,
+  both production builds, and the complete 1,102-test Python regression pass.
+  The bounded re-audit found no HIGH or MEDIUM issue and returned code-level
+  public-deployment readiness `GO`. No authenticated public `/mcp` transaction
+  or live Cloudflare deployment exists yet; Wrangler remains unauthenticated and
+  `wrangler.jsonc` still has placeholder KV IDs. F0d therefore remains in
+  progress until real OAuth, pairing, outbound WSS, reconnect, origin, receiver
+  derivative, and no-ledger-mutation evidence passes.
 
 ## 12. F1 — Complete review and revision engine
 
@@ -1595,8 +1613,31 @@ completed Foldweave.
 - **Downstream consumer:** F2 serial proof and every complete user surface.
 - **Owner:** primary integrator; bounded state-machine and race reviewers.
 - **Allowed cut:** no engine behavior; only nonessential presentation metrics.
-- **Actual status:** `NOT STARTED`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `COMPLETE` — the durable v3 state machine, immutable
+  previews, exact authorization, append-only mutation bindings, sparse origin
+  and derivative revisions, immutable receiver parent/child authority,
+  keep-parent failure recovery, destination reservation, restart, browser/CLI
+  routes, direct/hosted service paths, strict terminal/nonterminal legacy
+  dispatch, hosted MCP derivative path, and bidirectional cross-surface
+  rehydration are implemented and verified.
+- **Actual verification:** the lifecycle, revision-limit, failed-revision,
+  exact-acceptance, stale-tab, mutation-binding, destination-reservation,
+  restart, legacy-dispatch, CLI portability, MCP derivative, reverse
+  rehydration, public in-process companion dispatch, and browser/native matrices
+  pass. The real macOS ChatGPT root transaction supplies product-native hosted
+  cross-surface evidence. A real
+  simultaneous receiver-parent/derivative-child acceptance race proves one
+  durable reservation winner, one fail-closed loser, no partial output, and
+  exact retry truth. An independent authority audit found and reproduced one
+  high-severity standalone loopback-context defect before deployment. The
+  production standalone companion now uses the same in-process ASGI MCP boundary
+  as the packaged app, preserving the verified public invocation context and one
+  shared device identity/host service; focused regression proves the context is
+  visible at dispatch. The audit's second high-severity finding—the first
+  design's raw capability exposure through MCP results—was also removed and the
+  independent re-audit found no remaining HIGH or MEDIUM issue. The complete
+  current Python regression passes 1,102/1,102 tests in 130.81 seconds. Ruff
+  lint, Ruff format over 220 files, lock, and Git diff checks pass.
 
 ## 13. F2 — Proof-carrying serial collaboration
 
@@ -1623,10 +1664,11 @@ completed Foldweave.
   reconstruction; valid v1 Change File unchanged application; immutable v1
   parent to complete v2 child revision; v2 child application without the v1
   file; incompatible historical-version refusal; lineage generation 32 pass/33
-  block; lineage metadata 1,048,576-byte pass/1,048,577-byte block; all payload,
-  Markdown, relationship, suffix, protected, empty-directory, symmetry,
-  fingerprint, target, overlap, mutation, collision, convergence, lineage, and
-  compatibility failures.
+  block; defensive lineage byte guard at 1,048,576-byte pass/1,048,577-byte
+  block; one canonical lineage with the maximum valid 500 member bindings; all
+  payload, Markdown, relationship, suffix, protected, empty-directory,
+  symmetry, fingerprint, target, overlap, mutation, collision, convergence,
+  lineage, and compatibility failures.
 - **Visual checks:** Martin's **Your current folder** versus **Shared proposal**;
   unchanged acceptance; derivative choice; T2 preview and delta; lineage and
   reconstruction disclosures.
@@ -1643,8 +1685,30 @@ completed Foldweave.
   reviewers.
 - **Allowed cut:** supplementary lineage visualization only; no lineage,
   compatibility, convergence, or reconstruction cut.
-- **Actual status:** `NOT STARTED`.
-- **Actual verification:** `NOT RUN`.
+- **Actual status:** `IN PROGRESS — DETERMINISTIC DOMAIN, PORTABILITY, RACE, AND
+  PRODUCT-NATIVE REVIEW MATRICES COMPLETE; LIVE TRANSPORT MATRIX REMAINS` —
+  Change File v2, receipt/verifier v3,
+  immediate-parent derivative lineage, self-contained child finalization,
+  receiver-specific reconstruction, raw/prior-result application, and the
+  Sofia → Martin → Sofia domain transaction are implemented. F2 is no longer
+  gated by F1 or a deterministic matrix gap; it remains gated by the required
+  real direct-GPT derivative and real ChatGPT-hosted receiver derivative
+  transactions and their packaged/runtime evidence.
+- **Actual verification:** one portable legacy v1 CF1 → reviewed/accepted v2
+  CF2 transaction proves source-free copied-result verification, Martin-specific
+  reconstruction, CF2 application without CF1 to unrelated copied raw Sofia and
+  verified T1 `data/`, convergence, per-source reconstruction, and CF1/CF2 byte
+  immutability. A valid maximum-current-schema 500-binding lineage validates at
+  95,329 canonical bytes; real finalized generations 31→32 pass and generation
+  33 blocks before child-job or artifact allocation. The product-native apply
+  journey renders Martin's current tree against Sofia's T1 proposal, creates an
+  immutable T2 child through **Send changes**, renders the exact one-member
+  proposal delta, creates no output during review, and verifies only after exact
+  acceptance. The simultaneous parent/child collision proof described under F1
+  also passes. The focused F2 closure matrix passes 67 tests, the adjacent
+  product/race matrix passes 25 tests, and all are included in the complete
+  1,102-test regression. The remaining F2 evidence is live-transport evidence,
+  not missing deterministic product behavior.
 
 ## 14. F3 — Complete native, browser, and ChatGPT experience
 

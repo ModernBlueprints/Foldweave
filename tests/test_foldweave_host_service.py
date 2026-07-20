@@ -20,9 +20,12 @@ from connected_change_fixtures import (
 from name_atlas.folder_refactor.connected_change.job_v3 import (
     FolderJobLifecycleV3,
     FolderJobV3IdempotencyConflict,
-    FolderJobV3RevisionError,
     FolderRefactorJobV3,
+    GptDerivativeJobAuthorityV3,
     GptHostedJobAuthorityV3,
+)
+from name_atlas.folder_refactor.connected_change.review_service import (
+    FoldweaveReviewService,
 )
 from name_atlas.folder_refactor.connected_change.verification import (
     ConnectedReceiptVerificationStatus,
@@ -280,7 +283,7 @@ def test_host_tool_retries_are_exact_and_conflicting_reuse_blocks(
         )
         == revising
     )
-    with pytest.raises(FolderJobV3RevisionError):
+    with pytest.raises(FolderJobV3IdempotencyConflict):
         service.begin_revision(
             job_id=reviewing.job_id,
             expected_revision=reviewing.revision,
@@ -289,6 +292,174 @@ def test_host_tool_retries_are_exact_and_conflicting_reuse_blocks(
             instruction="Use a conflicting instruction with the same retry key.",
             idempotency_key="revision-retry",
         )
+
+
+def test_host_revision_binding_replays_accepted_request_in_later_states(
+    tmp_path: Path,
+) -> None:
+    """An accepted hosted key remains exact through review and verification."""
+
+    _, _, service, reviewing = _build_reviewing_host_job(tmp_path)
+    assert reviewing.preview is not None
+    assert reviewing.candidate_plan is not None
+    mapping = next(
+        item for item in reviewing.candidate_plan.file_mappings if not item.protected
+    )
+    begin = {
+        "job_id": reviewing.job_id,
+        "expected_revision": reviewing.revision,
+        "candidate_fingerprint": reviewing.preview.compiled_candidate_fingerprint,
+        "preview_fingerprint": reviewing.preview.preview_fingerprint,
+        "instruction": "Move one reviewed file into the durable-binding folder.",
+        "idempotency_key": "host-accepted-binding",
+    }
+    revising = service.begin_revision(**begin)
+    revision = FolderHostPlanRevisionV1(
+        base_candidate_fingerprint=canonical_sha256(reviewing.candidate_plan),
+        entries=(
+            FolderHostPlanRevisionEntryV1(
+                file_id=mapping.file_id,
+                replacement_target_path=(
+                    f"durable-binding/{Path(mapping.target_path).name}"
+                ),
+                rationale="Exercise the durable hosted retry binding.",
+                evidence_ids=("initial_inventory",),
+            ),
+        ),
+    )
+    revised = service.submit_plan_revision(
+        job_id=revising.job_id,
+        call_id="host-accepted-binding-turn",
+        revision=revision,
+    )
+    assert revised.lifecycle is FolderJobLifecycleV3.REVIEWING
+    assert len(revised.host_revision_mutation_bindings) == 1
+    binding = revised.host_revision_mutation_bindings[0]
+    assert binding.terminal_outcome == "proposal_replaced"
+    assert binding.terminal_job_revision == revised.revision
+    assert service.begin_revision(**begin) == revised
+    with pytest.raises(FolderJobV3IdempotencyConflict):
+        service.begin_revision(
+            **{
+                **begin,
+                "instruction": "Conflicting reuse must remain permanently refused.",
+            }
+        )
+
+    assert revised.preview is not None
+    assert revised.candidate_plan is not None
+    verified = service.accept_plan_and_create_copy(
+        job_id=revised.job_id,
+        expected_revision=revised.revision,
+        preview_fingerprint=revised.preview.preview_fingerprint,
+        candidate_fingerprint=revised.preview.compiled_candidate_fingerprint,
+        result_folder_name=revised.candidate_plan.result_folder_name,
+        idempotency_key="host-accepted-binding-execution",
+        channel="chatgpt_hosted",
+    )
+    assert verified.lifecycle is FolderJobLifecycleV3.VERIFIED
+    assert service.begin_revision(**begin) == verified
+
+
+def test_host_revision_binding_replays_rejection_after_keep_previous(
+    tmp_path: Path,
+) -> None:
+    """A rejected hosted key remains exact after its prior proposal is restored."""
+
+    _, _, service, reviewing = _build_reviewing_host_job(tmp_path)
+    assert reviewing.preview is not None
+    assert reviewing.candidate_plan is not None
+    editable = tuple(
+        item for item in reviewing.candidate_plan.file_mappings if not item.protected
+    )
+    begin = {
+        "job_id": reviewing.job_id,
+        "expected_revision": reviewing.revision,
+        "candidate_fingerprint": reviewing.preview.compiled_candidate_fingerprint,
+        "preview_fingerprint": reviewing.preview.preview_fingerprint,
+        "instruction": "Create a deterministic collision for retry testing.",
+        "idempotency_key": "host-rejected-binding",
+    }
+    revising = service.begin_revision(**begin)
+    rejected = service.submit_plan_revision(
+        job_id=revising.job_id,
+        call_id="host-rejected-binding-turn",
+        revision=FolderHostPlanRevisionV1(
+            base_candidate_fingerprint=canonical_sha256(reviewing.candidate_plan),
+            entries=(
+                FolderHostPlanRevisionEntryV1(
+                    file_id=editable[0].file_id,
+                    replacement_target_path=editable[1].target_path,
+                    rationale="Exercise deterministic collision refusal.",
+                    evidence_ids=("initial_inventory",),
+                ),
+            ),
+        ),
+    )
+    assert rejected.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+    assert len(rejected.host_revision_mutation_bindings) == 1
+    assert (
+        rejected.host_revision_mutation_bindings[0].terminal_outcome
+        == "mechanically_rejected"
+    )
+    assert service.begin_revision(**begin) == rejected
+
+    kept = service.keep_previous_proposal(
+        job_id=rejected.job_id,
+        expected_revision=rejected.revision,
+        preview_fingerprint=rejected.preview.preview_fingerprint,
+        candidate_fingerprint=rejected.preview.compiled_candidate_fingerprint,
+        idempotency_key="host-rejected-binding-keep",
+    )
+    assert kept.lifecycle is FolderJobLifecycleV3.REVIEWING
+    assert service.begin_revision(**begin) == kept
+    with pytest.raises(FolderJobV3IdempotencyConflict):
+        service.begin_revision(
+            **{
+                **begin,
+                "instruction": "Conflicting rejected-key reuse must remain refused.",
+            }
+        )
+
+
+def test_interrupted_host_revision_retry_precedes_staleness_and_limits(
+    tmp_path: Path,
+) -> None:
+    """An interrupted exact retry is read-only even after its source changes."""
+
+    fixture, _, service, reviewing = _build_reviewing_host_job(tmp_path)
+    assert reviewing.preview is not None
+    begin = {
+        "job_id": reviewing.job_id,
+        "expected_revision": reviewing.revision,
+        "candidate_fingerprint": reviewing.preview.compiled_candidate_fingerprint,
+        "preview_fingerprint": reviewing.preview.preview_fingerprint,
+        "instruction": "Reserve one hosted revision before interruption.",
+        "idempotency_key": "host-interrupted-binding",
+    }
+    revising = service.begin_revision(**begin)
+    changed_relative = next(
+        item.relative_path
+        for item in reviewing.source_inventory.files
+        if not item.protected
+    )
+    changed = fixture.sofia_root / changed_relative
+    changed.write_bytes(changed.read_bytes() + b"changed after reservation\n")
+
+    restarted = FoldweaveHostPlanningService(
+        paths=FoldweavePaths(state_root=tmp_path / "state"),
+        clock=lambda: datetime(2026, 7, 19, 20, 0, tzinfo=oslo_tz),
+    )
+    assert restarted.begin_revision(**begin) == revising
+    assert restarted.status(revising.job_id).lifecycle is FolderJobLifecycleV3.REVISING
+    with pytest.raises(FolderJobV3IdempotencyConflict):
+        restarted.begin_revision(
+            **{
+                **begin,
+                "instruction": "Conflicting interrupted-key reuse must be refused.",
+            }
+        )
+    assert restarted.status(revising.job_id).lifecycle is FolderJobLifecycleV3.REVISING
 
 
 def test_concurrent_host_create_is_one_durable_idempotent_job(tmp_path: Path) -> None:
@@ -410,6 +581,154 @@ def test_failed_host_revision_preserves_and_restores_prior_preview(
     assert kept.preview.current_tree_members == reviewing.preview.current_tree_members
     assert kept.preview.proposed_tree_members == reviewing.preview.proposed_tree_members
     assert kept.candidate_plan == reviewing.candidate_plan
+
+
+def test_failed_host_derivative_can_fork_again_and_use_second_revision(
+    tmp_path: Path,
+) -> None:
+    """ChatGPT/Codex can retry a failed child, then refine its T2 preview."""
+
+    fixture = make_connected_change_fixture(tmp_path / "projects")
+    paths = FoldweavePaths(state_root=tmp_path / "state")
+    paths.jobs.mkdir(parents=True)
+    origin_output = tmp_path / "origin-output"
+    receiver_output = tmp_path / "receiver-output"
+    for directory in (origin_output, receiver_output):
+        directory.mkdir()
+    review = FoldweaveReviewService()
+    origin = review.prepare_deterministic_origin_review(
+        source_root=fixture.sofia_root,
+        output_parent=origin_output,
+        job_path=paths.jobs / "origin.json",
+        request=fixture.request,
+        result_folder_name=fixture.result_name,
+        target_by_original_path=fixture.target_paths,
+        idempotency_key="host-derivative-origin",
+    )
+    assert origin.preview is not None
+    verified_origin = review.accept(
+        origin.job_path,
+        expected_revision=origin.revision,
+        preview_fingerprint=origin.preview.preview_fingerprint,
+        candidate_fingerprint=origin.preview.compiled_candidate_fingerprint,
+        output_parent=origin_output,
+        result_folder_name=fixture.result_name,
+        idempotency_key="host-derivative-origin-accept",
+        channel="native_app",
+    )
+    parent = review.prepare_application_review(
+        change_file_path=review.get_change_file(verified_origin.job_path)[0],
+        source_root=fixture.martin_root,
+        output_parent=receiver_output,
+        job_path=paths.jobs / "receiver.json",
+        idempotency_key="host-derivative-parent",
+    )
+    assert parent.preview is not None
+    assert parent.candidate_plan is not None
+    parent_bytes = parent.job_path.read_bytes()
+    host = FoldweaveHostPlanningService(
+        paths=paths,
+        clock=lambda: datetime(2026, 7, 20, 23, 0, tzinfo=oslo_tz),
+    )
+
+    first = host.begin_revision(
+        job_id=parent.job_id,
+        expected_revision=parent.revision,
+        candidate_fingerprint=parent.preview.compiled_candidate_fingerprint,
+        preview_fingerprint=parent.preview.preview_fingerprint,
+        instruction="First imported-proposal change is mechanically invalid.",
+        idempotency_key="host-derivative-first-failure",
+    )
+    assert isinstance(first.authority, GptDerivativeJobAuthorityV3)
+    editable = next(
+        item
+        for item in first.authority.parent_binding.parent_candidate.file_mappings
+        if not item.protected
+    )
+    failed = host.submit_plan_revision(
+        job_id=first.job_id,
+        call_id="host-derivative-invalid-turn",
+        revision=FolderHostPlanRevisionV1(
+            base_candidate_fingerprint=(
+                first.authority.parent_binding.parent_candidate_fingerprint
+            ),
+            entries=(
+                FolderHostPlanRevisionEntryV1(
+                    file_id=editable.file_id,
+                    replacement_target_path=editable.target_path,
+                    rationale="Exercise the no-change refusal.",
+                    evidence_ids=("initial_inventory",),
+                ),
+            ),
+        ),
+    )
+    assert failed.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+    assert failed.preview is not None
+    assert failed.candidate_plan == parent.candidate_plan
+
+    sibling = host.begin_revision(
+        job_id=failed.job_id,
+        expected_revision=failed.revision,
+        candidate_fingerprint=failed.preview.compiled_candidate_fingerprint,
+        preview_fingerprint=failed.preview.preview_fingerprint,
+        instruction="Try another change in a hosted review folder.",
+        idempotency_key="host-derivative-sibling",
+    )
+    assert sibling.job_id != failed.job_id
+    assert isinstance(sibling.authority, GptDerivativeJobAuthorityV3)
+    first_valid = host.submit_plan_revision(
+        job_id=sibling.job_id,
+        call_id="host-derivative-valid-turn",
+        revision=FolderHostPlanRevisionV1(
+            base_candidate_fingerprint=(
+                sibling.authority.parent_binding.parent_candidate_fingerprint
+            ),
+            entries=(
+                FolderHostPlanRevisionEntryV1(
+                    file_id=editable.file_id,
+                    replacement_target_path=(
+                        f"host-review/{Path(editable.target_path).name}"
+                    ),
+                    rationale="Create the first complete hosted derivative preview.",
+                    evidence_ids=("initial_inventory",),
+                ),
+            ),
+        ),
+    )
+    assert first_valid.lifecycle is FolderJobLifecycleV3.REVIEWING
+    assert first_valid.proposal_revision == 1
+    assert first_valid.preview is not None
+    assert first_valid.candidate_plan is not None
+
+    second_pending = host.begin_revision(
+        job_id=first_valid.job_id,
+        expected_revision=first_valid.revision,
+        candidate_fingerprint=first_valid.preview.compiled_candidate_fingerprint,
+        preview_fingerprint=first_valid.preview.preview_fingerprint,
+        instruction="Refine the derivative preview one final time.",
+        idempotency_key="host-derivative-second-turn",
+    )
+    second = host.submit_plan_revision(
+        job_id=second_pending.job_id,
+        call_id="host-derivative-second-submission",
+        revision=FolderHostPlanRevisionV1(
+            base_candidate_fingerprint=canonical_sha256(first_valid.candidate_plan),
+            entries=(
+                FolderHostPlanRevisionEntryV1(
+                    file_id=editable.file_id,
+                    replacement_target_path=(
+                        f"host-second-review/{Path(editable.target_path).name}"
+                    ),
+                    rationale="Use the second and final hosted derivative revision.",
+                    evidence_ids=("initial_inventory",),
+                ),
+            ),
+        ),
+    )
+    assert second.lifecycle is FolderJobLifecycleV3.REVIEWING
+    assert second.proposal_revision == 2
+    assert second.revision_attempt_count == 2
+    assert parent.job_path.read_bytes() == parent_bytes
 
 
 def test_host_clarification_and_local_handle_authority_are_bounded(

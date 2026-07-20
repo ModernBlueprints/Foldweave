@@ -15,6 +15,10 @@ COMMAND_HELP = (
         "mcp",
         "Run the provider-free Foldweave hosted-planning MCP Apps server.",
     ),
+    (
+        "companion",
+        "Pair or run the outbound-only Foldweave ChatGPT companion.",
+    ),
     ("demo", "Prepare the bundled recorded proposal for review."),
     ("run", "Prepare a connected-folder proposal for exact review."),
     ("apply-change", "Prepare a shared change for receiver-local review."),
@@ -59,6 +63,10 @@ def run(argv: Sequence[str] | None = None) -> int:
         from name_atlas.foldweave_chatgpt_mcp import run_foldweave_mcp_server
 
         return run_foldweave_mcp_server(arguments[1:])
+    if arguments[0] == "companion":
+        from name_atlas.foldweave_companion_cli import run_foldweave_companion
+
+        return run_foldweave_companion(arguments[1:])
     if arguments[0] in {
         "run",
         "apply-change",

@@ -26,13 +26,26 @@ export type HostedJobLifecycle =
   | "stale"
   | "blocked";
 
-export interface HostedReviewStatus extends ReviewDisplayStatus {
+export type HostedPlanningBasis = "fresh" | "derivative" | "none";
+export type HostedModelTransport =
+  | "chatgpt_hosted"
+  | "codex_hosted"
+  | "none";
+export type HostedExecutionOrigin =
+  | "gpt_planned"
+  | "gpt_revised_from_change_file"
+  | "capsule_applied"
+  | "none";
+
+export type HostedReviewStatus = ReviewDisplayStatus & {
   lifecycle: HostedReviewLifecycle;
   authorization_context_fingerprint: string;
-  model_transport: "chatgpt_hosted";
+  planning_basis: HostedPlanningBasis;
+  model_transport: HostedModelTransport;
+  execution_origin: HostedExecutionOrigin;
   direct_api_used: false;
   direct_budget_reserved: false;
-}
+};
 
 export interface HostedVerifiedResult {
   verification: "verified";
@@ -60,7 +73,9 @@ export interface FoldweaveHostedJobStatusV1 {
   proposal_revision: number;
   source_commitment: string;
   request_fingerprint: string;
-  model_transport: "chatgpt_hosted";
+  planning_basis: HostedPlanningBasis;
+  model_transport: HostedModelTransport;
+  execution_origin: HostedExecutionOrigin;
   direct_api_used: false;
   direct_budget_reserved: false;
   has_preview: boolean;
@@ -82,15 +97,44 @@ export interface FoldweaveVerificationResultV1 {
   failed_check_ids: [];
 }
 
+export interface FoldweaveOpaqueLocalItemV1 {
+  schema_version: "foldweave-local-item-handle.v1";
+  handle: string;
+  role: "change_file" | "restore_destination";
+  display_name: string;
+  expires_at: string;
+}
+
+export interface FoldweaveChangeFileResultV1 {
+  schema_version: "foldweave-change-file-result.v1";
+  job_id: string;
+  item: FoldweaveOpaqueLocalItemV1 & { role: "change_file" };
+  change_file_fingerprint: string;
+  originating_receipt_fingerprint: string;
+}
+
+export interface FoldweaveReconstructionResultV1 {
+  schema_version: "foldweave-reconstruction-result.v1";
+  job_id: string;
+  item: FoldweaveOpaqueLocalItemV1 & { role: "restore_destination" };
+  receipt_fingerprint: string;
+  source_commitment: string;
+  restored_file_count: number;
+  restored_bytes: number;
+  restored_empty_directory_count: number;
+}
+
 const SHA256 = /^[a-f0-9]{64}$/;
 const JOB_ID = /^[a-f0-9]{32}$/;
+const OPAQUE_LOCAL_HANDLE = /^fw_[A-Za-z0-9_-]{43}$/;
+const OFFSET_TIMESTAMP = /(?:Z|[+-]\d{2}:\d{2})$/;
 const PUBLIC_CODE = /^[a-z0-9_:-]{1,128}$/;
 const POSIX_ABSOLUTE_PATH = /(?:^|[\s"'(])\/(?!\/)[^\s"')]+/;
 const HOME_ABSOLUTE_PATH = /(?:^|[\s"'(])~\//;
 const WINDOWS_ABSOLUTE_PATH = /(?:^|[\s"'(])[a-zA-Z]:[\\/]/;
 const UNC_ABSOLUTE_PATH = /(?:^|[\s"'(])\\\\[^\\\s]+\\/;
-const SECRET_VALUE = /(?:\bsk-(?:proj-)?[a-zA-Z0-9_-]{8,}|\bBearer\s+[a-zA-Z0-9._~-]{8,})/;
-const COMMON_LOCAL_PATH = /\/(?:Users|Volumes|private|tmp|home)\//;
+const SECRET_VALUE = /(?:\bsk-(?:proj-)?[a-zA-Z0-9_-]{8,}|\bBearer\s+[a-zA-Z0-9._~-]{8,}|\bfwjc_[a-zA-Z0-9_-]{8,})/;
+const COMMON_LOCAL_PATH = /(?:^|[\s"'(])\/(?:Users|Volumes|private|tmp|home)\//;
 const FILE_URL = /\bfile:\/{1,3}/i;
 const SECRET_KEYS = new Set([
   "apikey",
@@ -100,6 +144,8 @@ const SECRET_KEYS = new Set([
   "clientsecret",
   "credential",
   "authorizationheader",
+  "capabilityid",
+  "capabilityexpiresat",
 ]);
 const MAX_BOUNDARY_NODES = 50_000;
 const MAX_BOUNDARY_DEPTH = 64;
@@ -139,22 +185,31 @@ export function parseHostedReviewEnvelope(value: unknown): FoldweaveChatGptRevie
 
 export function parseHostedJobStatus(
   value: unknown,
-  expectedJobId: string,
+  expectedJobId?: string,
 ): FoldweaveHostedJobStatusV1 {
   assertNoSensitiveBoundaryData(value);
   const normalized = normalizeHostedJobStatus(value);
+  const actualJobId = isRecord(normalized) ? normalized.job_id : undefined;
   if (
     !isRecord(normalized) ||
     normalized.schema_version !== "foldweave-hosted-job-status.v1" ||
-    normalized.job_id !== expectedJobId ||
-    !JOB_ID.test(expectedJobId) ||
+    typeof actualJobId !== "string" ||
+    !JOB_ID.test(actualJobId) ||
+    (expectedJobId !== undefined && actualJobId !== expectedJobId) ||
     !isHostedJobLifecycle(normalized.lifecycle) ||
     !isNonnegativeInteger(normalized.job_revision) ||
     !isNonnegativeInteger(normalized.proposal_revision) ||
     (normalized.proposal_revision as number) > 2 ||
     !isSha256(normalized.source_commitment) ||
     !isSha256(normalized.request_fingerprint) ||
-    normalized.model_transport !== "chatgpt_hosted" ||
+    !isHostedPlanningBasis(normalized.planning_basis) ||
+    !isHostedModelTransport(normalized.model_transport) ||
+    !isHostedExecutionOrigin(normalized.execution_origin) ||
+    !isConsistentHostedProvenance(
+      normalized.planning_basis,
+      normalized.model_transport,
+      normalized.execution_origin,
+    ) ||
     normalized.direct_api_used !== false ||
     normalized.direct_budget_reserved !== false ||
     typeof normalized.has_preview !== "boolean" ||
@@ -253,6 +308,75 @@ export function parseHostedVerificationResult(
   return value as unknown as FoldweaveVerificationResultV1;
 }
 
+export function parseHostedChangeFileResult(
+  value: unknown,
+  expectedJobId: string,
+  expectedChangeFileFingerprint: string,
+): FoldweaveChangeFileResultV1 {
+  assertNoSensitiveBoundaryData(value);
+  if (
+    !isRecord(value) ||
+    value.schema_version !== "foldweave-change-file-result.v1" ||
+    value.job_id !== expectedJobId ||
+    !JOB_ID.test(expectedJobId) ||
+    value.change_file_fingerprint !== expectedChangeFileFingerprint ||
+    !isSha256(expectedChangeFileFingerprint) ||
+    !isSha256(value.originating_receipt_fingerprint) ||
+    !isOpaqueLocalItem(value.item, "change_file")
+  ) {
+    throw new Error("Foldweave did not return the verified Change File identity.");
+  }
+  return value as unknown as FoldweaveChangeFileResultV1;
+}
+
+export function parseHostedReconstructionResult(
+  value: unknown,
+  expectedJobId: string,
+  expectedSourceCommitment: string,
+  expectedFileCount: number,
+): FoldweaveReconstructionResultV1 {
+  assertNoSensitiveBoundaryData(value);
+  if (
+    !isRecord(value) ||
+    value.schema_version !== "foldweave-reconstruction-result.v1" ||
+    value.job_id !== expectedJobId ||
+    !JOB_ID.test(expectedJobId) ||
+    !isOpaqueLocalItem(value.item, "restore_destination") ||
+    !isSha256(value.receipt_fingerprint) ||
+    value.source_commitment !== expectedSourceCommitment ||
+    !isSha256(expectedSourceCommitment) ||
+    value.restored_file_count !== expectedFileCount ||
+    !Number.isInteger(expectedFileCount) ||
+    expectedFileCount < 1 ||
+    !isNonnegativeInteger(value.restored_bytes) ||
+    !isNonnegativeInteger(value.restored_empty_directory_count)
+  ) {
+    throw new Error("Foldweave did not return verified reconstruction evidence.");
+  }
+  return value as unknown as FoldweaveReconstructionResultV1;
+}
+
+function isOpaqueLocalItem(
+  value: unknown,
+  expectedRole: FoldweaveOpaqueLocalItemV1["role"],
+): value is FoldweaveOpaqueLocalItemV1 {
+  if (
+    !isRecord(value) ||
+    value.schema_version !== "foldweave-local-item-handle.v1" ||
+    !OPAQUE_LOCAL_HANDLE.test(String(value.handle)) ||
+    value.role !== expectedRole ||
+    typeof value.display_name !== "string" ||
+    value.display_name.length < 1 ||
+    value.display_name.length > 255 ||
+    typeof value.expires_at !== "string" ||
+    !OFFSET_TIMESTAMP.test(value.expires_at) ||
+    !Number.isFinite(Date.parse(value.expires_at))
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export function assertNoSensitiveBoundaryData(value: unknown): void {
   const visited = new WeakSet<object>();
   let visitedNodes = 0;
@@ -322,7 +446,14 @@ function assertHostedStatus(
     value.preview_fingerprint !== preview.preview_fingerprint ||
     typeof value.authorization_context_fingerprint !== "string" ||
     !SHA256.test(value.authorization_context_fingerprint) ||
-    value.model_transport !== "chatgpt_hosted" ||
+    !isHostedPlanningBasis(value.planning_basis) ||
+    !isHostedModelTransport(value.model_transport) ||
+    !isHostedExecutionOrigin(value.execution_origin) ||
+    !isConsistentHostedProvenance(
+      value.planning_basis,
+      value.model_transport,
+      value.execution_origin,
+    ) ||
     value.direct_api_used !== false ||
     value.direct_budget_reserved !== false ||
     typeof value.revision_available !== "boolean" ||
@@ -730,6 +861,45 @@ function compareStrings(left: string, right: string): number {
     }
   }
   return leftCodePoints.length - rightCodePoints.length;
+}
+
+function isHostedPlanningBasis(value: unknown): value is HostedPlanningBasis {
+  return value === "fresh" || value === "derivative" || value === "none";
+}
+
+function isHostedModelTransport(value: unknown): value is HostedModelTransport {
+  return (
+    value === "chatgpt_hosted" || value === "codex_hosted" || value === "none"
+  );
+}
+
+function isHostedExecutionOrigin(value: unknown): value is HostedExecutionOrigin {
+  return (
+    value === "gpt_planned" ||
+    value === "gpt_revised_from_change_file" ||
+    value === "capsule_applied" ||
+    value === "none"
+  );
+}
+
+function isConsistentHostedProvenance(
+  planningBasis: HostedPlanningBasis,
+  modelTransport: HostedModelTransport,
+  executionOrigin: HostedExecutionOrigin,
+): boolean {
+  if (planningBasis === "none") {
+    return modelTransport === "none" && executionOrigin === "capsule_applied";
+  }
+  if (modelTransport === "none") {
+    return false;
+  }
+  if (planningBasis === "fresh") {
+    return executionOrigin === "none" || executionOrigin === "gpt_planned";
+  }
+  return (
+    executionOrigin === "none" ||
+    executionOrigin === "gpt_revised_from_change_file"
+  );
 }
 
 function isHostedJobLifecycle(value: unknown): value is HostedJobLifecycle {

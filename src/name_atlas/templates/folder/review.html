@@ -20,6 +20,6 @@
     </div>
     <noscript>Foldweave plan review requires JavaScript in this local application window.</noscript>
   </section>
-  <link rel="stylesheet" href="{{ url_for('static', path='/review/review.css') }}?v=20260719-f0a">
-  <script type="module" src="{{ url_for('static', path='/review/review.js') }}?v=20260719-f0a"></script>
+  <link rel="stylesheet" href="{{ url_for('static', path='/review/review.css') }}?v={{ review_asset_version }}">
+  <script type="module" src="{{ url_for('static', path='/review/review.js') }}?v={{ review_asset_version }}"></script>
 {% endblock %}

@@ -12,10 +12,12 @@ from name_atlas.folder_refactor.connected_change.accepted_plan import (
 )
 from name_atlas.folder_refactor.contracts import SHA256_PATTERN, StrictFrozenModel
 from name_atlas.folder_refactor.foldweave_host_contracts import (
+    FolderHostDerivativeRevisionTurnRecordV1,
     FolderHostEvidenceLedgerV1,
     FolderHostRevisionTurnRecordV1,
 )
 from name_atlas.folder_refactor.naming import validate_target_path
+from name_atlas.folder_refactor.planner_contracts import PlannerEvidenceState
 from name_atlas.folder_refactor.receipt_contracts import (
     FolderEvidenceLedger,
     FolderPlannerUsage,
@@ -225,15 +227,98 @@ class FolderPlannerRevisionTurnInputV1(StrictFrozenModel):
             raise ValueError("Revision candidate targets another source commitment.")
         if self.request_fingerprint != self.base_candidate.request_fingerprint:
             raise ValueError("Revision candidate targets another user request.")
+        derivative_bindings = (
+            self.imported_change_file_fingerprint,
+            self.match_report_fingerprint,
+            self.immediate_parent_candidate_fingerprint,
+        )
+        if any(value is not None for value in derivative_bindings) and any(
+            value is None for value in derivative_bindings
+        ):
+            raise ValueError(
+                "Derivative revision requires Change File, match, and "
+                "immediate-parent candidate fingerprints together."
+            )
         if self.evidence_fingerprint != self.base_candidate.evidence_fingerprint:
             raise ValueError("Revision candidate targets another evidence authority.")
         if self.base_candidate_fingerprint != canonical_sha256(self.base_candidate):
             raise ValueError("Revision base candidate fingerprint is invalid.")
-        if (self.imported_change_file_fingerprint is None) != (
-            self.match_report_fingerprint is None
-        ):
-            raise ValueError("Derivative revision requires both imported bindings.")
         return self
+
+
+class FolderDerivativeRevisionTurnInputV1(StrictFrozenModel):
+    """Exact first sparse turn for a child derived from a receiver review."""
+
+    schema_version: Literal["folder-derivative-revision-turn-input.v1"] = (
+        "folder-derivative-revision-turn-input.v1"
+    )
+    job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    expected_job_revision: int = Field(ge=0)
+    proposal_revision: Literal[0] = 0
+    response_turn: Literal[1] = 1
+    provider_kind: Literal["deterministic", "live", "recorded_replay"]
+    model_alias: Literal["gpt-5.6"] = "gpt-5.6"
+    store: Literal[False] = False
+    max_output_tokens: Literal[8192] = 8192
+    request: str = Field(min_length=1, max_length=8_000)
+    request_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    source_commitment: str = Field(pattern=SHA256_PATTERN)
+    revision_instruction: str = Field(min_length=1, max_length=20_000)
+    revision_instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    base_candidate: FolderAcceptedPlanV2
+    base_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    base_preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    evidence_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    prior_transcript_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    turn_contract_freeze_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    imported_change_file_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    match_report_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    immediate_parent_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @field_validator("job_id")
+    @classmethod
+    def require_uuid4_hex(cls, value: str) -> str:
+        parsed = uuid.UUID(hex=value)
+        if parsed.version != 4 or parsed.hex != value:
+            raise ValueError("Derivative revision job ID must be lowercase UUID4 hex.")
+        return value
+
+    @model_validator(mode="after")
+    def require_exact_derivative_bindings(self) -> Self:
+        if self.request_fingerprint != request_fingerprint(self.request):
+            raise ValueError(
+                "Derivative revision request fingerprint does not match its text."
+            )
+        if self.source_commitment != self.base_candidate.source_commitment:
+            raise ValueError("Derivative candidate targets another source commitment.")
+        if self.request_fingerprint != self.base_candidate.request_fingerprint:
+            raise ValueError("Derivative candidate targets another user request.")
+        if self.base_candidate_fingerprint != canonical_sha256(self.base_candidate):
+            raise ValueError("Derivative base candidate fingerprint is invalid.")
+        if (
+            self.immediate_parent_candidate_fingerprint
+            != self.base_candidate_fingerprint
+        ):
+            raise ValueError(
+                "Derivative turn does not bind its immediate parent candidate."
+            )
+        return self
+
+
+def canonical_derivative_turn_input_bytes(
+    turn_input: FolderDerivativeRevisionTurnInputV1,
+) -> bytes:
+    """Serialize one schema-distinct derivative input canonically."""
+
+    return canonical_json_bytes(turn_input)
+
+
+def derivative_turn_input_fingerprint(
+    turn_input: FolderDerivativeRevisionTurnInputV1,
+) -> str:
+    """Fingerprint one schema-distinct derivative input."""
+
+    return canonical_sha256(turn_input)
 
 
 def canonical_revision_turn_input_payload(
@@ -297,7 +382,8 @@ class FolderPlanRevisionProvider(Protocol):
 
     async def exchange(
         self,
-        turn_input: FolderPlannerRevisionTurnInputV1,
+        turn_input: FolderPlannerRevisionTurnInputV1
+        | FolderDerivativeRevisionTurnInputV1,
         /,
     ) -> FolderRevisionProviderResponseV1: ...
 
@@ -342,6 +428,45 @@ class FolderRevisionTurnRecordV1(StrictFrozenModel):
         return self
 
 
+class FolderDerivativeRevisionTurnRecordV1(StrictFrozenModel):
+    """One complete direct/replay derivative-first sparse turn."""
+
+    schema_version: Literal["folder-derivative-revision-turn-record.v1"] = (
+        "folder-derivative-revision-turn-record.v1"
+    )
+    input: FolderDerivativeRevisionTurnInputV1
+    input_bytes: int = Field(ge=1, le=512 * 1024)
+    input_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    response: FolderRevisionProviderResponseV1
+    usage: FolderPlannerUsage | None = None
+    turn_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def require_exact_derivative_turn(self) -> Self:
+        if self.input_bytes != len(canonical_derivative_turn_input_bytes(self.input)):
+            raise ValueError("Derivative revision input byte count is invalid.")
+        if self.input_fingerprint != derivative_turn_input_fingerprint(self.input):
+            raise ValueError("Derivative revision input fingerprint is invalid.")
+        if self.response.provider_kind != self.input.provider_kind:
+            raise ValueError("Derivative response uses another provider origin.")
+        if (
+            self.response.revision.base_candidate_fingerprint
+            != self.input.base_candidate_fingerprint
+        ):
+            raise ValueError("Derivative sparse response targets another parent.")
+        if self.input.provider_kind == "live":
+            if self.usage is None or self.usage.response_turn != 1:
+                raise ValueError("Live derivative requires exact observable usage.")
+        elif self.usage is not None:
+            raise ValueError("Model-free derivative cannot claim direct API usage.")
+        expected = canonical_sha256(
+            self.model_dump(mode="json", exclude={"turn_fingerprint"})
+        )
+        if self.turn_fingerprint != expected:
+            raise ValueError("Derivative revision turn fingerprint is invalid.")
+        return self
+
+
 def revision_turn_record_payload(
     turn: FolderRevisionTurnRecordV1,
 ) -> dict[str, JsonValue]:
@@ -350,6 +475,163 @@ def revision_turn_record_payload(
     payload = turn.model_dump(mode="json", exclude={"turn_fingerprint"})
     payload["input"] = canonical_revision_turn_input_payload(turn.input)
     return payload
+
+
+class FolderDerivativeEvidenceLedgerV1(StrictFrozenModel):
+    """One accepted derivative-first sparse turn with no fabricated root plan."""
+
+    schema_version: Literal["folder-derivative-evidence-ledger.v1"] = (
+        "folder-derivative-evidence-ledger.v1"
+    )
+    job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    source_commitment: str = Field(pattern=SHA256_PATTERN)
+    request_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    request_scope: Literal["rename_and_move_every_file"] = "rename_and_move_every_file"
+    model_transport: Literal[
+        "responses_api",
+        "chatgpt_hosted",
+        "codex_hosted",
+        "recorded_replay",
+        "deterministic_development",
+    ]
+    parent_binding_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    creation_binding_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    contract_freeze_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    imported_change_file_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    match_report_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    immediate_parent_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    immediate_parent_preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    revision_instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    evidence_state: PlannerEvidenceState
+    observable_records: tuple[JsonValue, ...] = Field(min_length=1, max_length=1)
+    response_turn_count: Literal[1] = 1
+    evidence_call_count: int = Field(ge=0, le=24)
+    plan_submission_count: Literal[0] = 0
+    sparse_revision_submission_count: Literal[1] = 1
+    clarification_question: None = None
+    clarification_answer: None = None
+    returned_model_ids: tuple[str, ...] = ()
+    usage: tuple[FolderPlannerUsage, ...] = ()
+    store_false: bool | None = None
+    evidence_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    accepted_plan_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    transcript_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @field_validator("job_id")
+    @classmethod
+    def require_uuid4_hex(cls, value: str) -> str:
+        parsed = uuid.UUID(hex=value)
+        if parsed.version != 4 or parsed.hex != value:
+            raise ValueError("Derivative evidence job ID must be lowercase UUID4 hex.")
+        return value
+
+    @property
+    def evidence_records(self):
+        """Expose the bounded evidence records used by the shared compiler."""
+
+        return self.evidence_state.records
+
+    @model_validator(mode="after")
+    def require_derivative_first_transcript(self) -> Self:
+        if not (
+            self.source_commitment == self.evidence_state.source_commitment
+            and self.request_fingerprint == self.evidence_state.request_fingerprint
+            and self.evidence_call_count == len(self.evidence_state.records)
+            and self.evidence_fingerprint == self.evidence_state.evidence_fingerprint
+        ):
+            raise ValueError(
+                "Derivative evidence differs from its bounded evidence state."
+            )
+        raw_record = self.observable_records[0]
+        if not isinstance(raw_record, dict):
+            raise ValueError("Derivative observable record must be an object.")
+        if (
+            raw_record.get("schema_version")
+            == "folder-host-derivative-revision-turn-record.v1"
+        ):
+            turn = FolderHostDerivativeRevisionTurnRecordV1.model_validate_json(
+                canonical_json_bytes(raw_record),
+                strict=True,
+            )
+            if not (
+                self.model_transport in {"chatgpt_hosted", "codex_hosted"}
+                and turn.model_transport == self.model_transport
+                and turn.response_turn == 1
+                and turn.base_candidate_fingerprint
+                == self.immediate_parent_candidate_fingerprint
+                and turn.base_preview_fingerprint
+                == self.immediate_parent_preview_fingerprint
+                and turn.revision_instruction_fingerprint
+                == self.revision_instruction_fingerprint
+                and turn.evidence_fingerprint == self.evidence_fingerprint
+                and turn.prior_transcript_fingerprint
+                == self.creation_binding_fingerprint
+                and turn.turn_contract_freeze_fingerprint
+                == self.contract_freeze_fingerprint
+                and turn.imported_change_file_fingerprint
+                == self.imported_change_file_fingerprint
+                and turn.match_report_fingerprint == self.match_report_fingerprint
+                and turn.immediate_parent_candidate_fingerprint
+                == self.immediate_parent_candidate_fingerprint
+                and turn.outcome == "accepted"
+                and turn.accepted_plan_fingerprint == self.accepted_plan_fingerprint
+            ):
+                raise ValueError(
+                    "Hosted derivative record differs from its parent authority."
+                )
+            if self.returned_model_ids or self.usage or self.store_false is not None:
+                raise ValueError(
+                    "Hosted derivative evidence cannot claim direct API metadata."
+                )
+        else:
+            turn = FolderDerivativeRevisionTurnRecordV1.model_validate_json(
+                canonical_json_bytes(raw_record),
+                strict=True,
+            )
+            expected_transport = _provider_transport(turn.input.provider_kind)
+            if not (
+                self.model_transport == expected_transport
+                and turn.input.job_id == self.job_id
+                and turn.input.response_turn == 1
+                and turn.input.source_commitment == self.source_commitment
+                and turn.input.request_fingerprint == self.request_fingerprint
+                and turn.input.base_candidate_fingerprint
+                == self.immediate_parent_candidate_fingerprint
+                and turn.input.base_preview_fingerprint
+                == self.immediate_parent_preview_fingerprint
+                and turn.input.revision_instruction_fingerprint
+                == self.revision_instruction_fingerprint
+                and turn.input.prior_transcript_fingerprint
+                == self.creation_binding_fingerprint
+                and turn.input.turn_contract_freeze_fingerprint
+                == self.contract_freeze_fingerprint
+                and turn.input.imported_change_file_fingerprint
+                == self.imported_change_file_fingerprint
+                and turn.input.match_report_fingerprint == self.match_report_fingerprint
+                and turn.input.immediate_parent_candidate_fingerprint
+                == self.immediate_parent_candidate_fingerprint
+                and turn.input.evidence_fingerprint == self.evidence_fingerprint
+            ):
+                raise ValueError(
+                    "Direct derivative record differs from its parent authority."
+                )
+            returned_model = turn.response.returned_model
+            expected_returned = (returned_model,) if returned_model is not None else ()
+            expected_usage = (turn.usage,) if turn.usage is not None else ()
+            if (
+                self.returned_model_ids != expected_returned
+                or self.usage != expected_usage
+            ):
+                raise ValueError(
+                    "Derivative direct metadata differs from its observable turn."
+                )
+            expected_store = True if self.model_transport == "responses_api" else None
+            if self.store_false is not expected_store:
+                raise ValueError("Derivative direct store metadata is not truthful.")
+        payload = self.model_dump(mode="json", exclude={"transcript_fingerprint"})
+        if self.transcript_fingerprint != canonical_sha256(payload):
+            raise ValueError("Derivative evidence transcript fingerprint is invalid.")
+        return self
 
 
 class FolderPlanningSegmentV1(StrictFrozenModel):
@@ -429,12 +711,16 @@ class FolderEvidenceLedgerV2(StrictFrozenModel):
         "deterministic_development",
     ]
     contract_freeze_fingerprint: str = Field(pattern=SHA256_PATTERN)
-    initial_ledger: FolderEvidenceLedger | FolderHostEvidenceLedgerV1
+    initial_ledger: (
+        FolderEvidenceLedger
+        | FolderHostEvidenceLedgerV1
+        | FolderDerivativeEvidenceLedgerV1
+    )
     segments: tuple[FolderPlanningSegmentV1, ...] = Field(min_length=1, max_length=3)
     response_turn_count: int = Field(ge=1, le=8)
     evidence_call_count: int = Field(ge=0, le=24)
     clarification_count: int = Field(ge=0, le=1)
-    full_plan_submission_count: int = Field(ge=1, le=3)
+    full_plan_submission_count: int = Field(ge=0, le=3)
     sparse_revision_submission_count: int = Field(ge=0, le=2)
     user_revision_count: int = Field(ge=0, le=MAX_FOLDWEAVE_REVISIONS)
     selected_proposal_revision: int = Field(ge=0, le=MAX_FOLDWEAVE_REVISIONS)
@@ -458,6 +744,9 @@ class FolderEvidenceLedgerV2(StrictFrozenModel):
     @model_validator(mode="after")
     def require_complete_composite_transcript(self) -> Self:
         initial = self.initial_ledger
+        if isinstance(initial, FolderDerivativeEvidenceLedgerV1):
+            self._require_derivative_composite_transcript(initial)
+            return self
         if not (
             self.job_id == initial.job_id
             and self.source_commitment == initial.source_commitment
@@ -621,6 +910,160 @@ class FolderEvidenceLedgerV2(StrictFrozenModel):
             raise ValueError("Composite transcript fingerprint is invalid.")
         return self
 
+    def _require_derivative_composite_transcript(
+        self,
+        initial: FolderDerivativeEvidenceLedgerV1,
+    ) -> None:
+        if not (
+            self.planning_basis == "derivative"
+            and self.job_id == initial.job_id
+            and self.source_commitment == initial.source_commitment
+            and self.request_fingerprint == initial.request_fingerprint
+            and self.request_scope == initial.request_scope
+            and self.model_transport == initial.model_transport
+            and self.evidence_call_count == initial.evidence_call_count
+            and self.full_plan_submission_count == 0
+            and self.clarification_count == 0
+            and self.evidence_fingerprint == initial.evidence_fingerprint
+        ):
+            raise ValueError(
+                "Derivative composite evidence differs from its first sparse turn."
+            )
+        first = self.segments[0]
+        if not (
+            first.segment_kind == "user_revision"
+            and first.outcome == "accepted"
+            and first.selected
+            and first.proposal_revision_before == 0
+            and first.proposal_revision_after == 1
+            and first.first_response_turn == 1
+            and first.last_response_turn == 1
+            and first.base_candidate_fingerprint
+            == initial.immediate_parent_candidate_fingerprint
+            and first.base_preview_fingerprint
+            == initial.immediate_parent_preview_fingerprint
+            and first.revision_instruction_fingerprint
+            == initial.revision_instruction_fingerprint
+            and first.observable_records == initial.observable_records
+            and first.final_candidate_fingerprint == initial.accepted_plan_fingerprint
+        ):
+            raise ValueError(
+                "Derivative composite evidence must begin with its exact sparse turn."
+            )
+        expected_turn = 2
+        expected_candidate = initial.accepted_plan_fingerprint
+        revision_count = 1
+        selected_revision_count = 1
+        expected_returned_ids = list(initial.returned_model_ids)
+        expected_usage = list(initial.usage)
+        for segment in self.segments[1:]:
+            if (
+                segment.segment_kind != "user_revision"
+                or segment.first_response_turn != expected_turn
+                or segment.last_response_turn != expected_turn
+                or segment.proposal_revision_before != selected_revision_count
+                or segment.base_candidate_fingerprint != expected_candidate
+                or len(segment.observable_records) != 1
+            ):
+                raise ValueError(
+                    "Derivative follow-up segment does not extend its exact parent."
+                )
+            raw_record = segment.observable_records[0]
+            if not isinstance(raw_record, dict):
+                raise ValueError("Derivative revision record must be an object.")
+            if (
+                raw_record.get("schema_version")
+                == "folder-host-revision-turn-record.v1"
+            ):
+                host_turn = FolderHostRevisionTurnRecordV1.model_validate_json(
+                    canonical_json_bytes(raw_record),
+                    strict=True,
+                )
+                if not (
+                    host_turn.model_transport == self.model_transport
+                    and host_turn.response_turn == expected_turn
+                    and host_turn.base_candidate_fingerprint
+                    == segment.base_candidate_fingerprint
+                    and host_turn.base_preview_fingerprint
+                    == segment.base_preview_fingerprint
+                    and host_turn.revision_instruction_fingerprint
+                    == segment.revision_instruction_fingerprint
+                    and host_turn.outcome == segment.outcome
+                ):
+                    raise ValueError(
+                        "Hosted derivative follow-up differs from its segment."
+                    )
+            else:
+                turn = FolderRevisionTurnRecordV1.model_validate_json(
+                    canonical_json_bytes(raw_record),
+                    strict=True,
+                )
+                if not (
+                    _provider_transport(turn.input.provider_kind)
+                    == self.model_transport
+                    and turn.input.response_turn == expected_turn
+                    and turn.input.base_candidate_fingerprint
+                    == segment.base_candidate_fingerprint
+                    and turn.input.base_preview_fingerprint
+                    == segment.base_preview_fingerprint
+                    and turn.input.revision_instruction_fingerprint
+                    == segment.revision_instruction_fingerprint
+                    and turn.input.imported_change_file_fingerprint
+                    == initial.imported_change_file_fingerprint
+                    and turn.input.match_report_fingerprint
+                    == initial.match_report_fingerprint
+                    and turn.input.immediate_parent_candidate_fingerprint
+                    == initial.immediate_parent_candidate_fingerprint
+                ):
+                    raise ValueError(
+                        "Direct derivative follow-up differs from its segment."
+                    )
+                returned_model = turn.response.returned_model
+                if (
+                    returned_model is not None
+                    and returned_model not in expected_returned_ids
+                ):
+                    expected_returned_ids.append(returned_model)
+                if turn.usage is not None:
+                    expected_usage.append(turn.usage)
+            revision_count += 1
+            if segment.selected:
+                selected_revision_count += 1
+                expected_candidate = segment.final_candidate_fingerprint
+            elif segment.final_candidate_fingerprint != expected_candidate:
+                raise ValueError(
+                    "Rejected derivative revision changed the selected candidate."
+                )
+            expected_turn += 1
+        if not (
+            self.response_turn_count == expected_turn - 1
+            and self.sparse_revision_submission_count
+            == self.user_revision_count
+            == revision_count
+            and self.selected_proposal_revision == selected_revision_count
+            and self.accepted_plan_fingerprint == expected_candidate
+            and self.returned_model_ids == tuple(expected_returned_ids)
+            and self.usage == tuple(expected_usage)
+        ):
+            raise ValueError("Derivative composite counters or identities disagree.")
+        usage_turns = tuple(item.response_turn for item in self.usage)
+        if self.model_transport == "responses_api":
+            if (
+                self.store_false is not True
+                or usage_turns != tuple(range(1, self.response_turn_count + 1))
+                or not self.returned_model_ids
+            ):
+                raise ValueError(
+                    "Direct derivative planning lacks complete API metadata."
+                )
+        elif self.store_false is not None or self.usage:
+            raise ValueError(
+                "Host/replay derivative evidence contains direct API metadata."
+            )
+        payload = self.model_dump(mode="json", exclude={"transcript_fingerprint"})
+        if self.transcript_fingerprint != canonical_sha256(payload):
+            raise ValueError("Derivative composite transcript fingerprint is invalid.")
+
 
 class GptPlannedExecutionOriginV2(StrictFrozenModel):
     """Orthogonal observable provenance for a reviewed Foldweave transaction."""
@@ -777,6 +1220,33 @@ def build_revision_turn_record(
     return FolderRevisionTurnRecordV1(
         **values,
         turn_fingerprint=canonical_sha256(revision_turn_record_payload(draft)),
+    )
+
+
+def build_derivative_revision_turn_record(
+    *,
+    turn_input: FolderDerivativeRevisionTurnInputV1,
+    response: FolderRevisionProviderResponseV1,
+    usage: FolderPlannerUsage | None,
+) -> FolderDerivativeRevisionTurnRecordV1:
+    """Build one canonical derivative-first observable turn."""
+
+    values = {
+        "input": turn_input,
+        "input_bytes": len(canonical_derivative_turn_input_bytes(turn_input)),
+        "input_fingerprint": derivative_turn_input_fingerprint(turn_input),
+        "response": response,
+        "usage": usage,
+    }
+    draft = FolderDerivativeRevisionTurnRecordV1.model_construct(
+        **values,
+        turn_fingerprint="0" * 64,
+    )
+    return FolderDerivativeRevisionTurnRecordV1(
+        **values,
+        turn_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"turn_fingerprint"})
+        ),
     )
 
 
@@ -989,6 +1459,143 @@ def build_initial_composite_evidence(
         "sparse_revision_submission_count": 0,
         "user_revision_count": 0,
         "selected_proposal_revision": 0,
+        "returned_model_ids": initial_ledger.returned_model_ids,
+        "usage": initial_ledger.usage,
+        "store_false": initial_ledger.store_false,
+        "evidence_fingerprint": initial_ledger.evidence_fingerprint,
+        "accepted_plan_fingerprint": accepted_fingerprint,
+    }
+    draft = FolderEvidenceLedgerV2.model_construct(
+        **values,
+        transcript_fingerprint="0" * 64,
+    )
+    return FolderEvidenceLedgerV2(
+        **values,
+        transcript_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"transcript_fingerprint"})
+        ),
+    )
+
+
+def build_derivative_evidence_ledger(
+    *,
+    job_id: str,
+    evidence_state: PlannerEvidenceState,
+    model_transport: Literal[
+        "responses_api",
+        "chatgpt_hosted",
+        "codex_hosted",
+        "recorded_replay",
+        "deterministic_development",
+    ],
+    parent_binding_fingerprint: str,
+    creation_binding_fingerprint: str,
+    contract_freeze_fingerprint: str,
+    imported_change_file_fingerprint: str,
+    match_report_fingerprint: str,
+    immediate_parent_candidate_fingerprint: str,
+    immediate_parent_preview_fingerprint: str,
+    revision_instruction_fingerprint: str,
+    turn: (
+        FolderDerivativeRevisionTurnRecordV1 | FolderHostDerivativeRevisionTurnRecordV1
+    ),
+    accepted_plan: FolderAcceptedPlanV2,
+) -> FolderDerivativeEvidenceLedgerV1:
+    """Build one accepted derivative-first ledger from an observable sparse turn."""
+
+    if isinstance(turn, FolderDerivativeRevisionTurnRecordV1):
+        returned_model = turn.response.returned_model
+        returned_model_ids = (returned_model,) if returned_model is not None else ()
+        usage = (turn.usage,) if turn.usage is not None else ()
+        store_false = True if model_transport == "responses_api" else None
+    else:
+        returned_model_ids = ()
+        usage = ()
+        store_false = None
+    values = {
+        "job_id": job_id,
+        "source_commitment": evidence_state.source_commitment,
+        "request_fingerprint": evidence_state.request_fingerprint,
+        "model_transport": model_transport,
+        "parent_binding_fingerprint": parent_binding_fingerprint,
+        "creation_binding_fingerprint": creation_binding_fingerprint,
+        "contract_freeze_fingerprint": contract_freeze_fingerprint,
+        "imported_change_file_fingerprint": imported_change_file_fingerprint,
+        "match_report_fingerprint": match_report_fingerprint,
+        "immediate_parent_candidate_fingerprint": (
+            immediate_parent_candidate_fingerprint
+        ),
+        "immediate_parent_preview_fingerprint": (immediate_parent_preview_fingerprint),
+        "revision_instruction_fingerprint": revision_instruction_fingerprint,
+        "evidence_state": evidence_state,
+        "observable_records": (turn.model_dump(mode="json"),),
+        "evidence_call_count": len(evidence_state.records),
+        "returned_model_ids": returned_model_ids,
+        "usage": usage,
+        "store_false": store_false,
+        "evidence_fingerprint": evidence_state.evidence_fingerprint,
+        "accepted_plan_fingerprint": canonical_sha256(accepted_plan),
+    }
+    draft = FolderDerivativeEvidenceLedgerV1.model_construct(
+        **values,
+        transcript_fingerprint="0" * 64,
+    )
+    return FolderDerivativeEvidenceLedgerV1(
+        **values,
+        transcript_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"transcript_fingerprint"})
+        ),
+    )
+
+
+def build_derivative_composite_evidence(
+    *,
+    initial_ledger: FolderDerivativeEvidenceLedgerV1,
+    accepted_plan: FolderAcceptedPlanV2,
+    contract_freeze_fingerprint: str,
+) -> FolderEvidenceLedgerV2:
+    """Promote one derivative-first sparse turn without inventing an initial plan."""
+
+    accepted_fingerprint = canonical_sha256(accepted_plan)
+    if initial_ledger.accepted_plan_fingerprint != accepted_fingerprint:
+        raise ValueError("Derivative evidence names another accepted Foldweave plan.")
+    if initial_ledger.contract_freeze_fingerprint != contract_freeze_fingerprint:
+        raise ValueError("Derivative evidence uses another frozen planning contract.")
+    segment = build_planning_segment(
+        segment_kind="user_revision",
+        outcome="accepted",
+        selected=True,
+        proposal_revision_before=0,
+        proposal_revision_after=1,
+        first_response_turn=1,
+        last_response_turn=1,
+        observable_records=initial_ledger.observable_records,
+        base_candidate_fingerprint=(
+            initial_ledger.immediate_parent_candidate_fingerprint
+        ),
+        base_preview_fingerprint=initial_ledger.immediate_parent_preview_fingerprint,
+        revision_instruction_fingerprint=(
+            initial_ledger.revision_instruction_fingerprint
+        ),
+        final_candidate_fingerprint=accepted_fingerprint,
+    )
+    values = {
+        "job_id": initial_ledger.job_id,
+        "source_commitment": initial_ledger.source_commitment,
+        "request_fingerprint": initial_ledger.request_fingerprint,
+        "request_scope": initial_ledger.request_scope,
+        "planning_basis": "derivative",
+        "model_transport": initial_ledger.model_transport,
+        "contract_freeze_fingerprint": contract_freeze_fingerprint,
+        "initial_ledger": initial_ledger,
+        "segments": (segment,),
+        "response_turn_count": 1,
+        "evidence_call_count": initial_ledger.evidence_call_count,
+        "clarification_count": 0,
+        "full_plan_submission_count": 0,
+        "sparse_revision_submission_count": 1,
+        "user_revision_count": 1,
+        "selected_proposal_revision": 1,
         "returned_model_ids": initial_ledger.returned_model_ids,
         "usage": initial_ledger.usage,
         "store_false": initial_ledger.store_false,

@@ -1,12 +1,14 @@
 {
   "mcpServers": {
-    "name-atlas": {
+    "foldweave": {
       "command": "uv",
       "args": [
         "run",
         "--frozen",
-        "name-atlas",
-        "mcp"
+        "foldweave",
+        "mcp",
+        "--transport",
+        "stdio"
       ]
     }
   }

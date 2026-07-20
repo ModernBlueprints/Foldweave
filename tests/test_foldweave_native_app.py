@@ -8,6 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from name_atlas import foldweave_browser_cli, foldweave_native_cli
+from name_atlas.foldweave_companion_cli import EmbeddedCompanionRuntime
+from name_atlas.foldweave_companion_supervisor import FoldweaveCompanionSupervisor
+from name_atlas.foldweave_pairing_service import FoldweavePairingService
 from name_atlas.native_bridge import MacOSNativePathBridge
 from name_atlas.native_settings import (
     CredentialStatus,
@@ -102,6 +105,16 @@ def test_native_composition_uses_one_job_control_plane_and_trusted_adapters(
     assert captured["initial_source"] == source.resolve(strict=True)
     assert captured["initial_output_parent"] == output.resolve(strict=True)
     assert isinstance(captured["native_bridge"], MacOSNativePathBridge)
+    pairing = captured["pairing_service"]
+    assert isinstance(pairing, FoldweavePairingService)
+    assert pairing.state_store.path == (state_root / "companion-pairing.json")
+    supervisor = pairing.runtime_lifecycle
+    assert isinstance(supervisor, FoldweaveCompanionSupervisor)
+    assert pairing.runtime_status is supervisor
+    assert isinstance(supervisor.runtime, EmbeddedCompanionRuntime)
+    assert captured["review_service_kwargs"]["service"] is (
+        supervisor.runtime.service._review
+    )
     settings = captured["native_settings"]
     assert isinstance(settings, NativeSettingsService)
     assert isinstance(settings.store, MacOSKeychainCredentialStore)
@@ -179,6 +192,17 @@ def test_real_composition_exposes_health_settings_and_review_routes(
     assert isinstance(
         composition.app.state.native_settings,
         NativeSettingsService,
+    )
+    pairing = composition.app.state.pairing_service
+    assert isinstance(pairing, FoldweavePairingService)
+    assert pairing.runtime_lifecycle is composition.companion_supervisor
+    assert pairing.runtime_status is composition.companion_supervisor
+    assert isinstance(
+        composition.companion_supervisor.runtime,
+        EmbeddedCompanionRuntime,
+    )
+    assert composition.companion_supervisor.state_store.path == (
+        state_root / "companion-pairing.json"
     )
     assert composition.app.state.health_instance_nonce == composition.instance_nonce
     assert not state_root.exists()

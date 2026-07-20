@@ -1,0 +1,75 @@
+{% extends "folder/base.html" %}
+{% block title %}ChatGPT pairing · Foldweave{% endblock %}
+{% block content %}
+  <section class="folder-card folder-settings folder-pairing" aria-labelledby="pairing-title">
+    <header>
+      <span class="folder-eyebrow">ChatGPT-hosted mode</span>
+      <h1 id="pairing-title">Pair this Foldweave installation</h1>
+      <p>ChatGPT-hosted planning uses the model supplied by your ChatGPT session. It does not use your direct API key and does not consume Foldweave's Responses API budget.</p>
+    </header>
+
+    <div class="folder-pairing-status folder-pairing-status--{{ pairing.status.value }}" role="status">
+      <span class="folder-status-signal" aria-hidden="true"></span>
+      <span>
+        <strong>{{ pairing.status_label }}</strong>
+        <small>{{ pairing.detail }}</small>
+      </span>
+    </div>
+
+    <dl class="folder-proof-list">
+      <div><dt>Direct API mode</dt><dd>Separate — configure an OpenAI API key in <a href="/settings">Secure settings</a>.</dd></div>
+      <div><dt>ChatGPT-hosted mode</dt><dd>Uses this paired local companion and your ChatGPT session; no Foldweave API key is required.</dd></div>
+      {% if pairing.gateway_url %}<div><dt>Gateway</dt><dd><code>{{ pairing.gateway_url }}</code></dd></div>{% endif %}
+      {% if pairing.expires_at %}<div><dt>Pairing status expires</dt><dd>{{ pairing.expires_at }}</dd></div>{% endif %}
+    </dl>
+
+    {% if pairing.pairing_code %}
+      <section class="folder-pairing-code" aria-labelledby="pairing-code-title">
+        <h2 id="pairing-code-title">One-time pairing code</h2>
+        <output id="foldweave-pairing-code" aria-label="One-time pairing code">{{ pairing.pairing_code }}</output>
+        <p>Enter this code only in Foldweave's ChatGPT authorization screen. The code does not reveal a local path or your device key.</p>
+      </section>
+    {% endif %}
+
+    {% if pairing.can_register %}
+      <form class="folder-form folder-pairing-form" method="post" action="/pairing/register">
+        <input type="hidden" name="csrf_token" value="{{ state.csrf_token }}">
+        <label for="gateway-url">Foldweave gateway</label>
+        <input class="bp6-input" id="gateway-url" name="gateway_url" type="url" required maxlength="2048" autocomplete="url" placeholder="https://foldweave.example.workers.dev">
+        <label for="device-name">Device name</label>
+        <input class="bp6-input" id="device-name" name="device_name" type="text" required maxlength="80" autocomplete="off" value="My Mac">
+        <small>Only this short device label and the installation's public device identity are registered. Local paths and project payloads are not sent.</small>
+        <button class="bp6-button bp6-intent-primary folder-primary-action" type="submit">Create one-time code</button>
+      </form>
+    {% endif %}
+
+    <div class="folder-actions folder-pairing-actions">
+      {% if pairing.can_approve %}
+        <form method="post" action="/pairing/approve">
+          <input type="hidden" name="csrf_token" value="{{ state.csrf_token }}">
+          <strong>Confirm this installation</strong>
+          <small>Local approval signs the pending pairing. It does not prove that OAuth authorization in ChatGPT is complete.</small>
+          <button class="bp6-button bp6-intent-primary" type="submit">Approve this installation</button>
+        </form>
+      {% endif %}
+      {% if pairing.can_revoke %}
+        <form method="post" action="/pairing/revoke">
+          <input type="hidden" name="csrf_token" value="{{ state.csrf_token }}">
+          <strong>Remove ChatGPT access</strong>
+          <small>Revocation is confirmed by the gateway before Foldweave removes the local pairing record.</small>
+          <button class="bp6-button bp6-intent-danger" type="submit">Revoke pairing</button>
+        </form>
+      {% endif %}
+      <div class="folder-action-card">
+        <strong>Refresh authoritative status</strong>
+        <small>Recheck gateway authorization and the live companion connection without changing either.</small>
+        <a class="bp6-button" href="/pairing">Refresh status</a>
+      </div>
+      <div class="folder-action-card">
+        <strong>Return to Foldweave</strong>
+        <small>Pairing is independent from the folder review currently open in Foldweave.</small>
+        <a class="bp6-button bp6-minimal" href="/">Back to Foldweave</a>
+      </div>
+    </div>
+  </section>
+{% endblock %}

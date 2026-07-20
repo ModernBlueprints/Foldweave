@@ -356,35 +356,32 @@ producer's historical source was authentic.
 Start the required local STDIO MCP server with:
 
 ```text
-uv run name-atlas mcp
+uv run foldweave mcp --transport stdio
 ```
 
-STDOUT is MCP protocol only; diagnostics go to STDERR. The server exposes exactly
-seven high-level tools, all backed by the same job, planner, compiler, copy,
-receipt, verifier, and reconstruction services used by the browser and CLI:
+STDOUT is MCP protocol only; diagnostics go to STDERR. One shared server exposes
+two bounded tool families backed by the same durable job, compiler, copy,
+receipt, verifier, and reconstruction services as the native application,
+browser fallback, and CLI:
 
-| Tool | Purpose |
-|---|---|
-| `plan_and_create_copy` | Start one bounded GPT-planned origin job |
-| `job_status` | Read durable progress, clarification, result, staleness, or blocker |
-| `answer_clarification` | Submit the sole answer to the exact waiting job |
-| `get_change_file` | Return the verified local Change File and proof identity |
-| `apply_change_file` | Start one keyless deterministic receiver job |
-| `verify_result` | Run the source-free independent verifier |
-| `recreate_original` | Create and verify an absent reconstruction destination |
+- host-planning tools for bounded inventory and evidence inspection, complete
+  plan submission, sparse revision, compiler feedback, and immutable preview;
+- reviewed workflow tools for origin planning, receiver preparation, durable
+  status, clarification, revision recovery, exact fingerprint-bound acceptance,
+  Change File retrieval, verification, and reconstruction.
 
-Planning requires literal acknowledgement of the outbound-evidence and retention
-disclosure. Mutation tools require caller idempotency keys and bind retries to
-the exact request. The server exposes no arbitrary filesystem read/write/move/
-delete, shell, raw evidence, compiler bypass, receipt construction, or proof
-override tool. Credentials come only from the local environment, never tool
-arguments.
+Codex supplies model inference for Codex-hosted planning, so that mode neither
+reads a direct Responses API key nor reserves Foldweave's direct-API budget.
+Unchanged Change File preparation and application, preview rendering,
+verification, and reconstruction remain model-free. Mutations require caller
+idempotency keys and expected revisions. The server exposes no arbitrary
+filesystem read/write/move/delete, shell, compiler bypass, receipt construction,
+proof override, or provider credential tool.
 
 ## Codex plugin
 
-The optional thin Codex plugin passed its objective gate and clean-clone installed
-copy acceptance. It packages the same MCP server; it does not copy or replace
-the product implementation.
+The thin Foldweave Codex plugin packages the same shared MCP server; it does not
+copy or replace the product implementation.
 
 Install from a clean clone:
 
@@ -392,14 +389,14 @@ Install from a clean clone:
 uv sync --frozen
 CODEX_BIN="/Applications/ChatGPT.app/Contents/Resources/codex"
 "$CODEX_BIN" plugin marketplace add .
-"$CODEX_BIN" plugin add name-atlas@personal
+"$CODEX_BIN" plugin add foldweave@personal
 ```
 
 Refresh or restart Codex, then open a **new Codex task whose working directory
-is that clean repository clone**. The discovered Name Atlas tools use
-`uv run --frozen name-atlas mcp` from the task checkout. Live planning reads a
-local `OPENAI_API_KEY`; replay, Change File application, verification, and
-reconstruction remain keyless.
+is that clean repository clone**. The discovered Foldweave tools use
+`uv run --frozen foldweave mcp --transport stdio` from the task checkout. Codex
+hosted planning uses Codex's model inference; deterministic unchanged Change
+File application, verification, and reconstruction remain model-free.
 
 The explicit `CODEX_BIN` is the tested macOS command from the ChatGPT desktop
 bundle and avoids an unrelated or stale `codex` shim earlier on `PATH`. A bare
@@ -409,7 +406,7 @@ current installation that supports the plugin subcommand.
 Uninstall with:
 
 ```text
-"$CODEX_BIN" plugin remove name-atlas@personal
+"$CODEX_BIN" plugin remove foldweave@personal
 "$CODEX_BIN" plugin marketplace remove personal
 ```
 

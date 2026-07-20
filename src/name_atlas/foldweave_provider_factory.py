@@ -10,6 +10,7 @@ from typing import Protocol
 from name_atlas.decision_cards.budget import PersistentBudgetLedger
 from name_atlas.folder_refactor.connected_change.job_v3 import (
     FolderRefactorJobV3Store,
+    GptDerivativeJobAuthorityV3,
     GptPlannedJobAuthorityV3,
 )
 from name_atlas.folder_refactor.foldweave_planning_contracts import (
@@ -29,6 +30,8 @@ from name_atlas.native_settings import CredentialStore, DirectEndpointProfile
 class FoldweavePlanningProviderFactory(Protocol):
     """Create only providers bound to the current durable job prefix."""
 
+    provider_kind: str
+
     def initial_provider(self) -> PlannerProvider:
         """Return the exact initial planning provider for this job."""
         ...
@@ -37,10 +40,19 @@ class FoldweavePlanningProviderFactory(Protocol):
         """Return the exact sparse-revision provider for this job."""
         ...
 
+    def derivative_revision_provider(
+        self,
+        job_path: Path,
+    ) -> FolderPlanRevisionProvider:
+        """Return a provider bound to one derivative child usage prefix."""
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class FoldweaveDirectProviderFactory:
     """Read secrets only inside trusted Python and share the sole ledger."""
+
+    provider_kind = "live"
 
     job_path: Path
     credential_store: CredentialStore
@@ -82,6 +94,28 @@ class FoldweaveDirectProviderFactory:
             base_url=self.endpoint.endpoint,
         )
 
+    def derivative_revision_provider(
+        self,
+        job_path: Path,
+    ) -> FolderPlanRevisionProvider:
+        """Create one provider for a schema-distinct derivative child turn."""
+
+        child_factory = FoldweaveDirectProviderFactory(
+            job_path=job_path.expanduser().resolve(strict=False),
+            credential_store=self.credential_store,
+            endpoint=self.endpoint,
+            budget_authority=self.budget_authority,
+        )
+        budget = child_factory._budget()
+        existing_usage = child_factory._derivative_usage()
+        api_key = child_factory.credential_store.read()
+        return LiveFolderPlanRevisionProvider.from_api_key(
+            api_key,
+            budget=budget,
+            existing_usage=existing_usage,
+            base_url=child_factory.endpoint.endpoint,
+        )
+
     def _budget(self) -> PersistentBudgetLedger:
         if self.budget_authority.kind == "qualification_existing":
             return PersistentBudgetLedger.open_existing_foldweave_planner(
@@ -114,3 +148,14 @@ class FoldweaveDirectProviderFactory:
                 "The durable job has no accepted planning evidence to revise."
             )
         return job.authority.planner_checkpoint.usage
+
+    def _derivative_usage(self) -> tuple[FolderPlannerUsage, ...]:
+        if not os.path.lexists(self.job_path):
+            return ()
+        job = FolderRefactorJobV3Store(self.job_path).inspect()
+        authority = job.authority
+        if not isinstance(authority, GptDerivativeJobAuthorityV3):
+            raise RuntimeError("The durable job is not a Foldweave derivative child.")
+        if authority.evidence_ledger is None:
+            return ()
+        return authority.evidence_ledger.usage

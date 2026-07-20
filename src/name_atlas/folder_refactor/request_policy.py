@@ -31,7 +31,7 @@ _RULES = (
             r"\b(?:file|files|document|documents|photo|photos|image|images|"
             r"draft|drafts)\b",
         ),
-        "Name Atlas keeps every file; deletion or omission is unsupported.",
+        "Every source file must remain; deletion or omission is unsupported.",
     ),
     (
         "file_deletion_unsupported",
@@ -52,12 +52,12 @@ _RULES = (
             r"\bdispose of\b.{0,50}\b(?:draft|drafts|file|files|document|"
             r"documents|material|items?)\b"
         ),
-        "Name Atlas keeps every file; deletion or omission is unsupported.",
+        "Every source file must remain; deletion or omission is unsupported.",
     ),
     (
         "deduplication_unsupported",
         re.compile(r"\b(?:deduplicate|dedupe|remove duplicates?)\b"),
-        "Name Atlas does not remove or merge duplicate files.",
+        "Removing or merging duplicate source files is unsupported.",
     ),
     (
         "merge_unsupported",
@@ -65,7 +65,7 @@ _RULES = (
             r"\b(?:merge|combine|concatenate|consolidate)\b.{0,30}"
             r"\b(?:file|files|document|documents|photo|photos)\b"
         ),
-        "Name Atlas cannot merge source files.",
+        "Merging source files is unsupported.",
     ),
     (
         "selection_unsupported",
@@ -80,7 +80,7 @@ _RULES = (
             r"\b(?:leave|omit|exclude|discard)\b.{0,20}"
             r"\b(?:rest|others?|everything else)\b"
         ),
-        "Name Atlas cannot select a subset; every source file must remain.",
+        "Selecting a subset is unsupported; every source file must remain.",
     ),
     (
         "archive_extraction_unsupported",
@@ -93,7 +93,7 @@ _RULES = (
             r"\b(?:rewrite|edit|summarize|translate)\b.{0,40}"
             r"\b(?:content|contents|body|bodies|text|documents?)\b"
         ),
-        "Name Atlas reorganizes paths but does not edit document bodies.",
+        "Path reorganization does not edit document bodies.",
     ),
     (
         "code_refactor_unsupported",

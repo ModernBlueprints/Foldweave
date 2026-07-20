@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#101317">
     <title>{% block title %}{% if foldweave_active %}Foldweave{% else %}Reversible Name Atlas{% endif %}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/vendor/blueprint/blueprint.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='/folder.css') }}?v=20260719-c2b">
+    <link rel="stylesheet" href="{{ url_for('static', path='/folder.css') }}?v={{ folder_asset_version }}">
   </head>
   <body class="bp6-dark folder-app">
     <a class="folder-skip-link" href="#main-content">Skip to main content</a>
@@ -19,7 +19,10 @@
         </span>
       </a>
       {% if planner_label|default("") %}<span class="folder-mode">{{ planner_label }}</span>{% endif %}
-      {% if native_settings_available|default(false) %}<a class="bp6-button bp6-minimal" href="/settings">Settings</a>{% endif %}
+      <nav class="folder-header-actions" aria-label="Foldweave configuration">
+        {% if pairing_available|default(false) %}<a class="bp6-button bp6-minimal" href="/pairing">ChatGPT pairing</a>{% endif %}
+        {% if native_settings_available|default(false) %}<a class="bp6-button bp6-minimal" href="/settings">Secure settings</a>{% endif %}
+      </nav>
     </header>
     <main id="main-content" class="folder-main" tabindex="-1">
       {% if notice %}

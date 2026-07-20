@@ -224,7 +224,10 @@ def run(
         if _unsupported_folder_receipt_schema(folder_receipt_schema):
             print("BLOCKED receipt_schema_invalid")
             return 1
-        if folder_receipt_schema == "folder-change-receipt.v2":
+        if folder_receipt_schema in {
+            "folder-change-receipt.v2",
+            "folder-change-receipt.v3",
+        }:
             from name_atlas.folder_refactor.connected_change.verification import (
                 ConnectedReceiptVerificationStatus,
                 verify_connected_result,
@@ -274,7 +277,10 @@ def run(
         if _unsupported_folder_receipt_schema(folder_receipt_schema):
             print("RESTORE BLOCKED receipt_schema_invalid", file=sys.stderr)
             return 1
-        if folder_receipt_schema == "folder-change-receipt.v2":
+        if folder_receipt_schema in {
+            "folder-change-receipt.v2",
+            "folder-change-receipt.v3",
+        }:
             try:
                 connected_report = _restore_connected_receipt(
                     received_bag,
@@ -490,7 +496,11 @@ def _unsupported_folder_receipt_schema(schema_version: str | None) -> bool:
         schema_version is not None
         and schema_version.startswith("folder-change-receipt.")
         and schema_version
-        not in {"folder-change-receipt.v1", "folder-change-receipt.v2"}
+        not in {
+            "folder-change-receipt.v1",
+            "folder-change-receipt.v2",
+            "folder-change-receipt.v3",
+        }
     )
 
 
@@ -516,7 +526,7 @@ def _restore_folder_receipt(result_root: Path, destination: Path) -> object:
 
 
 def _restore_connected_receipt(result_root: Path, destination: Path) -> object:
-    """Call v2 reconstruction and retain the bounded folder failure surface."""
+    """Call v2/v3 reconstruction and retain the bounded failure surface."""
 
     from name_atlas.folder_refactor.connected_change.reconstruction import (
         restore_connected_result,

@@ -32,13 +32,13 @@ from name_atlas.folder_refactor.connected_change.accepted_plan import (
 from name_atlas.folder_refactor.connected_change.contracts import (
     MAX_CHANGE_FILE_BYTES,
     CapsuleAppliedExecutionOrigin,
-    ConnectedChangeFile,
+    ConnectedChangeFileAny,
     ConnectedChangeMatchReport,
     FolderExecutionOrigin,
     GptPlannedExecutionOrigin,
 )
 from name_atlas.folder_refactor.connected_change.descriptors import (
-    parse_connected_change_file,
+    parse_connected_change_file_any,
 )
 from name_atlas.folder_refactor.connected_change.job_io import (
     DurableJobFileLock,
@@ -295,7 +295,7 @@ class ChangeFileInputBindingV2(StrictFrozenJobV2Model):
     size: int = Field(ge=0, le=MAX_CHANGE_FILE_BYTES)
     modified_ns: int = Field(ge=0)
     raw_sha256: str = Field(pattern=SHA256_PATTERN)
-    change_file: ConnectedChangeFile
+    change_file: ConnectedChangeFileAny
 
     @field_validator("path")
     @classmethod
@@ -752,7 +752,7 @@ def build_change_file_input_binding(path: Path) -> ChangeFileInputBindingV2:
 
     try:
         observed = read_stable_regular_file(path, max_bytes=MAX_CHANGE_FILE_BYTES)
-        change_file = parse_connected_change_file(observed.payload)
+        change_file = parse_connected_change_file_any(observed.payload)
     except (DurableJobLoadError, ValueError) as exc:
         raise FolderJobV2LoadError("Change File is unreadable or invalid.") from exc
     if canonical_portable_json_bytes(change_file) != observed.payload:
@@ -1273,7 +1273,7 @@ def _prepare_new_job_paths(
 
 def _change_file_binding_from_read(
     observed: StableRegularFileRead,
-    change_file: ConnectedChangeFile,
+    change_file: ConnectedChangeFileAny,
 ) -> ChangeFileInputBindingV2:
     return ChangeFileInputBindingV2(
         path=observed.path,

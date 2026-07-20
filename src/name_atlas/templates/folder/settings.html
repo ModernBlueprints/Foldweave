@@ -27,6 +27,13 @@
           <button class="bp6-button" type="submit" {% if not settings.credential.configured %}disabled{% endif %}>Remove key</button>
         </form>
       {% endif %}
+      {% if pairing_available %}
+        <div class="folder-action-card">
+          <strong>Use your ChatGPT session</strong>
+          <small>ChatGPT-hosted planning is separate from API billing and uses the paired local Foldweave companion.</small>
+          <a class="bp6-button" href="/pairing">Manage ChatGPT pairing</a>
+        </div>
+      {% endif %}
       <a class="bp6-button bp6-minimal" href="/">Back to Foldweave</a>
     </div>
   </section>

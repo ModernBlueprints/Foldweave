@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 
 def render_connected_proof_html(
     receipt_fingerprint: str,
     organized_tree_commitment: str,
+    *,
+    release_profile: Literal["legacy_name_atlas", "foldweave"] = ("legacy_name_atlas"),
 ) -> bytes:
     """Render exact portable proof bytes from independently verified identities."""
+
+    title = "Foldweave proof" if release_profile == "foldweave" else "Name Atlas proof"
 
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        "<title>Name Atlas proof</title><style>"
+        f"<title>{title}</title><style>"
         "*{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;"
         "font:16px/1.55 system-ui,sans-serif}main{width:min(100%,48rem);margin:auto;"
         "padding:clamp(1.25rem,5vw,3rem)}h1{font-size:clamp(1.75rem,6vw,2.5rem);"

@@ -15,7 +15,21 @@ from typing import Protocol
 from fastapi import FastAPI
 
 from name_atlas.folder_app import create_folder_app
+from name_atlas.folder_refactor.connected_change.review_service import (
+    FoldweaveReviewService,
+)
+from name_atlas.foldweave_companion import DeviceIdentityStore
+from name_atlas.foldweave_companion_cli import EmbeddedCompanionRuntime
+from name_atlas.foldweave_companion_client import (
+    CompanionPairingClient,
+    CompanionPairingStateStore,
+)
+from name_atlas.foldweave_companion_supervisor import (
+    FoldweaveCompanionSupervisor,
+)
+from name_atlas.foldweave_host_service import FoldweaveHostPlanningService
 from name_atlas.foldweave_job_locator import FoldweaveJobLocator
+from name_atlas.foldweave_pairing_service import FoldweavePairingService
 from name_atlas.foldweave_paths import (
     FoldweavePaths,
     foldweave_paths,
@@ -55,6 +69,7 @@ class FoldweaveNativeComposition:
     instance_nonce: str
     paths: FoldweavePaths
     job_path: Path
+    companion_supervisor: FoldweaveCompanionSupervisor
 
 
 def build_foldweave_native_parser() -> argparse.ArgumentParser:
@@ -171,17 +186,45 @@ def compose_foldweave_native_app(
             endpoint=native_settings.endpoint,
             budget_authority=budget_authority,
         )
+    native_bridge = MacOSNativePathBridge()
+    domain_review_service = FoldweaveReviewService()
     review_service = FoldweaveBrowserReviewService(
         job_path=job_path,
+        service=domain_review_service,
         provider_factory=provider_factory,
         review_channel="native_app",
+    )
+    identity_store = DeviceIdentityStore()
+    pairing_state_store = CompanionPairingStateStore(path=paths.companion_pairing)
+    host_service = FoldweaveHostPlanningService(
+        paths=paths,
+        native_bridge=native_bridge,
+        review_service=domain_review_service,
+        identity_store=identity_store,
+    )
+    companion_supervisor = FoldweaveCompanionSupervisor(
+        state_store=pairing_state_store,
+        runtime=EmbeddedCompanionRuntime(
+            service=host_service,
+            identity_store=identity_store,
+        ),
+    )
+    pairing_service = FoldweavePairingService(
+        state_store=pairing_state_store,
+        pairing=CompanionPairingClient(
+            identity_store=identity_store,
+            state_store=pairing_state_store,
+        ),
+        runtime_status=companion_supervisor,
+        runtime_lifecycle=companion_supervisor,
     )
     app = create_folder_app(
         review_service,
         initial_source=initial_source,
         initial_output_parent=initial_output_parent,
-        native_bridge=MacOSNativePathBridge(),
+        native_bridge=native_bridge,
         native_settings=native_settings,
+        pairing_service=pairing_service,
         health_instance_nonce=instance_nonce,
     )
     return FoldweaveNativeComposition(
@@ -189,6 +232,7 @@ def compose_foldweave_native_app(
         instance_nonce=instance_nonce,
         paths=paths,
         job_path=job_path,
+        companion_supervisor=companion_supervisor,
     )
 
 

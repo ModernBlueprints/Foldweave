@@ -11,12 +11,14 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from name_atlas.folder_refactor.connected_change.job_v2 import (
+    CapsuleAppliedJobAuthorityV2,
     FolderMutationRequestV2,
     build_idempotency_binding,
 )
 from name_atlas.folder_refactor.connected_change.job_v3 import (
     FolderJobLifecycleV3,
     FolderRefactorJobV3,
+    GptDerivativeJobAuthorityV3,
 )
 from name_atlas.folder_refactor.connected_change.review_service import (
     FoldweaveReviewService,
@@ -211,6 +213,14 @@ def run_revise(
         job_path = resolve_foldweave_job_path(args.job, environ=environment)
         service = FoldweaveReviewService()
         current = service.status(job_path)
+        if (
+            current.preview is None
+            and isinstance(current.authority, GptDerivativeJobAuthorityV3)
+            and current.authority.authority_state == "awaiting_model_response"
+        ):
+            job = service.recover_interrupted_direct_derivative(job_path)
+            _print_job(job)
+            return _prepared_exit_code(job)
         if current.preview is None:
             raise ValueError("job has no review preview")
         from name_atlas.foldweave_provider_factory import (
@@ -227,17 +237,52 @@ def run_revise(
             endpoint=DirectEndpointProfile.official(),
             budget_authority=resolve_foldweave_budget_authority(environ=environment),
         )
-        job = asyncio.run(
-            service.revise(
-                job_path,
-                expected_revision=current.revision,
-                preview_fingerprint=current.preview.preview_fingerprint,
-                candidate_fingerprint=(current.preview.compiled_candidate_fingerprint),
+        if isinstance(current.authority, CapsuleAppliedJobAuthorityV2) or (
+            isinstance(current.authority, GptDerivativeJobAuthorityV3)
+            and current.authority.authority_state == "failed"
+        ):
+            parent_path = (
+                current.job_path
+                if isinstance(current.authority, CapsuleAppliedJobAuthorityV2)
+                else current.authority.parent_binding.parent_job_path
+            )
+            child, created = service.create_or_resume_derivative_child_with_status(
+                parent_path,
+                output_parent=current.output_parent,
                 instruction=args.instruction,
                 idempotency_key=args.idempotency_key,
-                provider_factory=factory.revision_provider,
+                provider_kind=factory.provider_kind,
+                channel="cli",
             )
-        )
+            if created:
+                job = asyncio.run(
+                    service.submit_direct_derivative_revision(
+                        child.job_path,
+                        provider=factory.derivative_revision_provider(child.job_path),
+                    )
+                )
+            else:
+                job = service.recover_interrupted_direct_derivative(child.job_path)
+        else:
+
+            def provider_factory():
+                if isinstance(current.authority, GptDerivativeJobAuthorityV3):
+                    return factory.derivative_revision_provider(current.job_path)
+                return factory.revision_provider()
+
+            job = asyncio.run(
+                service.revise(
+                    job_path,
+                    expected_revision=current.revision,
+                    preview_fingerprint=current.preview.preview_fingerprint,
+                    candidate_fingerprint=(
+                        current.preview.compiled_candidate_fingerprint
+                    ),
+                    instruction=args.instruction,
+                    idempotency_key=args.idempotency_key,
+                    provider_factory=provider_factory,
+                )
+            )
     except (OSError, RuntimeError, ValueError) as exc:
         return _blocked("REVISE", exc)
     _print_job(job)

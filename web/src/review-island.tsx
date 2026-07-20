@@ -13,6 +13,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -55,6 +56,16 @@ interface PendingMutationKey {
   idempotencyKey: string;
 }
 
+interface ProposalDeltaItem {
+  memberId: string;
+  previousPath: string;
+  currentPath: string;
+}
+
+interface ProposalDelta {
+  items: ProposalDeltaItem[];
+}
+
 export interface ReviewIslandProps {
   preview: FolderPlanPreviewV1;
   status: ReviewDisplayStatus;
@@ -85,6 +96,8 @@ const CLASS_LABELS: Record<ChangeClassification, string> = {
   empty_directory: "Empty directory",
 };
 
+const LARGE_TREE_CHANGED_ONLY_THRESHOLD = 200;
+
 export function ReviewIsland({
   preview,
   status,
@@ -97,7 +110,9 @@ export function ReviewIsland({
   idempotencyKeyFactory = createIdempotencyKey,
 }: ReviewIslandProps): ReactElement {
   const [side, setSide] = useState<ViewSide>("proposed");
-  const [changedOnly, setChangedOnly] = useState(true);
+  const [changedOnly, setChangedOnly] = useState(
+    () => preview.member_changes.length >= LARGE_TREE_CHANGED_ONLY_THRESHOLD,
+  );
   const [activeFilters, setActiveFilters] = useState<Set<FilterKey>>(new Set());
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -114,13 +129,17 @@ export function ReviewIsland({
   const [acceptanceError, setAcceptanceError] = useState<string | null>(null);
   const [revisionBusy, setRevisionBusy] = useState(false);
   const [revisionError, setRevisionError] = useState<string | null>(null);
-  const [revisionDelta, setRevisionDelta] = useState<string | null>(null);
+  const [revisionDelta, setRevisionDelta] = useState<ProposalDelta | null>(null);
   const priorPreview = useRef(preview);
   const acceptanceMutation = useRef<PendingMutationKey | null>(null);
   const revisionMutation = useRef<PendingMutationKey | null>(null);
   const keepMutation = useRef<PendingMutationKey | null>(null);
   const revisionInput = useRef<HTMLTextAreaElement | null>(null);
   const treeItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const treeScrollElement = useRef<HTMLDivElement | null>(null);
+  const rememberedScrollTop = useRef(0);
+  const pendingScrollTop = useRef<number | null>(null);
+  const renderedPreviewFingerprint = useRef(preview.preview_fingerprint);
 
   const changeById = useMemo(
     () => new Map(preview.member_changes.map((change) => [change.member_id, change])),
@@ -134,11 +153,11 @@ export function ReviewIsland({
         if (!change) {
           return false;
         }
-        const normalizedQuery = query.trim().toLocaleLowerCase();
+        const normalizedQuery = query.trim().toLowerCase();
         const matchesQuery =
           normalizedQuery.length === 0 ||
-          change.current_relative_path.toLocaleLowerCase().includes(normalizedQuery) ||
-          change.proposed_relative_path.toLocaleLowerCase().includes(normalizedQuery);
+          change.current_relative_path.toLowerCase().includes(normalizedQuery) ||
+          change.proposed_relative_path.toLowerCase().includes(normalizedQuery);
         if (!matchesQuery) {
           return false;
         }
@@ -184,20 +203,48 @@ export function ReviewIsland({
     if (previous.preview_fingerprint === preview.preview_fingerprint) {
       return;
     }
+    revisionMutation.current = null;
+    setRevisionInstruction("");
+    setRevisionError(null);
     const previousPaths = new Map(
       previous.member_changes.map((change) => [
         change.member_id,
         change.proposed_relative_path,
       ]),
     );
-    const changedMappings = preview.member_changes.filter(
-      (change) => previousPaths.get(change.member_id) !== change.proposed_relative_path,
-    ).length;
-    setRevisionDelta(
-      `${changedMappings} ${changedMappings === 1 ? "mapping" : "mappings"} changed from the previous proposal.`,
-    );
+    const items = preview.member_changes
+      .flatMap((change): ProposalDeltaItem[] => {
+        const previousPath = previousPaths.get(change.member_id);
+        if (
+          previousPath === undefined ||
+          previousPath === change.proposed_relative_path
+        ) {
+          return [];
+        }
+        return [
+          {
+            memberId: change.member_id,
+            previousPath,
+            currentPath: change.proposed_relative_path,
+          },
+        ];
+      })
+      .sort((left, right) => compareCodePointStrings(left.memberId, right.memberId));
+    setRevisionDelta({ items });
     priorPreview.current = preview;
   }, [preview]);
+
+  useLayoutEffect(() => {
+    const treeElement = treeScrollElement.current;
+    const previewChanged =
+      renderedPreviewFingerprint.current !== preview.preview_fingerprint;
+    const scrollTop = pendingScrollTop.current;
+    if (treeElement && (previewChanged || scrollTop !== null)) {
+      treeElement.scrollTop = scrollTop ?? rememberedScrollTop.current;
+    }
+    pendingScrollTop.current = null;
+    renderedPreviewFingerprint.current = preview.preview_fingerprint;
+  }, [preview.preview_fingerprint, side]);
 
   const toggleFilter = (filter: FilterKey): void => {
     setChangedOnly(false);
@@ -344,8 +391,6 @@ export function ReviewIsland({
         instruction,
         preview_fingerprint: preview.preview_fingerprint,
       });
-      revisionMutation.current = null;
-      setRevisionInstruction("");
     } catch (error) {
       setRevisionError(error instanceof Error ? error.message : "Revision was blocked.");
     } finally {
@@ -388,15 +433,104 @@ export function ReviewIsland({
 
   const currentLabel = journey === "apply" ? "Your current folder" : "Original structure";
   const proposedLabel = journey === "apply" ? "Shared proposal" : "Proposed structure";
+  const importedReceiverEvidence =
+    journey === "apply" &&
+    status.lifecycle === "reviewing" &&
+    preview.proposal_basis === "imported_change_file" &&
+    preview.imported_change_file_fingerprint !== null &&
+    preview.match_report_fingerprint !== null;
+  const derivativeReceiverEvidence =
+    journey === "apply" &&
+    status.lifecycle === "reviewing" &&
+    preview.proposal_basis === "gpt_derivative" &&
+    preview.immediate_parent_candidate_fingerprint !== null;
+
+  const switchSide = (nextSide: ViewSide): void => {
+    if (nextSide === side) {
+      return;
+    }
+    const scrollTop = treeScrollElement.current?.scrollTop ?? rememberedScrollTop.current;
+    rememberedScrollTop.current = scrollTop;
+    pendingScrollTop.current = scrollTop;
+    setSide(nextSide);
+  };
 
   return (
     <div className="fw-review bp6-dark">
       <section className="fw-trust-strip" aria-label="Plan trust summary">
-        <TrustItem icon="lock" label="Source unchanged" value="No output yet" />
-        <TrustItem icon="tick-circle" label="Complete accounting" value={`${preview.counts.file_count} files`} />
+        <TrustItem
+          icon="lock"
+          label="Source unchanged"
+          value={
+            status.lifecycle === "reviewing"
+              ? "No result exists during review"
+              : "Result state not asserted"
+          }
+        />
+        <TrustItem
+          icon="tick-circle"
+          label="Complete accounting"
+          value={`${formatCount(preview.counts.file_count, "file")} + ${formatCount(preview.counts.empty_directory_count, "empty directory", "empty directories")}`}
+        />
         <TrustItem icon="shield" label="Protected" value={`${preview.counts.protected_count} fixed`} />
         <TrustItem icon="link" label="Supported links" value={`${preview.counts.link_updated_count} updates`} />
         <TrustItem icon="folder-new" label="Output" value="Created only after accept" />
+      </section>
+
+      {(importedReceiverEvidence || derivativeReceiverEvidence) && (
+        <section className="fw-receiver-evidence" aria-label="Receiver preparation evidence">
+          <div>
+            <Icon icon="git-pull" aria-hidden="true" />
+            <span>
+              <strong>
+                {importedReceiverEvidence
+                  ? "Deterministic receiver match"
+                  : "Model-derived receiver revision"}
+              </strong>
+              <small>
+                {importedReceiverEvidence
+                  ? "Change File and receiver match report are bound to this preview."
+                  : "This replacement remains bound to its exact parent proposal."}
+              </small>
+            </span>
+          </div>
+          <dl>
+            {preview.imported_change_file_fingerprint !== null && (
+              <div>
+                <dt>Change File</dt>
+                <dd><code>{preview.imported_change_file_fingerprint}</code></dd>
+              </div>
+            )}
+            {importedReceiverEvidence && (
+              <div>
+                <dt>Match report</dt>
+                <dd><code>{preview.match_report_fingerprint}</code></dd>
+              </div>
+            )}
+            {derivativeReceiverEvidence && (
+              <div>
+                <dt>Parent proposal</dt>
+                <dd><code>{preview.immediate_parent_candidate_fingerprint}</code></dd>
+              </div>
+            )}
+            <div>
+              <dt>Model use</dt>
+              <dd>
+                {importedReceiverEvidence
+                  ? "0 GPT calls so far"
+                  : "GPT used for this derivative proposal"}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
+
+      <section className="fw-count-summary" aria-label="Exact proposal counts">
+        <span>{formatCountElement(preview.counts.file_count, "file")}</span>
+        <span>{formatCountElement(preview.counts.empty_directory_count, "explicit empty directory", "explicit empty directories")}</span>
+        <span>{formatCountElement(preview.counts.changed_path_count, "changed path")}</span>
+        <span>{formatCountElement(preview.counts.link_updated_count, "updated link")}</span>
+        <span>{formatCountElement(preview.counts.protected_count, "protected member")}</span>
       </section>
 
       <div className="fw-toolbar">
@@ -404,14 +538,14 @@ export function ReviewIsland({
           <Button
             aria-pressed={side === "current"}
             intent={side === "current" ? "primary" : "none"}
-            onClick={() => setSide("current")}
+            onClick={() => switchSide("current")}
           >
             {currentLabel}
           </Button>
           <Button
             aria-pressed={side === "proposed"}
             intent={side === "proposed" ? "primary" : "none"}
-            onClick={() => setSide("proposed")}
+            onClick={() => switchSide("proposed")}
           >
             {proposedLabel}
           </Button>
@@ -457,7 +591,15 @@ export function ReviewIsland({
             </div>
             <Tag minimal>{visibleMembers.length} shown</Tag>
           </header>
-          <div className="fw-tree" role="tree" aria-label={`${side === "current" ? currentLabel : proposedLabel} folder tree`}>
+          <div
+            className="fw-tree"
+            onScroll={(event) => {
+              rememberedScrollTop.current = event.currentTarget.scrollTop;
+            }}
+            ref={treeScrollElement}
+            role="tree"
+            aria-label={`${side === "current" ? currentLabel : proposedLabel} folder tree`}
+          >
             {flatTree.length === 0 ? (
               <div className="fw-empty-state">No members match these filters.</div>
             ) : (
@@ -577,7 +719,27 @@ export function ReviewIsland({
           </Button>
         </div>
         {acceptanceError && <div className="fw-error" role="alert">{acceptanceError}</div>}
-        {revisionDelta && <div className="fw-revision-delta" role="status">{revisionDelta}</div>}
+        {revisionDelta && (
+          <section className="fw-revision-delta" aria-labelledby="revision-delta-title" role="status">
+            <strong id="revision-delta-title">Previous proposal delta</strong>
+            <p>
+              {revisionDelta.items.length}{" "}
+              {revisionDelta.items.length === 1 ? "mapping" : "mappings"} changed from
+              the previous proposal.
+            </p>
+            {revisionDelta.items.length > 0 && (
+              <ul>
+                {revisionDelta.items.map((item) => (
+                  <li data-member-id={item.memberId} key={item.memberId}>
+                    <code>{item.previousPath}</code>
+                    <span aria-hidden="true">→</span>
+                    <code>{item.currentPath}</code>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
         {status.revision_failure && (
           <div className="fw-error" role="alert">
             <strong>The replacement proposal did not pass Foldweave checks.</strong>
@@ -751,9 +913,22 @@ function sortTree(node: TreeNode): void {
     if (left.kind !== right.kind) {
       return left.kind === "directory" ? -1 : 1;
     }
-    return left.label.localeCompare(right.label);
+    return compareCodePointStrings(left.label, right.label);
   });
   node.children.forEach(sortTree);
+}
+
+function compareCodePointStrings(left: string, right: string): number {
+  const leftCodePoints = Array.from(left, (value) => value.codePointAt(0) ?? 0);
+  const rightCodePoints = Array.from(right, (value) => value.codePointAt(0) ?? 0);
+  const sharedLength = Math.min(leftCodePoints.length, rightCodePoints.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    const difference = leftCodePoints[index]! - rightCodePoints[index]!;
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+  return leftCodePoints.length - rightCodePoints.length;
 }
 
 function flattenVisibleTree(nodes: TreeNode[], expanded: Set<string>): TreeNode[] {
@@ -838,6 +1013,18 @@ function createIdempotencyKey(): string {
   }
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function formatCount(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatCountElement(
+  count: number,
+  singular: string,
+  plural = `${singular}s`,
+): ReactElement {
+  return <><strong>{count}</strong> {count === 1 ? singular : plural}</>;
 }
 
 export function ReviewLoading(): ReactElement {

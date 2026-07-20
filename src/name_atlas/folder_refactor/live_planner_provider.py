@@ -13,9 +13,11 @@ from pydantic import ValidationError
 
 from name_atlas.decision_cards.budget import PersistentBudgetLedger
 from name_atlas.folder_refactor.foldweave_planning_contracts import (
+    FolderDerivativeRevisionTurnInputV1,
     FolderPlannerRevisionTurnInputV1,
     FolderPlanRevisionV1,
     FolderRevisionProviderResponseV1,
+    canonical_derivative_turn_input_bytes,
     canonical_revision_turn_input_bytes,
 )
 from name_atlas.folder_refactor.foldweave_revision_prompt import (
@@ -347,7 +349,8 @@ class LiveFolderPlanRevisionProvider:
 
     async def exchange(
         self,
-        turn_input: FolderPlannerRevisionTurnInputV1,
+        turn_input: FolderPlannerRevisionTurnInputV1
+        | FolderDerivativeRevisionTurnInputV1,
         /,
     ) -> FolderRevisionProviderResponseV1:
         """Reserve, call, sanitize, and parse exactly one sparse revision."""
@@ -430,7 +433,7 @@ class LiveFolderPlanRevisionProvider:
 
 
 def _revision_responses_request(
-    turn_input: FolderPlannerRevisionTurnInputV1,
+    turn_input: FolderPlannerRevisionTurnInputV1 | FolderDerivativeRevisionTurnInputV1,
     *,
     policy: LivePlannerPolicy,
 ) -> dict[str, Any]:
@@ -442,7 +445,7 @@ def _revision_responses_request(
                 "content": [
                     {
                         "type": "input_text",
-                        "text": canonical_revision_turn_input_bytes(turn_input).decode(
+                        "text": _canonical_sparse_turn_input_bytes(turn_input).decode(
                             "utf-8"
                         ),
                     }
@@ -461,6 +464,16 @@ def _revision_responses_request(
         "reasoning": {"effort": policy.reasoning_effort},
         "store": False,
     }
+
+
+def _canonical_sparse_turn_input_bytes(
+    turn_input: FolderPlannerRevisionTurnInputV1 | FolderDerivativeRevisionTurnInputV1,
+) -> bytes:
+    """Preserve the schema-distinct root or derivative provider input."""
+
+    if isinstance(turn_input, FolderDerivativeRevisionTurnInputV1):
+        return canonical_derivative_turn_input_bytes(turn_input)
+    return canonical_revision_turn_input_bytes(turn_input)
 
 
 def _parse_revision_tool_call(output: object) -> tuple[str, FolderPlanRevisionV1]:

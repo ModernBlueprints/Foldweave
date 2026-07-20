@@ -17,6 +17,10 @@ from pydantic import Field, field_validator, model_validator
 from name_atlas.folder_refactor.connected_change.accepted_plan import (
     FolderAcceptedPlanV2,
 )
+from name_atlas.folder_refactor.connected_change.derivative import (
+    FolderDerivativeCreationBindingV1,
+    FolderDerivativeParentBindingV1,
+)
 from name_atlas.folder_refactor.connected_change.job_io import (
     DurableJobFileLock,
     DurableJobLoadError,
@@ -29,6 +33,7 @@ from name_atlas.folder_refactor.connected_change.job_v2 import (
     MAX_DURABLE_JOB_BYTES,
     CapsuleAppliedJobAuthorityV2,
     FolderIdempotencyBindingV2,
+    FolderOperationIdempotencyBindingV2,
     FolderRefactorJobV2,
     GptPlannedJobAuthorityV2,
     GptPlannerCheckpointV2,
@@ -36,7 +41,9 @@ from name_atlas.folder_refactor.connected_change.job_v2 import (
     JobLocalFileIdentityV2,
     LegacyFolderJobV1Evidence,
     build_change_file_input_binding,
+    build_operation_idempotency_binding,
     load_folder_job_record,
+    operation_request_fingerprint,
 )
 from name_atlas.folder_refactor.connected_change.preview import (
     FolderPlanPreviewV1,
@@ -48,12 +55,16 @@ from name_atlas.folder_refactor.contracts import (
     StrictFrozenModel,
 )
 from name_atlas.folder_refactor.foldweave_host_contracts import (
+    FolderHostDerivativePendingRevisionV1,
+    FolderHostDerivativeRevisionTurnRecordV1,
     FolderHostEvidenceLedgerV1,
     FolderHostPendingRevisionV1,
     FolderHostPlanningStateV1,
     HostModelTransport,
 )
 from name_atlas.folder_refactor.foldweave_planning_contracts import (
+    FolderDerivativeEvidenceLedgerV1,
+    FolderDerivativeRevisionTurnInputV1,
     FolderEvidenceLedgerV2,
     FolderPlannerRevisionTurnInputV1,
     FolderRevisionTurnRecordV1,
@@ -73,9 +84,13 @@ from name_atlas.folder_refactor.serialization import (
 )
 
 FOLDER_REFACTOR_JOB_V3_SCHEMA_VERSION = "folder-refactor-job.v3"
+FOLDER_PUBLIC_JOB_CAPABILITY_SCHEMA_VERSION = "folder-public-job-capability.v1"
 FOLDER_EXECUTION_AUTHORIZATION_SCHEMA_VERSION = "folder-execution-authorization.v1"
 FOLDER_KEEP_PREVIOUS_ACTION_SCHEMA_VERSION = "folder-keep-previous-action.v1"
 FOLDER_HOST_MUTATION_BINDING_SCHEMA_VERSION = "folder-host-mutation-binding.v1"
+FOLDER_HOST_REVISION_MUTATION_BINDING_SCHEMA_VERSION = (
+    "folder-host-revision-mutation-binding.v1"
+)
 FOLDER_REVISION_MUTATION_BINDING_SCHEMA_VERSION = "folder-revision-mutation-binding.v1"
 FOLDER_DESTINATION_RESERVATION_SCHEMA_VERSION = "folder-destination-reservation.v1"
 DEFAULT_V3_JOB_DIRECTORY = Path(".foldweave/jobs")
@@ -88,6 +103,10 @@ class FolderJobV3Error(RuntimeError):
 
 class FolderJobV3LoadError(FolderJobV3Error):
     """A v3 job is absent, corrupt, noncanonical, or unsupported."""
+
+
+class LegacyV2NonterminalJobError(FolderJobV3LoadError):
+    """A nonterminal v2 job cannot be silently interpreted or resumed as v3."""
 
 
 class FolderJobV3WriteError(FolderJobV3Error):
@@ -131,6 +150,32 @@ class FolderJobLifecycleV3(StrEnum):
         return self in {self.VERIFIED, self.STALE, self.BLOCKED}
 
 
+class FolderPublicJobCapabilityV1(StrictFrozenModel):
+    """Hashed public authority bound immutably to one durable v3 job."""
+
+    schema_version: Literal["folder-public-job-capability.v1"] = (
+        FOLDER_PUBLIC_JOB_CAPABILITY_SCHEMA_VERSION
+    )
+    capability_id_sha256: str = Field(pattern=SHA256_PATTERN)
+    device_id: str = Field(pattern=r"^fwd_[a-f0-9]{32}$")
+    oauth_grant_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    scopes: tuple[
+        Literal[
+            "foldweave.execute",
+            "foldweave.plan",
+            "foldweave.review",
+        ],
+        ...,
+    ] = Field(min_length=1, max_length=3)
+    expires_at_ms: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def require_canonical_scopes(self) -> Self:
+        if self.scopes != tuple(sorted(set(self.scopes))):
+            raise ValueError("Public job capability scopes must be sorted and unique.")
+        return self
+
+
 class FolderExecutionAuthorizationV1(StrictFrozenModel):
     """Exact immutable human authorization for one visible preview."""
 
@@ -152,6 +197,7 @@ class FolderExecutionAuthorizationV1(StrictFrozenModel):
     candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
     preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
     output_parent: Path
+    output_parent_fingerprint: str = Field(pattern=SHA256_PATTERN)
     result_folder_name: str = Field(min_length=1, max_length=240)
     idempotency_key_sha256: str = Field(pattern=SHA256_PATTERN)
     channel: Literal[
@@ -179,11 +225,66 @@ class FolderExecutionAuthorizationV1(StrictFrozenModel):
 
     @model_validator(mode="after")
     def require_exact_fingerprint(self) -> Self:
-        expected = canonical_sha256(
-            self.model_dump(mode="json", exclude={"authorization_fingerprint"})
-        )
+        if self.output_parent_fingerprint != _output_parent_fingerprint(
+            self.output_parent
+        ):
+            raise ValueError("Execution authorization output parent is invalid.")
+        expected = _execution_authorization_fingerprint(self)
         if self.authorization_fingerprint != expected:
             raise ValueError("Execution authorization fingerprint is invalid.")
+        if (self.imported_change_file_fingerprint is None) != (
+            self.match_report_fingerprint is None
+        ):
+            raise ValueError(
+                "Imported execution authorization requires both portable bindings."
+            )
+        return self
+
+
+class FolderPortableExecutionAuthorizationV1(StrictFrozenModel):
+    """Path-neutral projection of one exact internal execution authorization."""
+
+    schema_version: Literal["folder-execution-authorization.v1"] = (
+        FOLDER_EXECUTION_AUTHORIZATION_SCHEMA_VERSION
+    )
+    job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    expected_job_revision: int = Field(ge=0)
+    proposal_revision: int = Field(ge=0, le=2)
+    source_commitment: str = Field(pattern=SHA256_PATTERN)
+    imported_change_file_fingerprint: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    match_report_fingerprint: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    output_parent_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    result_folder_name: str = Field(min_length=1, max_length=240)
+    idempotency_key_sha256: str = Field(pattern=SHA256_PATTERN)
+    channel: Literal[
+        "native_app",
+        "browser",
+        "chatgpt_hosted",
+        "codex_mcp",
+        "local_mcp",
+        "cli",
+    ]
+    authorization_timestamp: datetime
+    authorization_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @field_validator("authorization_timestamp")
+    @classmethod
+    def require_oslo_timestamp(cls, value: datetime) -> datetime:
+        return _require_oslo_timestamp(value)
+
+    @model_validator(mode="after")
+    def require_exact_fingerprint(self) -> Self:
+        expected = _execution_authorization_fingerprint(self)
+        if self.authorization_fingerprint != expected:
+            raise ValueError("Portable execution authorization fingerprint is invalid.")
         if (self.imported_change_file_fingerprint is None) != (
             self.match_report_fingerprint is None
         ):
@@ -402,6 +503,61 @@ class FolderRevisionMutationBindingV1(StrictFrozenModel):
         return self
 
 
+class FolderHostRevisionMutationBindingV1(StrictFrozenModel):
+    """Append-only terminal outcome for one exact hosted revision request."""
+
+    schema_version: Literal["folder-host-revision-mutation-binding.v1"] = (
+        FOLDER_HOST_REVISION_MUTATION_BINDING_SCHEMA_VERSION
+    )
+    job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    base_job_revision: int = Field(ge=0)
+    base_proposal_revision: int = Field(ge=0, le=2)
+    base_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    base_preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    revision_instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    idempotency_key_sha256: str = Field(pattern=SHA256_PATTERN)
+    model_transport: HostModelTransport
+    request_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    terminal_outcome: Literal["proposal_replaced", "mechanically_rejected"]
+    terminal_job_revision: int = Field(ge=1)
+    resulting_proposal_revision: int = Field(ge=0, le=2)
+    binding_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def require_exact_fingerprints(self) -> Self:
+        if self.terminal_job_revision != self.base_job_revision + 2:
+            raise ValueError(
+                "Hosted revision binding must end two durable transitions "
+                "after its base."
+            )
+        expected_proposal_revision = (
+            self.base_proposal_revision + 1
+            if self.terminal_outcome == "proposal_replaced"
+            else self.base_proposal_revision
+        )
+        if self.resulting_proposal_revision != expected_proposal_revision:
+            raise ValueError(
+                "Hosted revision outcome has an invalid proposal revision."
+            )
+        request_payload = {
+            "domain": "foldweave:hosted-revision-mutation-request:v1",
+            "job_id": self.job_id,
+            "base_job_revision": self.base_job_revision,
+            "base_candidate_fingerprint": self.base_candidate_fingerprint,
+            "base_preview_fingerprint": self.base_preview_fingerprint,
+            "revision_instruction_fingerprint": (self.revision_instruction_fingerprint),
+            "model_transport": self.model_transport,
+        }
+        if self.request_fingerprint != canonical_sha256(request_payload):
+            raise ValueError("Hosted revision request fingerprint is invalid.")
+        expected = canonical_sha256(
+            self.model_dump(mode="json", exclude={"binding_fingerprint"})
+        )
+        if self.binding_fingerprint != expected:
+            raise ValueError("Hosted revision mutation binding is invalid.")
+        return self
+
+
 class FolderDestinationReservationV1(StrictFrozenModel):
     """One canonical result destination won before copy execution begins."""
 
@@ -610,11 +766,271 @@ class GptHostedJobAuthorityV3(StrictFrozenModel):
         return self
 
 
+class GptDerivativeJobAuthorityV3(StrictFrozenModel):
+    """Schema-distinct derivative child before or after one sparse response."""
+
+    authority_schema_version: Literal["folder-gpt-derivative-job-authority.v3"] = (
+        "folder-gpt-derivative-job-authority.v3"
+    )
+    kind: Literal["gpt_derivative"] = "gpt_derivative"
+    authority_state: Literal["awaiting_model_response", "completed", "failed"]
+    model_transport: Literal[
+        "responses_api",
+        "chatgpt_hosted",
+        "codex_hosted",
+        "recorded_replay",
+        "deterministic_development",
+    ]
+    parent_binding: FolderDerivativeParentBindingV1
+    creation_binding: FolderDerivativeCreationBindingV1
+    pending_direct_revision: FolderDerivativeRevisionTurnInputV1 | None = None
+    pending_host_revision: FolderHostDerivativePendingRevisionV1 | None = None
+    pending_direct_followup_revision: FolderPlannerRevisionTurnInputV1 | None = None
+    pending_host_followup_revision: FolderHostPendingRevisionV1 | None = None
+    evidence_ledger: FolderEvidenceLedgerV2 | None = None
+    execution_origin: GptPlannedExecutionOriginV2 | None = None
+    failure: FolderRevisionFailureV1 | None = None
+    failed_host_revision: FolderHostDerivativeRevisionTurnRecordV1 | None = None
+
+    @model_validator(mode="after")
+    def require_derivative_authority(self) -> Self:
+        parent = self.parent_binding
+        creation = self.creation_binding
+        if not (
+            creation.parent_binding_fingerprint == parent.binding_fingerprint
+            and creation.source_root == parent.parent_source_root
+            and creation.model_transport == self.model_transport
+        ):
+            raise ValueError("Derivative creation differs from its immutable parent.")
+        direct = self.model_transport in {
+            "responses_api",
+            "recorded_replay",
+            "deterministic_development",
+        }
+        if self.authority_state == "awaiting_model_response":
+            if (
+                (self.pending_direct_revision is not None) != direct
+                or (self.pending_host_revision is not None) == direct
+                or self.pending_direct_followup_revision is not None
+                or self.pending_host_followup_revision is not None
+                or self.evidence_ledger is not None
+                or self.execution_origin is not None
+                or self.failure is not None
+                or self.failed_host_revision is not None
+            ):
+                raise ValueError(
+                    "Pending derivative authority requires exactly one transport turn."
+                )
+            if direct:
+                self._require_pending_direct()
+            else:
+                self._require_pending_host()
+        elif self.authority_state == "completed" and (
+            self.pending_direct_revision is not None
+            or self.pending_host_revision is not None
+            or self.evidence_ledger is None
+            or self.execution_origin is None
+            or self.failure is not None
+            or self.failed_host_revision is not None
+        ):
+            raise ValueError(
+                "Completed derivative authority requires evidence and provenance only."
+            )
+        elif self.authority_state == "completed":
+            self._require_completed()
+        elif (
+            self.pending_direct_revision is not None
+            or self.pending_host_revision is not None
+            or self.pending_direct_followup_revision is not None
+            or self.pending_host_followup_revision is not None
+            or self.evidence_ledger is not None
+            or self.execution_origin is not None
+            or self.failure is None
+        ):
+            raise ValueError(
+                "Failed derivative authority requires only exact failure evidence."
+            )
+        elif (
+            self.failure.attempted_instruction_fingerprint
+            != creation.revision_instruction_fingerprint
+        ):
+            raise ValueError("Derivative failure targets another instruction.")
+        elif self.model_transport in {"chatgpt_hosted", "codex_hosted"}:
+            failed_turn = self.failed_host_revision
+            if failed_turn is not None and not (
+                failed_turn.outcome == "rejected"
+                and failed_turn.model_transport == self.model_transport
+                and failed_turn.revision_instruction_fingerprint
+                == creation.revision_instruction_fingerprint
+                and failed_turn.failure_code == self.failure.code
+                and failed_turn.failure_detail == self.failure.detail
+            ):
+                raise ValueError(
+                    "Hosted derivative failure differs from its observable turn."
+                )
+        return self
+
+    def _require_pending_direct(self) -> None:
+        turn = self.pending_direct_revision
+        assert turn is not None
+        parent = self.parent_binding
+        creation = self.creation_binding
+        expected_provider_kind = {
+            "responses_api": "live",
+            "recorded_replay": "recorded_replay",
+            "deterministic_development": "deterministic",
+        }.get(self.model_transport)
+        if not (
+            turn.job_id == creation.child_job_id
+            and turn.proposal_revision == 0
+            and turn.response_turn == 1
+            and turn.provider_kind == expected_provider_kind
+            and turn.source_commitment == parent.parent_source_commitment
+            and turn.request_fingerprint == parent.parent_candidate.request_fingerprint
+            and turn.base_candidate == parent.parent_candidate
+            and turn.base_candidate_fingerprint == parent.parent_candidate_fingerprint
+            and turn.base_preview_fingerprint == parent.parent_preview_fingerprint
+            and turn.revision_instruction_fingerprint
+            == creation.revision_instruction_fingerprint
+            and turn.evidence_fingerprint == creation.evidence_fingerprint
+            and turn.prior_transcript_fingerprint == creation.binding_fingerprint
+            and turn.turn_contract_freeze_fingerprint
+            == creation.contract_freeze_fingerprint
+            and turn.imported_change_file_fingerprint
+            == parent.imported_change_file_fingerprint
+            and turn.match_report_fingerprint
+            == parent.match_report.match_report_fingerprint
+            and turn.immediate_parent_candidate_fingerprint
+            == parent.parent_candidate_fingerprint
+        ):
+            raise ValueError("Pending direct derivative targets another parent review.")
+
+    def _require_pending_host(self) -> None:
+        turn = self.pending_host_revision
+        assert turn is not None
+        parent = self.parent_binding
+        creation = self.creation_binding
+        if not (
+            turn.job_id == creation.child_job_id
+            and turn.model_transport == self.model_transport
+            and turn.proposal_revision == 0
+            and turn.response_turn == 1
+            and turn.base_candidate_fingerprint == parent.parent_candidate_fingerprint
+            and turn.base_preview_fingerprint == parent.parent_preview_fingerprint
+            and turn.revision_instruction_fingerprint
+            == creation.revision_instruction_fingerprint
+            and turn.initial_evidence_fingerprint == creation.evidence_fingerprint
+            and turn.evidence_state.source_commitment == parent.parent_source_commitment
+            and turn.evidence_state.request_fingerprint
+            == parent.parent_candidate.request_fingerprint
+            and turn.evidence_fingerprint == turn.evidence_state.evidence_fingerprint
+            and turn.prior_transcript_fingerprint == creation.binding_fingerprint
+            and turn.turn_contract_freeze_fingerprint
+            == creation.contract_freeze_fingerprint
+            and turn.imported_change_file_fingerprint
+            == parent.imported_change_file_fingerprint
+            and turn.match_report_fingerprint
+            == parent.match_report.match_report_fingerprint
+            and turn.immediate_parent_candidate_fingerprint
+            == parent.parent_candidate_fingerprint
+        ):
+            raise ValueError("Pending hosted derivative targets another parent review.")
+
+    def _require_completed(self) -> None:
+        ledger = self.evidence_ledger
+        origin = self.execution_origin
+        assert ledger is not None
+        assert origin is not None
+        initial = ledger.initial_ledger
+        parent = self.parent_binding
+        creation = self.creation_binding
+        if not isinstance(initial, FolderDerivativeEvidenceLedgerV1):
+            raise ValueError("Derivative authority requires derivative-first evidence.")
+        if not (
+            ledger.planning_basis == "derivative"
+            and ledger.model_transport == self.model_transport
+            and ledger.job_id == creation.child_job_id
+            and ledger.source_commitment == parent.parent_source_commitment
+            and ledger.request_fingerprint
+            == parent.parent_candidate.request_fingerprint
+            and initial.parent_binding_fingerprint == parent.binding_fingerprint
+            and initial.creation_binding_fingerprint == creation.binding_fingerprint
+            and initial.contract_freeze_fingerprint
+            == creation.contract_freeze_fingerprint
+            and initial.imported_change_file_fingerprint
+            == parent.imported_change_file_fingerprint
+            and initial.match_report_fingerprint
+            == parent.match_report.match_report_fingerprint
+            and initial.immediate_parent_candidate_fingerprint
+            == parent.parent_candidate_fingerprint
+            and initial.immediate_parent_preview_fingerprint
+            == parent.parent_preview_fingerprint
+            and initial.revision_instruction_fingerprint
+            == creation.revision_instruction_fingerprint
+            and (
+                self.model_transport in {"chatgpt_hosted", "codex_hosted"}
+                or initial.evidence_fingerprint == creation.evidence_fingerprint
+            )
+            and origin.kind == "gpt_revised_from_change_file"
+            and origin.planning_basis == "derivative"
+            and origin.model_transport == self.model_transport
+            and origin.imported_change_file_fingerprint
+            == parent.imported_change_file_fingerprint
+            and origin.match_report_fingerprint
+            == parent.match_report.match_report_fingerprint
+            and origin.evidence_fingerprint == ledger.evidence_fingerprint
+            and origin.evidence_transcript_fingerprint == ledger.transcript_fingerprint
+            and origin.accepted_plan_fingerprint == ledger.accepted_plan_fingerprint
+        ):
+            raise ValueError(
+                "Completed derivative evidence or provenance names another parent."
+            )
+        direct_pending = self.pending_direct_followup_revision
+        host_pending = self.pending_host_followup_revision
+        if direct_pending is not None and host_pending is not None:
+            raise ValueError("Derivative follow-up has competing transport turns.")
+        if direct_pending is not None and not (
+            self.model_transport
+            in {"responses_api", "recorded_replay", "deterministic_development"}
+            and direct_pending.job_id == creation.child_job_id
+            and direct_pending.proposal_revision == ledger.selected_proposal_revision
+            and direct_pending.base_candidate_fingerprint
+            == ledger.accepted_plan_fingerprint
+            and direct_pending.evidence_fingerprint == ledger.evidence_fingerprint
+            and direct_pending.prior_transcript_fingerprint
+            == ledger.transcript_fingerprint
+            and direct_pending.imported_change_file_fingerprint
+            == parent.imported_change_file_fingerprint
+            and direct_pending.match_report_fingerprint
+            == parent.match_report.match_report_fingerprint
+            and direct_pending.immediate_parent_candidate_fingerprint
+            == parent.parent_candidate_fingerprint
+        ):
+            raise ValueError(
+                "Direct derivative follow-up targets another completed transcript."
+            )
+        if host_pending is not None and not (
+            self.model_transport in {"chatgpt_hosted", "codex_hosted"}
+            and host_pending.job_id == creation.child_job_id
+            and host_pending.model_transport == self.model_transport
+            and host_pending.proposal_revision == ledger.selected_proposal_revision
+            and host_pending.base_candidate_fingerprint
+            == ledger.accepted_plan_fingerprint
+            and host_pending.evidence_fingerprint == ledger.evidence_fingerprint
+            and host_pending.prior_transcript_fingerprint
+            == ledger.transcript_fingerprint
+        ):
+            raise ValueError(
+                "Hosted derivative follow-up targets another completed transcript."
+            )
+
+
 # Existing F0a-era v3 files used the predecessor v2 authority. Keep them readable
 # without weakening new-work authority. The two GPT models share a `kind` literal,
 # so schema-shape validation, not an ambiguous discriminator, performs dispatch.
 FolderJobAuthorityV3 = (
-    GptHostedJobAuthorityV3
+    GptDerivativeJobAuthorityV3
+    | GptHostedJobAuthorityV3
     | GptPlannedJobAuthorityV3
     | GptPlannedJobAuthorityV2
     | CapsuleAppliedJobAuthorityV2
@@ -643,6 +1059,11 @@ class FolderRefactorJobV3(StrictFrozenModel):
     local_directory_identities: tuple[JobLocalDirectoryIdentityV2, ...]
     user_request: str = Field(min_length=1, max_length=20_000)
     idempotency: FolderIdempotencyBindingV2
+    operation_idempotency: tuple[FolderOperationIdempotencyBindingV2, ...] = Field(
+        min_length=1,
+        max_length=1,
+    )
+    public_job_capability: FolderPublicJobCapabilityV1 | None = None
     authority: FolderJobAuthorityV3
     candidate_plan: FolderAcceptedPlanV2 | None = None
     reference_graph: FolderReferenceGraph | None = None
@@ -668,6 +1089,12 @@ class FolderRefactorJobV3(StrictFrozenModel):
     revision_mutation_bindings: tuple[FolderRevisionMutationBindingV1, ...] = Field(
         default=(),
         max_length=2,
+    )
+    host_revision_mutation_bindings: tuple[FolderHostRevisionMutationBindingV1, ...] = (
+        Field(
+            default=(),
+            max_length=2,
+        )
     )
     immediate_parent_job_id: str | None = Field(
         default=None,
@@ -720,6 +1147,18 @@ class FolderRefactorJobV3(StrictFrozenModel):
     def require_complete_authority(self) -> Self:
         if self.updated_at < self.created_at:
             raise ValueError("updated_at cannot precede created_at.")
+        reconstruction = self.operation_idempotency[0]
+        expected_request_fingerprint = operation_request_fingerprint(
+            operation="recreate_original",
+            request={"job_handle": self.job_id},
+        )
+        if not (
+            reconstruction.operation == "recreate_original"
+            and reconstruction.request_fingerprint == expected_request_fingerprint
+        ):
+            raise ValueError(
+                "V3 jobs require one exact prebound reconstruction operation."
+            )
         if self.preview is not None:
             if self.candidate_plan is None or self.reference_graph is None:
                 raise ValueError(
@@ -748,7 +1187,7 @@ class FolderRefactorJobV3(StrictFrozenModel):
                 ),
                 match_report_fingerprint=self.preview.match_report_fingerprint,
                 immediate_parent_candidate_fingerprint=(
-                    self.immediate_parent_candidate_fingerprint
+                    self.preview.immediate_parent_candidate_fingerprint
                 ),
             )
             if rebuilt != self.preview:
@@ -859,6 +1298,126 @@ class FolderRefactorJobV3(StrictFrozenModel):
                 )
             elif self.authority.pending_revision is not None:
                 self._require_pending_host_revision_authority()
+        elif isinstance(self.authority, GptDerivativeJobAuthorityV3):
+            parent = self.authority.parent_binding
+            creation = self.authority.creation_binding
+            derivative_state = self.authority.authority_state
+            initial_instruction_required = (
+                derivative_state in {"awaiting_model_response", "failed"}
+                or self.revision_attempt_count == 1
+            )
+            if not (
+                self.job_id == creation.child_job_id
+                and self.job_path == creation.child_job_path
+                and self.source_root == creation.source_root
+                and self.output_parent == creation.output_parent
+                and self.source_inventory.source_commitment
+                == parent.parent_source_commitment
+                and self.immediate_parent_job_id == parent.parent_job_id
+                and self.immediate_parent_candidate_fingerprint
+                == parent.parent_candidate_fingerprint
+                and self.revision_instruction is not None
+                and (
+                    not initial_instruction_required
+                    or self.revision_instruction.instruction_fingerprint
+                    == creation.revision_instruction_fingerprint
+                )
+            ):
+                raise ValueError(
+                    "Derivative job identity differs from its parent or "
+                    "creation binding."
+                )
+            if derivative_state == "awaiting_model_response":
+                if not (
+                    self.lifecycle
+                    in {
+                        FolderJobLifecycleV3.REVISING,
+                        FolderJobLifecycleV3.STALE,
+                    }
+                    and self.proposal_revision == 0
+                    and self.revision_attempt_count == 1
+                    and self.candidate_plan is None
+                    and self.reference_graph is None
+                    and self.preview is None
+                ):
+                    raise ValueError(
+                        "Pending derivative child must contain no model-produced plan."
+                    )
+            elif derivative_state == "failed":
+                failure = self.authority.failure
+                if not (
+                    self.lifecycle
+                    in {
+                        FolderJobLifecycleV3.REVISION_FAILED,
+                        FolderJobLifecycleV3.REVIEWING,
+                    }
+                    and self.proposal_revision == 0
+                    and self.revision_attempt_count == 1
+                    and self.candidate_plan == parent.parent_candidate
+                    and self.reference_graph is not None
+                    and self.preview is not None
+                    and self.preview.job_id == self.job_id
+                    and self.preview.proposal_basis == "imported_change_file"
+                    and self.preview.compiled_candidate_fingerprint
+                    == parent.parent_candidate_fingerprint
+                    and failure is not None
+                    and self.blocker_code is None
+                    and self.blocker_message is None
+                ):
+                    raise ValueError(
+                        "Failed derivative child must preserve its imported parent "
+                        "review."
+                    )
+            else:
+                ledger = self.authority.evidence_ledger
+                origin = self.authority.execution_origin
+                pending_direct_followup = (
+                    self.authority.pending_direct_followup_revision
+                )
+                pending_host_followup = self.authority.pending_host_followup_revision
+                pending_followup_count = sum(
+                    item is not None
+                    for item in (pending_direct_followup, pending_host_followup)
+                )
+                if (
+                    self.candidate_plan is None
+                    or self.preview is None
+                    or ledger is None
+                    or origin is None
+                    or not (
+                        self.candidate_plan.evidence_schema_version
+                        == "folder-evidence-ledger.v2"
+                        and ledger.accepted_plan_fingerprint
+                        == canonical_sha256(self.candidate_plan)
+                        and ledger.evidence_fingerprint
+                        == self.candidate_plan.evidence_fingerprint
+                        and ledger.selected_proposal_revision == self.proposal_revision
+                        and ledger.user_revision_count + pending_followup_count
+                        == self.revision_attempt_count
+                        and origin.accepted_plan_fingerprint
+                        == ledger.accepted_plan_fingerprint
+                    )
+                ):
+                    raise ValueError(
+                        "Derivative candidate differs from its completed authority."
+                    )
+                if self.lifecycle is FolderJobLifecycleV3.REVISING:
+                    if (
+                        pending_followup_count != 1
+                        or self.revision_instruction is None
+                        or self.candidate_plan is None
+                        or self.preview is None
+                    ):
+                        raise ValueError(
+                            "Hosted derivative follow-up requires the prior preview "
+                            "and exact reservation."
+                        )
+                    if pending_host_followup is not None:
+                        self._require_pending_host_derivative_followup_authority()
+                elif pending_followup_count:
+                    raise ValueError(
+                        "Derivative follow-up may exist only while revising."
+                    )
         if self.lifecycle in {
             FolderJobLifecycleV3.REVIEWING,
             FolderJobLifecycleV3.REVISION_FAILED,
@@ -917,7 +1476,11 @@ class FolderRefactorJobV3(StrictFrozenModel):
                 raise ValueError("revision_failed requires exact failure evidence.")
             if isinstance(
                 self.authority,
-                (GptPlannedJobAuthorityV3, GptHostedJobAuthorityV3),
+                (
+                    GptPlannedJobAuthorityV3,
+                    GptHostedJobAuthorityV3,
+                    GptDerivativeJobAuthorityV3,
+                ),
             ) and (
                 self.revision_instruction is None
                 or self.revision_failure.attempted_instruction_fingerprint
@@ -970,9 +1533,15 @@ class FolderRefactorJobV3(StrictFrozenModel):
         )
         if len(revision_mutation_keys) != len(set(revision_mutation_keys)):
             raise ValueError("Direct revision mutation keys must be unique.")
-        if self.revision_mutation_bindings and not isinstance(
-            self.authority, GptPlannedJobAuthorityV3
-        ):
+        direct_revision_authority = isinstance(
+            self.authority,
+            GptPlannedJobAuthorityV3,
+        ) or (
+            isinstance(self.authority, GptDerivativeJobAuthorityV3)
+            and self.authority.model_transport
+            in {"responses_api", "recorded_replay", "deterministic_development"}
+        )
+        if self.revision_mutation_bindings and not direct_revision_authority:
             raise ValueError(
                 "Direct revision bindings require direct planning authority."
             )
@@ -986,6 +1555,36 @@ class FolderRefactorJobV3(StrictFrozenModel):
         if terminal_revisions != tuple(sorted(set(terminal_revisions))):
             raise ValueError(
                 "Direct revision mutation bindings must be terminal-revision ordered."
+            )
+        host_revision_mutation_keys = tuple(
+            binding.idempotency_key_sha256
+            for binding in self.host_revision_mutation_bindings
+        )
+        if len(host_revision_mutation_keys) != len(set(host_revision_mutation_keys)):
+            raise ValueError("Hosted revision mutation keys must be unique.")
+        hosted_revision_authority = isinstance(
+            self.authority,
+            GptHostedJobAuthorityV3,
+        ) or (
+            isinstance(self.authority, GptDerivativeJobAuthorityV3)
+            and self.authority.model_transport in {"chatgpt_hosted", "codex_hosted"}
+        )
+        if self.host_revision_mutation_bindings and not hosted_revision_authority:
+            raise ValueError(
+                "Hosted revision bindings require hosted planning authority."
+            )
+        if any(
+            binding.job_id != self.job_id
+            for binding in self.host_revision_mutation_bindings
+        ):
+            raise ValueError("Hosted revision mutation binding targets another job.")
+        host_terminal_revisions = tuple(
+            binding.terminal_job_revision
+            for binding in self.host_revision_mutation_bindings
+        )
+        if host_terminal_revisions != tuple(sorted(set(host_terminal_revisions))):
+            raise ValueError(
+                "Hosted revision mutation bindings must be terminal-revision ordered."
             )
         if self.destination_reservation is not None:
             reservation = self.destination_reservation
@@ -1176,6 +1775,37 @@ class FolderRefactorJobV3(StrictFrozenModel):
         ):
             raise ValueError("Hosted pending revision targets another durable review.")
 
+    def _require_pending_host_derivative_followup_authority(self) -> None:
+        assert isinstance(self.authority, GptDerivativeJobAuthorityV3)
+        pending = self.authority.pending_host_followup_revision
+        ledger = self.authority.evidence_ledger
+        candidate = self.candidate_plan
+        preview = self.preview
+        instruction = self.revision_instruction
+        assert pending is not None
+        assert ledger is not None
+        assert candidate is not None
+        assert preview is not None
+        assert instruction is not None
+        if not (
+            pending.job_id == self.job_id
+            and pending.expected_job_revision == preview.expected_job_revision
+            and pending.expected_job_revision + 1 == self.revision
+            and pending.proposal_revision == self.proposal_revision
+            and pending.base_candidate_fingerprint == canonical_sha256(candidate)
+            and pending.base_preview_fingerprint == preview.preview_fingerprint
+            and pending.revision_instruction_fingerprint
+            == instruction.instruction_fingerprint
+            and pending.idempotency_key_sha256 == instruction.idempotency_key_sha256
+            and pending.prior_transcript_fingerprint == ledger.transcript_fingerprint
+            and pending.response_turn == ledger.response_turn_count + 1
+            and pending.evidence_fingerprint == ledger.evidence_fingerprint
+            and pending.model_transport == self.authority.model_transport
+        ):
+            raise ValueError(
+                "Hosted derivative follow-up targets another durable review."
+            )
+
     def _require_preview_authority(self) -> None:
         assert self.preview is not None
         assert self.reference_graph is not None
@@ -1198,6 +1828,31 @@ class FolderRefactorJobV3(StrictFrozenModel):
             ):
                 raise ValueError(
                     "Imported preview differs from its portable authority."
+                )
+        elif isinstance(self.authority, GptDerivativeJobAuthorityV3):
+            parent = self.authority.parent_binding
+            completed_preview = (
+                self.authority.authority_state == "completed"
+                and self.preview.proposal_basis == "gpt_derivative"
+                and self.preview.immediate_parent_candidate_fingerprint
+                == parent.parent_candidate_fingerprint
+            )
+            failed_parent_preview = (
+                self.authority.authority_state == "failed"
+                and self.preview.proposal_basis == "imported_change_file"
+                and self.preview.immediate_parent_candidate_fingerprint is None
+                and self.preview.compiled_candidate_fingerprint
+                == parent.parent_candidate_fingerprint
+            )
+            if not (
+                (completed_preview or failed_parent_preview)
+                and self.preview.imported_change_file_fingerprint
+                == parent.imported_change_file_fingerprint
+                and self.preview.match_report_fingerprint
+                == parent.match_report.match_report_fingerprint
+            ):
+                raise ValueError(
+                    "Derivative preview differs from its immutable parent authority."
                 )
         elif (
             self.preview.imported_change_file_fingerprint is not None
@@ -1254,6 +1909,64 @@ class FolderRefactorJobV3(StrictFrozenModel):
             raise ValueError("Pending result path differs from the authorized job.")
 
 
+def build_recreate_original_operation_binding_v3(
+    *,
+    job_id: str,
+    idempotency_key: str,
+) -> FolderOperationIdempotencyBindingV2:
+    """Prebind the sole terminal-safe reconstruction mutation for one v3 job."""
+
+    parsed = uuid.UUID(hex=job_id)
+    if parsed.version != 4 or parsed.hex != job_id:
+        raise ValueError("Foldweave job IDs must be lowercase UUID4 hex.")
+    return build_operation_idempotency_binding(
+        operation="recreate_original",
+        idempotency_key=idempotency_key,
+        request={"job_handle": job_id},
+    )
+
+
+def require_recreate_original_operation_idempotency_v3(
+    job: FolderRefactorJobV3,
+    *,
+    idempotency_key: str,
+) -> None:
+    """Require the exact prebound reconstruction key without mutating a job."""
+
+    candidate = build_operation_idempotency_binding(
+        operation="recreate_original",
+        idempotency_key=idempotency_key,
+        request={"job_handle": job.job_id},
+    )
+    if job.operation_idempotency != (candidate,):
+        raise FolderJobV3IdempotencyConflict(
+            "recreate_original idempotency key is not bound to this exact job."
+        )
+
+
+def require_recreate_original_operation_authority_v3(
+    job: FolderRefactorJobV3,
+) -> None:
+    """Require the job's immutable reconstruction authority without its raw seed."""
+
+    expected_request_fingerprint = operation_request_fingerprint(
+        operation="recreate_original",
+        request={"job_handle": job.job_id},
+    )
+    if len(job.operation_idempotency) != 1:
+        raise FolderJobV3IdempotencyConflict(
+            "recreate_original requires one immutable job-bound authority."
+        )
+    binding = job.operation_idempotency[0]
+    if not (
+        binding.operation == "recreate_original"
+        and binding.request_fingerprint == expected_request_fingerprint
+    ):
+        raise FolderJobV3IdempotencyConflict(
+            "recreate_original authority is not bound to this exact job."
+        )
+
+
 FolderJobRecordV3 = (
     FolderRefactorJobV3 | FolderRefactorJobV2 | LegacyFolderJobV1Evidence
 )
@@ -1290,7 +2003,7 @@ def parse_job_v3_bytes(data: bytes, *, expected_path: Path) -> FolderRefactorJob
 
 
 def load_folder_job_record_v3(path: Path) -> FolderJobRecordV3:
-    """Strictly dispatch v3 while retaining historical v1/v2 readability."""
+    """Dispatch v3 plus terminal, byte-preserved v1/v2 historical evidence."""
 
     try:
         observed = read_stable_regular_file(path, max_bytes=MAX_DURABLE_JOB_BYTES)
@@ -1300,9 +2013,15 @@ def load_folder_job_record_v3(path: Path) -> FolderJobRecordV3:
     if raw.get("schema_version") == FOLDER_REFACTOR_JOB_V3_SCHEMA_VERSION:
         return parse_job_v3_bytes(observed.payload, expected_path=observed.path)
     try:
-        return load_folder_job_record(observed.path)
+        record = load_folder_job_record(observed.path)
     except Exception as exc:
         raise FolderJobV3LoadError("Unsupported durable job schema.") from exc
+    if isinstance(record, FolderRefactorJobV2) and not record.lifecycle.terminal:
+        raise LegacyV2NonterminalJobError(
+            "Nonterminal folder-refactor-job.v2 state cannot be resumed as v3; "
+            "create a fresh FolderRefactorJobV3 from the unchanged source."
+        )
+    return record
 
 
 class FolderRefactorJobV3Store:
@@ -1474,6 +2193,7 @@ def build_execution_authorization(
     if preview is None:
         raise FolderJobV3RevisionError("The job has no reviewable preview.")
     timestamp = (clock or (lambda: datetime.now(tz=oslo_tz)))()
+    resolved_output_parent = output_parent.resolve(strict=False)
     payload = {
         "schema_version": FOLDER_EXECUTION_AUTHORIZATION_SCHEMA_VERSION,
         "job_id": job.job_id,
@@ -1484,21 +2204,61 @@ def build_execution_authorization(
         "match_report_fingerprint": preview.match_report_fingerprint,
         "candidate_fingerprint": candidate_fingerprint,
         "preview_fingerprint": preview_fingerprint,
-        "output_parent": output_parent.resolve(strict=False),
+        "output_parent": resolved_output_parent,
+        "output_parent_fingerprint": _output_parent_fingerprint(resolved_output_parent),
         "result_folder_name": result_folder_name,
         "idempotency_key_sha256": _authorization_key_sha256(idempotency_key),
         "channel": channel,
         "authorization_timestamp": _require_oslo_timestamp(timestamp),
     }
-    fingerprint_payload = {
-        **payload,
-        "output_parent": payload["output_parent"].as_posix(),
-        "authorization_timestamp": payload["authorization_timestamp"].isoformat(),
-    }
+    fingerprint_payload = dict(payload)
+    fingerprint_payload.pop("output_parent")
+    fingerprint_payload["authorization_timestamp"] = payload[
+        "authorization_timestamp"
+    ].isoformat()
     return FolderExecutionAuthorizationV1(
         **payload,
         authorization_fingerprint=canonical_sha256(fingerprint_payload),
     )
+
+
+def build_portable_execution_authorization(
+    authorization: FolderExecutionAuthorizationV1,
+) -> FolderPortableExecutionAuthorizationV1:
+    """Project internal execution authority without disclosing its local path."""
+
+    portable = FolderPortableExecutionAuthorizationV1.model_validate(
+        authorization.model_dump(mode="python", exclude={"output_parent"}),
+        strict=True,
+    )
+    if portable.authorization_fingerprint != authorization.authorization_fingerprint:
+        raise ValueError("Portable execution authorization changed its identity.")
+    return portable
+
+
+def _output_parent_fingerprint(output_parent: Path) -> str:
+    """Bind one exact internal destination without publishing its local path."""
+
+    return canonical_sha256(
+        {
+            "domain": "foldweave:execution-output-parent:v1",
+            "output_parent": output_parent.as_posix(),
+        }
+    )
+
+
+def _execution_authorization_fingerprint(
+    authorization: (
+        FolderExecutionAuthorizationV1 | FolderPortableExecutionAuthorizationV1
+    ),
+) -> str:
+    """Hash the common path-neutral authorization fields."""
+
+    payload = authorization.model_dump(
+        mode="json",
+        exclude={"authorization_fingerprint", "output_parent"},
+    )
+    return canonical_sha256(payload)
 
 
 def build_revision_instruction(
@@ -1543,13 +2303,20 @@ def build_revision_mutation_binding(
 ) -> FolderRevisionMutationBindingV1:
     """Finalize one exact direct revision retry binding append-only."""
 
-    if not isinstance(job.authority, GptPlannedJobAuthorityV3):
+    if isinstance(job.authority, GptPlannedJobAuthorityV3):
+        pending = job.authority.pending_revision_turn
+        ledger = job.authority.evidence_ledger
+    elif isinstance(job.authority, GptDerivativeJobAuthorityV3) and (
+        job.authority.model_transport
+        in {"responses_api", "recorded_replay", "deterministic_development"}
+    ):
+        pending = job.authority.pending_direct_followup_revision
+        ledger = job.authority.evidence_ledger
+    else:
         raise FolderJobV3RevisionError(
             "Direct revision mutation binding requires direct planning authority."
         )
-    pending = job.authority.pending_revision_turn
     instruction = job.revision_instruction
-    ledger = job.authority.evidence_ledger
     if pending is None or instruction is None or ledger is None:
         raise FolderJobV3RevisionError(
             "Direct revision mutation binding lacks its reserved provider turn."
@@ -1588,6 +2355,70 @@ def build_revision_mutation_binding(
         binding_fingerprint="0" * 64,
     )
     return FolderRevisionMutationBindingV1(
+        **values,
+        binding_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"binding_fingerprint"})
+        ),
+    )
+
+
+def build_host_revision_mutation_binding(
+    *,
+    job: FolderRefactorJobV3,
+    terminal_outcome: Literal["proposal_replaced", "mechanically_rejected"],
+    terminal_job_revision: int,
+    resulting_proposal_revision: int,
+) -> FolderHostRevisionMutationBindingV1:
+    """Finalize one exact hosted revision retry binding append-only."""
+
+    if isinstance(job.authority, GptHostedJobAuthorityV3):
+        pending = job.authority.pending_revision
+    elif isinstance(
+        job.authority, GptDerivativeJobAuthorityV3
+    ) and job.authority.model_transport in {"chatgpt_hosted", "codex_hosted"}:
+        pending = job.authority.pending_host_followup_revision
+    else:
+        raise FolderJobV3RevisionError(
+            "Hosted revision mutation binding requires hosted planning authority."
+        )
+    instruction = job.revision_instruction
+    if pending is None or instruction is None:
+        raise FolderJobV3RevisionError(
+            "Hosted revision mutation binding lacks its reserved host turn."
+        )
+    values = {
+        "job_id": job.job_id,
+        "base_job_revision": pending.expected_job_revision,
+        "base_proposal_revision": pending.proposal_revision,
+        "base_candidate_fingerprint": pending.base_candidate_fingerprint,
+        "base_preview_fingerprint": pending.base_preview_fingerprint,
+        "revision_instruction_fingerprint": instruction.instruction_fingerprint,
+        "idempotency_key_sha256": instruction.idempotency_key_sha256,
+        "model_transport": job.authority.model_transport,
+        "terminal_outcome": terminal_outcome,
+        "terminal_job_revision": terminal_job_revision,
+        "resulting_proposal_revision": resulting_proposal_revision,
+    }
+    request_payload = {
+        "domain": "foldweave:hosted-revision-mutation-request:v1",
+        **{
+            key: values[key]
+            for key in (
+                "job_id",
+                "base_job_revision",
+                "base_candidate_fingerprint",
+                "base_preview_fingerprint",
+                "revision_instruction_fingerprint",
+                "model_transport",
+            )
+        },
+    }
+    values["request_fingerprint"] = canonical_sha256(request_payload)
+    draft = FolderHostRevisionMutationBindingV1.model_construct(
+        **values,
+        binding_fingerprint="0" * 64,
+    )
+    return FolderHostRevisionMutationBindingV1(
         **values,
         binding_fingerprint=canonical_sha256(
             draft.model_dump(mode="json", exclude={"binding_fingerprint"})
@@ -1849,17 +2680,20 @@ def _detect_input_staleness(
             code="source_changed",
             detail="Selected source differs from the immutable review snapshot.",
         )
+    change_file_binding = None
     if isinstance(job.authority, CapsuleAppliedJobAuthorityV2):
+        change_file_binding = job.authority.change_file_binding
+    elif isinstance(job.authority, GptDerivativeJobAuthorityV3):
+        change_file_binding = job.authority.parent_binding.change_file_binding
+    if change_file_binding is not None:
         try:
-            current_binding = build_change_file_input_binding(
-                job.authority.change_file_binding.path
-            )
+            current_binding = build_change_file_input_binding(change_file_binding.path)
         except Exception as exc:
             return FolderJobStalenessV3(
                 code="change_file_unreadable",
                 detail=f"Imported Change File cannot be reverified: {exc}",
             )
-        if current_binding != job.authority.change_file_binding:
+        if current_binding != change_file_binding:
             return FolderJobStalenessV3(
                 code="change_file_changed",
                 detail="Imported Change File differs from the reviewed bytes.",
@@ -1892,6 +2726,8 @@ def _require_immutable_identity(
         "local_directory_identities",
         "user_request",
         "idempotency",
+        "operation_idempotency",
+        "public_job_capability",
         "immediate_parent_job_id",
         "immediate_parent_candidate_fingerprint",
     )
@@ -1905,6 +2741,18 @@ def _require_immutable_identity(
         raise FolderJobV3RevisionError(
             "V3 mutation changed its imported Change File binding."
         )
+    if isinstance(current.authority, GptDerivativeJobAuthorityV3):
+        successor_authority = successor.authority
+        assert isinstance(successor_authority, GptDerivativeJobAuthorityV3)
+        if not (
+            current.authority.parent_binding == successor_authority.parent_binding
+            and current.authority.creation_binding
+            == successor_authority.creation_binding
+            and current.authority.model_transport == successor_authority.model_transport
+        ):
+            raise FolderJobV3RevisionError(
+                "V3 mutation changed immutable derivative-child authority."
+            )
     if current.reference_graph is not None and (
         successor.reference_graph != current.reference_graph
     ):
@@ -1942,6 +2790,7 @@ def _require_lifecycle_transition(
             FolderJobLifecycleV3.BLOCKED,
         },
         FolderJobLifecycleV3.REVISING: {
+            FolderJobLifecycleV3.REVISING,
             FolderJobLifecycleV3.REVIEWING,
             FolderJobLifecycleV3.REVISION_FAILED,
             FolderJobLifecycleV3.STALE,
@@ -2099,13 +2948,20 @@ def _require_append_only_action_history(
     if revision_added:
         binding = successor.revision_mutation_bindings[-1]
         direct_authority = current.authority
-        if not isinstance(direct_authority, GptPlannedJobAuthorityV3):
+        if isinstance(direct_authority, GptPlannedJobAuthorityV3):
+            pending = direct_authority.pending_revision_turn
+            ledger = direct_authority.evidence_ledger
+        elif isinstance(direct_authority, GptDerivativeJobAuthorityV3) and (
+            direct_authority.model_transport
+            in {"responses_api", "recorded_replay", "deterministic_development"}
+        ):
+            pending = direct_authority.pending_direct_followup_revision
+            ledger = direct_authority.evidence_ledger
+        else:
             raise FolderJobV3RevisionError(
                 "Direct revision binding requires direct planning authority."
             )
-        pending = direct_authority.pending_revision_turn
         instruction = current.revision_instruction
-        ledger = direct_authority.evidence_ledger
         if (
             pending is None
             or instruction is None
@@ -2160,11 +3016,108 @@ def _require_append_only_action_history(
             FolderJobLifecycleV3.REVIEWING,
             FolderJobLifecycleV3.REVISION_FAILED,
         }
-        and isinstance(current.authority, GptPlannedJobAuthorityV3)
+        and (
+            isinstance(current.authority, GptPlannedJobAuthorityV3)
+            or (
+                isinstance(current.authority, GptDerivativeJobAuthorityV3)
+                and current.authority.pending_direct_followup_revision is not None
+            )
+        )
         and revision_added != 1
     ):
         raise FolderJobV3RevisionError(
             "A direct revision terminal transition requires its retry binding."
+        )
+
+    host_revision_prefix = successor.host_revision_mutation_bindings[
+        : len(current.host_revision_mutation_bindings)
+    ]
+    if host_revision_prefix != current.host_revision_mutation_bindings:
+        raise FolderJobV3RevisionError(
+            "Hosted revision mutation history is not append-only."
+        )
+    host_revision_added = len(successor.host_revision_mutation_bindings) - len(
+        current.host_revision_mutation_bindings
+    )
+    if host_revision_added not in {0, 1}:
+        raise FolderJobV3RevisionError(
+            "A transition may append at most one hosted revision binding."
+        )
+    if host_revision_added:
+        binding = successor.host_revision_mutation_bindings[-1]
+        host_authority = current.authority
+        if isinstance(host_authority, GptHostedJobAuthorityV3):
+            pending = host_authority.pending_revision
+        elif isinstance(
+            host_authority, GptDerivativeJobAuthorityV3
+        ) and host_authority.model_transport in {"chatgpt_hosted", "codex_hosted"}:
+            pending = host_authority.pending_host_followup_revision
+        else:
+            raise FolderJobV3RevisionError(
+                "Hosted revision binding requires hosted planning authority."
+            )
+        instruction = current.revision_instruction
+        if (
+            pending is None
+            or instruction is None
+            or not (
+                binding.job_id == current.job_id
+                and binding.base_job_revision == pending.expected_job_revision
+                and binding.base_proposal_revision == pending.proposal_revision
+                and binding.base_candidate_fingerprint
+                == pending.base_candidate_fingerprint
+                and binding.base_preview_fingerprint == pending.base_preview_fingerprint
+                and binding.revision_instruction_fingerprint
+                == instruction.instruction_fingerprint
+                and binding.idempotency_key_sha256 == instruction.idempotency_key_sha256
+                and binding.model_transport == host_authority.model_transport
+            )
+        ):
+            raise FolderJobV3RevisionError(
+                "Hosted revision binding targets another reserved host turn."
+            )
+        if not (
+            current.lifecycle is FolderJobLifecycleV3.REVISING
+            and successor.lifecycle
+            in {
+                FolderJobLifecycleV3.REVIEWING,
+                FolderJobLifecycleV3.REVISION_FAILED,
+            }
+            and binding.terminal_job_revision == successor.revision
+            and binding.resulting_proposal_revision == successor.proposal_revision
+        ):
+            raise FolderJobV3RevisionError(
+                "Hosted revision binding changed outside its terminal transition."
+            )
+        expected_outcome = (
+            "proposal_replaced"
+            if successor.lifecycle is FolderJobLifecycleV3.REVIEWING
+            else "mechanically_rejected"
+        )
+        if binding.terminal_outcome != expected_outcome:
+            raise FolderJobV3RevisionError(
+                "Hosted revision binding records another terminal outcome."
+            )
+    if (
+        current.lifecycle is FolderJobLifecycleV3.REVISING
+        and successor.lifecycle
+        in {
+            FolderJobLifecycleV3.REVIEWING,
+            FolderJobLifecycleV3.REVISION_FAILED,
+        }
+        and (
+            isinstance(current.authority, GptHostedJobAuthorityV3)
+            or (
+                isinstance(current.authority, GptDerivativeJobAuthorityV3)
+                and current.authority.model_transport
+                in {"chatgpt_hosted", "codex_hosted"}
+                and current.authority.pending_host_followup_revision is not None
+            )
+        )
+        and host_revision_added != 1
+    ):
+        raise FolderJobV3RevisionError(
+            "A hosted revision terminal transition requires its retry binding."
         )
 
     reservation_changed = (

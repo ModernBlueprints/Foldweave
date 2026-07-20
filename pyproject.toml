@@ -1,5 +1,5 @@
 [project]
-name = "reversible-name-atlas"
+name = "foldweave"
 version = "0.1.0"
 description = "AI-planned, deterministic changes for connected project folders."
 readme = "README.md"
@@ -7,7 +7,9 @@ license = { file = "LICENSE" }
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "bagit>=1.8,<2",
+    "cryptography>=49,<50",
     "fastapi>=0.116,<1",
+    "httpx>=0.28,<1",
     "jinja2>=3.1,<4",
     "mcp>=1.27,<2",
     "openai>=1.0,<3",
@@ -19,6 +21,7 @@ dependencies = [
     "pyobjc-framework-webkit>=12.2.1,<13 ; sys_platform == 'darwin'",
     "pywebview>=6.2.1,<7 ; sys_platform == 'darwin'",
     "uvicorn>=0.35,<1",
+    "websockets>=15,<16",
 ]
 
 [project.scripts]
@@ -27,7 +30,6 @@ name-atlas = "name_atlas.launcher:main"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28,<1",
     "pyinstaller>=6.21,<7 ; sys_platform == 'darwin'",
     "pytest>=8.4,<10",
     "ruff>=0.14,<1",

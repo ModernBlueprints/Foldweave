@@ -19,7 +19,6 @@ from name_atlas.folder_refactor.connected_change.job_v3 import (
     FolderRefactorJobV3,
     FolderRefactorJobV3Store,
     FolderRefactorJobV3Writer,
-    FolderRevisionFailureV1,
     build_execution_authorization,
     evolve_job_v3,
     expected_final_result_path_v3,
@@ -184,41 +183,39 @@ def test_preview_rejects_incorrect_directory_prefixes(
         FolderPlanPreviewV1.model_validate(preview_payload, strict=True)
 
 
-def test_revision_failed_cannot_transition_directly_to_executing(
+@pytest.mark.anyio
+async def test_revision_failed_cannot_transition_directly_to_executing(
     tmp_path: Path,
 ) -> None:
     """A failed replacement needs an explicit keep/review transition before accept."""
 
-    reviewing, _service, _output, _fixture = _prepare_review(tmp_path)
+    reviewing, service, _output, _fixture = _prepare_review(tmp_path)
+    assert reviewing.preview is not None
+
+    class FailingRevisionProvider:
+        provider_kind = "deterministic"
+
+        @property
+        def usage(self) -> tuple[Any, ...]:
+            return ()
+
+        async def exchange(self, _turn_input: Any, /) -> Any:
+            raise RuntimeError("The scripted replacement did not compile.")
+
+    failed = await service.revise(
+        reviewing.job_path,
+        expected_revision=reviewing.revision,
+        preview_fingerprint=reviewing.preview.preview_fingerprint,
+        candidate_fingerprint=(reviewing.preview.compiled_candidate_fingerprint),
+        instruction="Move the selected member into a revised section.",
+        idempotency_key="prepare-failed-revision",
+        provider=FailingRevisionProvider(),
+    )
+    assert failed.lifecycle is FolderJobLifecycleV3.REVISION_FAILED
+
     store = FolderRefactorJobV3Store(reviewing.job_path)
     with store.writer() as writer:
-        current = writer.rehydrate()
-        revising = evolve_job_v3(
-            current,
-            revision=current.revision + 1,
-            updated_at=current.updated_at,
-            lifecycle=FolderJobLifecycleV3.REVISING,
-        )
-        revising = writer.save(revising, expected_current=current)
-
-        failed_revision = revising.revision + 1
-        failed_preview = _preview_with_expected_revision(
-            revising.preview,
-            failed_revision,
-        )
-        failed = evolve_job_v3(
-            revising,
-            revision=failed_revision,
-            updated_at=revising.updated_at,
-            lifecycle=FolderJobLifecycleV3.REVISION_FAILED,
-            preview=failed_preview,
-            revision_failure=FolderRevisionFailureV1(
-                code="replacement_invalid",
-                detail="The replacement did not compile.",
-                attempted_instruction_fingerprint="a" * 64,
-            ),
-        )
-        failed = writer.save(failed, expected_current=revising)
+        failed = writer.rehydrate()
 
         assert failed.preview is not None
         assert failed.candidate_plan is not None
@@ -374,9 +371,7 @@ def test_receiver_authorization_rejects_mismatched_portable_bindings(
     mismatched_payload["match_report_fingerprint"] = "b" * 64
     fingerprint_payload = deepcopy(mismatched_payload)
     fingerprint_payload.pop("authorization_fingerprint")
-    fingerprint_payload["output_parent"] = mismatched_payload[
-        "output_parent"
-    ].as_posix()
+    fingerprint_payload.pop("output_parent")
     fingerprint_payload["authorization_timestamp"] = mismatched_payload[
         "authorization_timestamp"
     ].isoformat()

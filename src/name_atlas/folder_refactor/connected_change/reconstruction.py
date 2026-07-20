@@ -1,4 +1,4 @@
-"""Receiver-specific exact reconstruction from a verified v2 result."""
+"""Transaction-specific reconstruction from a verified v2 or v3 result."""
 
 from __future__ import annotations
 
@@ -11,6 +11,9 @@ from zoneinfo import ZoneInfo
 
 from name_atlas.folder_refactor.connected_change.accepted_plan import (
     FolderAcceptedPlanV2,
+)
+from name_atlas.folder_refactor.connected_change.receipt_contracts import (
+    parse_folder_receipt_envelope_any,
 )
 from name_atlas.folder_refactor.contracts import FolderInventory
 from name_atlas.folder_refactor.inventory import FolderScanError, scan_folder
@@ -88,7 +91,7 @@ def restore_connected_result(
     *,
     source_root: Path | None = None,
 ) -> FolderRestoreReport:
-    """Verify a v2 result and recreate that result's own original layout."""
+    """Verify a result and recreate that transaction's own original layout."""
 
     verification = _verify_connected_result(result_root)
     verification_fingerprint = _require_verified(verification)
@@ -168,7 +171,11 @@ def restore_connected_result(
                 "replacement.",
             ) from exc
         promoted = True
-        role_label = "origin" if execution_role == "origin" else "receiver"
+        role_label = {
+            "origin": "origin",
+            "receiver": "receiver",
+            "derivative": "selected-source",
+        }[execution_role]
         return FolderRestoreReport(
             receipt_fingerprint=verification_fingerprint,
             source_commitment=authorities.inventory.source_commitment,
@@ -259,10 +266,6 @@ def _require_verified(verification: _VerificationResult) -> str:
 
 
 def _load_receiver_authorities(root: Path) -> _LoadedReceiverAuthorities:
-    from name_atlas.folder_refactor.connected_change.receipt import (
-        FolderReceiptEnvelopeV2,
-    )
-
     try:
         inventory_bytes = read_regular_bytes(root, SOURCE_SNAPSHOT_PATH)
         accepted_plan_bytes = read_regular_bytes(root, ACCEPTED_PLAN_PATH)
@@ -274,7 +277,7 @@ def _load_receiver_authorities(root: Path) -> _LoadedReceiverAuthorities:
             accepted_plan_bytes,
             FolderAcceptedPlanV2,
         )
-        envelope = parse_portable_model(receipt_bytes, FolderReceiptEnvelopeV2)
+        envelope = parse_folder_receipt_envelope_any(receipt_bytes)
         forward_rows = parse_folder_path_map(forward_bytes, reverse=False)
         reverse_rows = parse_folder_path_map(reverse_bytes, reverse=True)
     except (FolderPortableArtifactError, ValueError) as exc:
@@ -311,6 +314,7 @@ def _validate_receiver_authorities(
     expected_authority = {
         "origin": "gpt_plan",
         "receiver": "change_file",
+        "derivative": "gpt_plan",
     }.get(envelope.receipt.execution_role)
     if (
         expected_authority is None

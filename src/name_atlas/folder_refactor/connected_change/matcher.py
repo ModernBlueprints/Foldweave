@@ -8,12 +8,15 @@ from typing import Any
 
 from name_atlas.folder_refactor.connected_change.contracts import (
     ConnectedChangeCore,
+    ConnectedChangeCoreV2,
     ConnectedChangeError,
     ConnectedChangeFile,
+    ConnectedChangeFileV2,
     ConnectedChangeMatchMapping,
     ConnectedChangeMatchReport,
     ConnectedChangeMember,
     connected_change_core_fingerprint,
+    connected_change_core_v2_fingerprint,
     connected_change_match_report_fingerprint,
 )
 from name_atlas.folder_refactor.connected_change.descriptors import (
@@ -26,7 +29,12 @@ from name_atlas.folder_refactor.serialization import canonical_sha256
 
 
 def match_connected_change(
-    change_file_or_core: ConnectedChangeFile | ConnectedChangeCore,
+    change_file_or_core: (
+        ConnectedChangeFile
+        | ConnectedChangeFileV2
+        | ConnectedChangeCore
+        | ConnectedChangeCoreV2
+    ),
     receiver_inventory: FolderInventory,
     receiver_graph: FolderReferenceGraph,
     *,
@@ -36,10 +44,10 @@ def match_connected_change(
 
     core = (
         change_file_or_core.core
-        if isinstance(change_file_or_core, ConnectedChangeFile)
+        if isinstance(change_file_or_core, ConnectedChangeFile | ConnectedChangeFileV2)
         else change_file_or_core
     )
-    core_fingerprint = connected_change_core_fingerprint(core)
+    core_fingerprint = _core_fingerprint(core)
     try:
         receiver_descriptors = build_receiver_descriptors(
             receiver_inventory,
@@ -64,7 +72,7 @@ def match_connected_change(
 
 
 def _match_descriptors(
-    core: ConnectedChangeCore,
+    core: ConnectedChangeCore | ConnectedChangeCoreV2,
     receiver_descriptors: Sequence[ReceiverDescriptor],
     *,
     receiver_source_commitment: str,
@@ -72,7 +80,7 @@ def _match_descriptors(
 ) -> ConnectedChangeMatchReport:
     """Pure sequence-order-invariant matcher used by tests and the public adapter."""
 
-    core_fingerprint = connected_change_core_fingerprint(core)
+    core_fingerprint = _core_fingerprint(core)
     origin = tuple(core.members)
     receiver = tuple(receiver_descriptors)
     blocker = _preflight_blocker(
@@ -543,3 +551,11 @@ def _report(**values: Any) -> ConnectedChangeMatchReport:
         **provisional.model_dump(mode="python", exclude={"match_report_fingerprint"}),
         match_report_fingerprint=connected_change_match_report_fingerprint(provisional),
     )
+
+
+def _core_fingerprint(core: ConnectedChangeCore | ConnectedChangeCoreV2) -> str:
+    """Dispatch the immutable fingerprint domain without weakening either schema."""
+
+    if isinstance(core, ConnectedChangeCoreV2):
+        return connected_change_core_v2_fingerprint(core)
+    return connected_change_core_fingerprint(core)

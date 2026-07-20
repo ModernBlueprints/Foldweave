@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from pydantic import Field, model_validator
 
 from name_atlas.folder_refactor.contracts import StrictFrozenModel
+from name_atlas.foldweave_companion import current_trusted_public_invocation
 from name_atlas.native_bridge import NativePathRole
 
 oslo_tz = ZoneInfo("Europe/Oslo")
@@ -57,6 +58,7 @@ class _LocalHandleRecord:
     public: OpaqueLocalItemHandle
     path: Path
     channel: LocalHandleChannel
+    public_invocation_binding: tuple[str, str, str] | None
 
 
 class FoldweaveLocalHandleStore:
@@ -82,23 +84,72 @@ class FoldweaveLocalHandleStore:
     ) -> OpaqueLocalItemHandle:
         """Register one selected local item without exposing its path."""
 
-        resolved = _validate_selected_path(role=role, path=path)
-        now = self._now()
-        token = f"fw_{self._token_factory()}"
-        public = OpaqueLocalItemHandle(
-            handle=token,
+        return self._register(
             role=role,
-            display_name=resolved.name or "Selected item",
-            expires_at=now + HANDLE_LIFETIME,
+            path=path,
+            channel=channel,
+            reuse_existing=False,
         )
-        record = _LocalHandleRecord(public=public, path=resolved, channel=channel)
+
+    def register_or_reuse(
+        self,
+        *,
+        role: NativePathRole,
+        path: Path,
+        channel: LocalHandleChannel,
+    ) -> OpaqueLocalItemHandle:
+        """Return the current capability for one trusted path or mint one."""
+
+        return self._register(
+            role=role,
+            path=path,
+            channel=channel,
+            reuse_existing=True,
+        )
+
+    def _register(
+        self,
+        *,
+        role: NativePathRole,
+        path: Path,
+        channel: LocalHandleChannel,
+        reuse_existing: bool,
+    ) -> OpaqueLocalItemHandle:
+        """Register one exact role/channel-bound local capability."""
+
+        resolved = _validate_selected_path(role=role, path=path)
+        public_invocation_binding = _current_public_binding(channel)
+        now = self._now()
         with self._lock:
             self._purge_expired(now)
+            if reuse_existing:
+                for record in self._records.values():
+                    if (
+                        record.public.role is role
+                        and record.channel == channel
+                        and record.path == resolved
+                        and record.public_invocation_binding
+                        == public_invocation_binding
+                    ):
+                        return record.public
+            token = f"fw_{self._token_factory()}"
             if token in self._records:
                 raise FoldweaveLocalHandleError(
                     "handle_collision",
                     "Generated local-item capability already exists.",
                 )
+            public = OpaqueLocalItemHandle(
+                handle=token,
+                role=role,
+                display_name=resolved.name or "Selected item",
+                expires_at=now + HANDLE_LIFETIME,
+            )
+            record = _LocalHandleRecord(
+                public=public,
+                path=resolved,
+                channel=channel,
+                public_invocation_binding=public_invocation_binding,
+            )
             self._records[token] = record
         return public
 
@@ -111,6 +162,7 @@ class FoldweaveLocalHandleStore:
     ) -> Path:
         """Resolve one exact role/channel-bound capability locally."""
 
+        public_invocation_binding = _current_public_binding(channel)
         now = self._now()
         with self._lock:
             record = self._records.get(handle)
@@ -135,6 +187,11 @@ class FoldweaveLocalHandleStore:
                     "local_handle_channel_mismatch",
                     "Local item handle belongs to another integration channel.",
                 )
+            if record.public_invocation_binding != public_invocation_binding:
+                raise FoldweaveLocalHandleError(
+                    "local_handle_public_binding_mismatch",
+                    "Local item handle belongs to another paired ChatGPT session.",
+                )
             path = record.path
         return _validate_selected_path(role=role, path=path)
 
@@ -152,6 +209,20 @@ class FoldweaveLocalHandleStore:
         )
         for token in expired:
             del self._records[token]
+
+
+def _current_public_binding(
+    channel: LocalHandleChannel,
+) -> tuple[str, str, str] | None:
+    invocation = current_trusted_public_invocation()
+    if invocation is None:
+        return None
+    if channel != "chatgpt_hosted":
+        raise FoldweaveLocalHandleError(
+            "local_handle_public_channel_invalid",
+            "Public ChatGPT authority cannot issue another integration channel.",
+        )
+    return invocation.handle_binding()
 
 
 def _validate_selected_path(*, role: NativePathRole, path: Path) -> Path:

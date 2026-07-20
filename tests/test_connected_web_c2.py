@@ -451,6 +451,8 @@ async def test_apply_working_state_is_truthful_and_never_invokes_planning(
     assert service.plan_calls == 0
     assert done.status_code == 200
     assert "Your new folder is ready" in done.text
+    assert "Name Atlas created a separate copy" in done.text
+    assert "Reversible Name Atlas" in done.text
     assert "Download Change File" in done.text
     assert "Show in Finder" in done.text
     assert "Verify again" in done.text

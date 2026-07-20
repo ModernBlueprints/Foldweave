@@ -26,10 +26,23 @@ MAX_HOST_RESPONSE_TURNS = 8
 class FolderHostPlanRevisionEntryV1(StrictFrozenModel):
     """One host-supplied sparse path replacement."""
 
-    file_id: str = Field(pattern=SHA256_PATTERN)
+    file_id: str = Field(
+        pattern=SHA256_PATTERN,
+        description=(
+            "Exact local member file_id from the current Foldweave preview. This "
+            "identifies the member to revise and is never an evidence ID."
+        ),
+    )
     replacement_target_path: str = Field(min_length=1, max_length=1_024)
     rationale: str = Field(min_length=1, max_length=1_000)
-    evidence_ids: tuple[str, ...] = Field(min_length=1)
+    evidence_ids: tuple[str, ...] = Field(
+        min_length=1,
+        description=(
+            "Exact permitted evidence identifiers supporting this replacement. "
+            'For a path-only preview revision use exactly ["initial_inventory"]; '
+            "never copy file_id or call_id into this field."
+        ),
+    )
 
     @model_validator(mode="after")
     def require_safe_relative_target(self) -> Self:
@@ -537,6 +550,115 @@ class FolderHostRevisionTurnRecordV1(StrictFrozenModel):
         return self
 
 
+class FolderHostDerivativePendingRevisionV1(StrictFrozenModel):
+    """Exact hosted derivative reservation before its first model response."""
+
+    schema_version: Literal["folder-host-derivative-pending-revision.v1"] = (
+        "folder-host-derivative-pending-revision.v1"
+    )
+    job_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    model_transport: HostModelTransport
+    expected_job_revision: int = Field(ge=0)
+    proposal_revision: Literal[0] = 0
+    response_turn: Literal[1] = 1
+    base_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    base_preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    revision_instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    initial_evidence_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    evidence_state: PlannerEvidenceState
+    evidence_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    prior_transcript_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    turn_contract_freeze_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    imported_change_file_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    match_report_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    immediate_parent_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    idempotency_key_sha256: str = Field(pattern=SHA256_PATTERN)
+    pending_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def require_derivative_parent_and_fingerprint(self) -> Self:
+        if (
+            self.base_candidate_fingerprint
+            != self.immediate_parent_candidate_fingerprint
+        ):
+            raise ValueError(
+                "Hosted derivative pending turn names another parent candidate."
+            )
+        if self.evidence_state.evidence_fingerprint != self.evidence_fingerprint:
+            raise ValueError(
+                "Hosted derivative pending evidence is not self-consistent."
+            )
+        expected = canonical_sha256(
+            self.model_dump(mode="json", exclude={"pending_fingerprint"})
+        )
+        if self.pending_fingerprint != expected:
+            raise ValueError("Hosted derivative pending fingerprint is invalid.")
+        return self
+
+
+class FolderHostDerivativeRevisionTurnRecordV1(StrictFrozenModel):
+    """First observable hosted sparse turn for one derivative child."""
+
+    schema_version: Literal["folder-host-derivative-revision-turn-record.v1"] = (
+        "folder-host-derivative-revision-turn-record.v1"
+    )
+    model_transport: HostModelTransport
+    response_turn: Literal[1] = 1
+    call_id: str = Field(min_length=1, max_length=128)
+    pending_revision_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    base_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    base_preview_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    revision_instruction_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    evidence_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    prior_transcript_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    turn_contract_freeze_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    imported_change_file_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    match_report_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    immediate_parent_candidate_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    revision: FolderHostPlanRevisionV1
+    outcome: Literal["accepted", "rejected"]
+    accepted_plan_fingerprint: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    failure_code: str | None = Field(
+        default=None,
+        pattern=r"^[a-z0-9_:-]{1,128}$",
+    )
+    failure_detail: str | None = Field(default=None, min_length=1, max_length=2_000)
+    turn_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def require_outcome_parent_and_fingerprint(self) -> Self:
+        if not (
+            self.base_candidate_fingerprint
+            == self.immediate_parent_candidate_fingerprint
+            == self.revision.base_candidate_fingerprint
+        ):
+            raise ValueError("Hosted derivative turn names another parent candidate.")
+        if self.outcome == "accepted":
+            if (
+                self.accepted_plan_fingerprint is None
+                or self.failure_code is not None
+                or self.failure_detail is not None
+            ):
+                raise ValueError(
+                    "Accepted hosted derivative has invalid outcome fields."
+                )
+        elif (
+            self.accepted_plan_fingerprint is not None
+            or self.failure_code is None
+            or self.failure_detail is None
+        ):
+            raise ValueError("Rejected hosted derivative lacks deterministic failure.")
+        expected = canonical_sha256(
+            self.model_dump(mode="json", exclude={"turn_fingerprint"})
+        )
+        if self.turn_fingerprint != expected:
+            raise ValueError("Hosted derivative turn fingerprint is invalid.")
+        return self
+
+
 def build_host_event(model_type, **values):
     """Build one canonical host event without duplicating hash-domain code."""
 
@@ -624,6 +746,40 @@ def build_host_revision_turn(**values) -> FolderHostRevisionTurnRecordV1:
     )
 
 
+def build_host_derivative_pending_revision(
+    **values,
+) -> FolderHostDerivativePendingRevisionV1:
+    """Build one canonical provider-free hosted derivative reservation."""
+
+    draft = FolderHostDerivativePendingRevisionV1.model_construct(
+        **values,
+        pending_fingerprint="0" * 64,
+    )
+    return FolderHostDerivativePendingRevisionV1(
+        **values,
+        pending_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"pending_fingerprint"})
+        ),
+    )
+
+
+def build_host_derivative_revision_turn(
+    **values,
+) -> FolderHostDerivativeRevisionTurnRecordV1:
+    """Build one canonical observable hosted derivative sparse turn."""
+
+    draft = FolderHostDerivativeRevisionTurnRecordV1.model_construct(
+        **values,
+        turn_fingerprint="0" * 64,
+    )
+    return FolderHostDerivativeRevisionTurnRecordV1(
+        **values,
+        turn_fingerprint=canonical_sha256(
+            draft.model_dump(mode="json", exclude={"turn_fingerprint"})
+        ),
+    )
+
+
 def host_contract_freeze_fingerprint() -> str:
     """Fingerprint the complete observable F0c host-planning contract."""
 
@@ -651,6 +807,12 @@ def host_contract_freeze_fingerprint() -> str:
                 "initial_ledger": FolderHostEvidenceLedgerV1.model_json_schema(),
                 "pending_revision": FolderHostPendingRevisionV1.model_json_schema(),
                 "revision_turn": FolderHostRevisionTurnRecordV1.model_json_schema(),
+                "derivative_pending_revision": (
+                    FolderHostDerivativePendingRevisionV1.model_json_schema()
+                ),
+                "derivative_revision_turn": (
+                    FolderHostDerivativeRevisionTurnRecordV1.model_json_schema()
+                ),
             },
         }
     )

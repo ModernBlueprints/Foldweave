@@ -170,16 +170,29 @@ class FolderPlanPreviewV1(StrictFrozenModel):
         ):
             raise ValueError("Preview link effects must be deterministically ordered.")
         self._require_projection_consistency()
+        portable_bindings = (
+            self.imported_change_file_fingerprint,
+            self.match_report_fingerprint,
+            self.immediate_parent_candidate_fingerprint,
+        )
         if self.proposal_basis == "imported_change_file":
             if (
                 self.imported_change_file_fingerprint is None
                 or self.match_report_fingerprint is None
+                or self.immediate_parent_candidate_fingerprint is not None
             ):
                 raise ValueError(
-                    "An imported proposal requires Change File and match fingerprints."
+                    "An imported proposal requires only Change File and match "
+                    "fingerprints."
                 )
-        elif self.match_report_fingerprint is not None:
-            raise ValueError("Only an imported proposal may retain a match report.")
+        elif self.proposal_basis == "gpt_derivative":
+            if any(value is None for value in portable_bindings):
+                raise ValueError(
+                    "A derivative proposal requires Change File, match, and "
+                    "immediate-parent candidate fingerprints."
+                )
+        elif any(value is not None for value in portable_bindings):
+            raise ValueError("A fresh proposal cannot retain derivative authority.")
         expected = canonical_sha256(
             self.model_dump(mode="json", exclude={"preview_fingerprint"})
         )

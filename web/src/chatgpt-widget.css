@@ -83,6 +83,17 @@ body {
   width: 100%;
 }
 
+.fw-chatgpt-terminal-state .bp6-callout p {
+  overflow-wrap: anywhere;
+}
+
+.fw-chatgpt-terminal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
 @media (max-width: 620px) {
   .fw-chatgpt-widget {
     padding: 9px;

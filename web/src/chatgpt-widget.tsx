@@ -28,9 +28,14 @@ import {
   foldweaveStructuredSchema,
 } from "./chatgpt-bridge";
 import {
+  type FoldweaveChangeFileResultV1,
   type FoldweaveChatGptReviewV1,
+  type FoldweaveHostedJobStatusV1,
+  type FoldweaveReconstructionResultV1,
   assertNoSensitiveBoundaryData,
+  parseHostedChangeFileResult,
   parseHostedJobStatus,
+  parseHostedReconstructionResult,
   parseHostedReviewEnvelope,
   parseHostedVerificationResult,
 } from "./chatgpt-contracts";
@@ -42,7 +47,15 @@ import type {
 import { ReviewIsland } from "./review-island";
 
 type PendingAction = "accept" | "revision" | "keep" | null;
+type TerminalAction = "verify" | "change_file" | "reconstruct" | null;
 type ApplyOutcome = "applied" | "unchanged" | "older" | "rejected";
+
+interface PendingRevisionContext {
+  parentJobId: string;
+  parentCandidateFingerprint: string;
+  parentPreviewFingerprint: string;
+  sourceCommitment: string;
+}
 
 const DEFAULT_HOST_RECOVERY_MS = 60_000;
 
@@ -62,7 +75,14 @@ export function FoldweaveChatGptWidget({
   const [requiresRefresh, setRequiresRefresh] = useState(false);
   const [reconcileRequest, setReconcileRequest] = useState(0);
   const [verificationNotice, setVerificationNotice] = useState<string | null>(null);
+  const [terminalAction, setTerminalAction] = useState<TerminalAction>(null);
+  const [changeFileEvidence, setChangeFileEvidence] =
+    useState<FoldweaveChangeFileResultV1 | null>(null);
+  const [reconstructionEvidence, setReconstructionEvidence] =
+    useState<FoldweaveReconstructionResultV1 | null>(null);
   const snapshotRef = useRef<FoldweaveChatGptReviewV1 | null>(null);
+  const activeJobIdRef = useRef<string | null>(null);
+  const pendingRevisionContextRef = useRef<PendingRevisionContext | null>(null);
   const pendingActionRef = useRef<PendingAction>(null);
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshingRef = useRef(false);
@@ -104,19 +124,42 @@ export function FoldweaveChatGptWidget({
     [clearRecoveryTimer, hostRecoveryMs],
   );
 
+  const abandonPendingRevision = useCallback((): void => {
+    pendingRevisionContextRef.current = null;
+    const current = snapshotRef.current;
+    if (current !== null) {
+      activeJobIdRef.current = current.status.job_id;
+    }
+  }, []);
+
   const applyStructuredContent = useCallback(
     (value: unknown, reconcileSameVersion = false): ApplyOutcome => {
       try {
         const next = parseHostedReviewEnvelope(value);
         const current = snapshotRef.current;
-        if (current && current.status.job_id !== next.status.job_id) {
-          throw new Error("Foldweave blocked a different job from replacing this review.");
+        const activeJobId = activeJobIdRef.current;
+        const sameJob = current?.status.job_id === next.status.job_id;
+        if (current && !sameJob) {
+          const revisionContext = pendingRevisionContextRef.current;
+          if (!isBoundDerivativeReview(current, next, revisionContext)) {
+            throw new Error("Foldweave blocked a different job from replacing this review.");
+          }
+          if (
+            activeJobId !== null &&
+            activeJobId !== current.status.job_id &&
+            activeJobId !== next.status.job_id
+          ) {
+            throw new Error("Foldweave blocked an unrelated derivative job response.");
+          }
+        } else if (activeJobId !== null && activeJobId !== next.status.job_id) {
+          throw new Error("Foldweave blocked a stale hosted job response.");
         }
-        if (current && next.state_version < current.state_version) {
+        if (current && sameJob && next.state_version < current.state_version) {
           return "older";
         }
         if (
           current &&
+          sameJob &&
           next.state_version === current.state_version &&
           (next.preview.preview_fingerprint !== current.preview.preview_fingerprint ||
             next.status.lifecycle !== current.status.lifecycle ||
@@ -125,18 +168,24 @@ export function FoldweaveChatGptWidget({
         ) {
           throw new Error("Foldweave blocked conflicting data for the same review version.");
         }
-        if (current && next.state_version === current.state_version) {
+        if (current && sameJob && next.state_version === current.state_version) {
           if (reconcileSameVersion) {
+            pendingRevisionContextRef.current = null;
             setError(null);
             setRequiresRefresh(false);
             clearPendingAction();
           }
           return "unchanged";
         }
+        activeJobIdRef.current = next.status.job_id;
         snapshotRef.current = next;
+        pendingRevisionContextRef.current = null;
         setSnapshot(next);
         setError(null);
         setRequiresRefresh(false);
+        setVerificationNotice(null);
+        setChangeFileEvidence(null);
+        setReconstructionEvidence(null);
         clearPendingAction();
         return "applied";
       } catch (caught) {
@@ -152,15 +201,40 @@ export function FoldweaveChatGptWidget({
   useEffect(() => {
     const unsubscribeResults = bridge.subscribeToolResults((value) => {
       const structuredContent = extractStructuredContent(value);
-      if (
-        foldweaveStructuredSchema(structuredContent) ===
-        "foldweave-chatgpt-review.v1"
-      ) {
+      const schema = foldweaveStructuredSchema(structuredContent);
+      if (schema === "foldweave-chatgpt-review.v1") {
         applyStructuredContent(structuredContent);
+      } else if (schema === "foldweave-hosted-job-status.v1") {
+        try {
+          const status = parseHostedJobStatus(structuredContent);
+          const current = snapshotRef.current;
+          const activeJobId = activeJobIdRef.current;
+          if (current === null || activeJobId === null) {
+            return;
+          }
+          if (status.job_id === activeJobId) {
+            return;
+          }
+          if (
+            !isBoundDerivativeStatus(
+              current,
+              status,
+              pendingRevisionContextRef.current,
+            )
+          ) {
+            throw new Error("Foldweave blocked an unrelated derivative job response.");
+          }
+          activeJobIdRef.current = status.job_id;
+        } catch (caught) {
+          setError(publicError(caught));
+          setRequiresRefresh(snapshotRef.current !== null);
+          clearPendingAction();
+        }
       }
     });
     const unsubscribeInterruptions = bridge.subscribeInterruptions(
       (interruption: HostInterruption) => {
+        abandonPendingRevision();
         clearPendingAction();
         const hasSnapshot = snapshotRef.current !== null;
         setRequiresRefresh(hasSnapshot);
@@ -189,7 +263,12 @@ export function FoldweaveChatGptWidget({
       unsubscribeResults();
       unsubscribeInterruptions();
     };
-  }, [applyStructuredContent, bridge, clearPendingAction]);
+  }, [
+    abandonPendingRevision,
+    applyStructuredContent,
+    bridge,
+    clearPendingAction,
+  ]);
 
   useEffect(() => clearRecoveryTimer, [clearRecoveryTimer]);
 
@@ -204,11 +283,23 @@ export function FoldweaveChatGptWidget({
     [applyStructuredContent],
   );
 
-  const callBoundTool = useCallback(
-    async (name: string, argumentsValue: Record<string, unknown>): Promise<unknown> => {
-      assertNoSensitiveBoundaryData(argumentsValue);
+  const callJobBoundTool = useCallback(
+    async (
+      name: string,
+      expectedJobId: string,
+      argumentsValue: Record<string, unknown>,
+    ): Promise<unknown> => {
+      const activeJobId = activeJobIdRef.current;
+      if (activeJobId === null || activeJobId !== expectedJobId) {
+        throw new Error("Foldweave blocked a stale hosted job action.");
+      }
+      const boundArguments = bindHostedJobToolArguments(
+        activeJobId,
+        argumentsValue,
+      );
+      assertNoSensitiveBoundaryData(boundArguments);
       try {
-        return await bridge.callTool(name, argumentsValue);
+        return await bridge.callTool(name, boundArguments);
       } catch (caught) {
         throw new Error(publicError(caught));
       }
@@ -218,24 +309,26 @@ export function FoldweaveChatGptWidget({
 
   const reconcileDurableJob = useCallback(async (): Promise<void> => {
     const current = snapshotRef.current;
-    if (current === null || refreshingRef.current) {
+    const activeJobId = activeJobIdRef.current;
+    if (current === null || activeJobId === null || refreshingRef.current) {
       return;
     }
     refreshingRef.current = true;
     setRefreshing(true);
     setVerificationNotice(null);
     try {
-      const statusResponse = await callBoundTool("job_status", {
-        job_id: current.status.job_id,
-        channel: "chatgpt_hosted",
-      });
+      const statusResponse = await callJobBoundTool(
+        "job_status",
+        activeJobId,
+        {},
+      );
       const statusContent = extractStructuredContent(statusResponse);
       if (statusContent === undefined) {
         throw new Error("Foldweave did not return its durable hosted status.");
       }
       const durableStatus = parseHostedJobStatus(
         statusContent,
-        current.status.job_id,
+        activeJobId,
       );
       if (durableStatus.source_commitment !== current.preview.source_commitment) {
         throw new Error("Foldweave blocked a durable status for a different source.");
@@ -261,12 +354,14 @@ export function FoldweaveChatGptWidget({
           "Foldweave is still waiting for a complete reviewable proposal. Refresh again after ChatGPT finishes.",
         );
       }
-      const previewResponse = await callBoundTool("get_plan_preview", {
-        job_id: durableStatus.job_id,
-        expected_revision: durableStatus.job_revision,
-        preview_fingerprint: durableStatus.preview_fingerprint,
-        channel: "chatgpt_hosted",
-      });
+      const previewResponse = await callJobBoundTool(
+        "get_plan_preview",
+        durableStatus.job_id,
+        {
+          expected_revision: durableStatus.job_revision,
+          preview_fingerprint: durableStatus.preview_fingerprint,
+        },
+      );
       const outcome = applyToolResponse(previewResponse, true);
       if (outcome !== "applied" && outcome !== "unchanged") {
         throw new Error("Foldweave did not return a complete reconciled preview.");
@@ -279,7 +374,7 @@ export function FoldweaveChatGptWidget({
       refreshingRef.current = false;
       setRefreshing(false);
     }
-  }, [applyToolResponse, callBoundTool, clearPendingAction]);
+  }, [applyToolResponse, callJobBoundTool, clearPendingAction]);
 
   useEffect(() => {
     if (reconcileRequest === reconciledRequestRef.current) {
@@ -294,12 +389,16 @@ export function FoldweaveChatGptWidget({
       if (!snapshot) {
         throw new Error("Foldweave has no exact preview to accept.");
       }
+      pendingRevisionContextRef.current = null;
       beginPendingAction("accept");
-      const response = await callBoundTool("accept_plan_and_create_copy", {
-        ...exactPreviewBinding(snapshot),
-        ...binding,
-        channel: "chatgpt_hosted",
-      }).catch((caught: unknown) => {
+      const response = await callJobBoundTool(
+        "accept_plan_and_create_copy",
+        snapshot.status.job_id,
+        {
+          ...exactPreviewBinding(snapshot),
+          ...binding,
+        },
+      ).catch((caught: unknown) => {
         clearPendingAction();
         setRequiresRefresh(true);
         throw caught;
@@ -316,7 +415,7 @@ export function FoldweaveChatGptWidget({
     [
       applyToolResponse,
       beginPendingAction,
-      callBoundTool,
+      callJobBoundTool,
       clearPendingAction,
       snapshot,
     ],
@@ -324,6 +423,9 @@ export function FoldweaveChatGptWidget({
 
   const revisePlan = useCallback(
     async (payload: RevisionPayload): Promise<void> => {
+      if (pendingActionRef.current !== null) {
+        return;
+      }
       if (!snapshot) {
         throw new Error("Foldweave has no exact preview to revise.");
       }
@@ -333,15 +435,28 @@ export function FoldweaveChatGptWidget({
       assertNoSensitiveBoundaryData(payload);
       const prompt = createRevisionPrompt(snapshot, payload);
       assertNoSensitiveBoundaryData(prompt);
+      pendingRevisionContextRef.current = {
+        parentJobId: snapshot.status.job_id,
+        parentCandidateFingerprint: snapshot.preview.compiled_candidate_fingerprint,
+        parentPreviewFingerprint: snapshot.preview.preview_fingerprint,
+        sourceCommitment: snapshot.preview.source_commitment,
+      };
       beginPendingAction("revision");
       try {
         await bridge.sendFollowUpMessage(prompt);
       } catch (caught) {
+        abandonPendingRevision();
         clearPendingAction();
         throw new Error(publicError(caught));
       }
     },
-    [beginPendingAction, bridge, clearPendingAction, snapshot],
+    [
+      abandonPendingRevision,
+      beginPendingAction,
+      bridge,
+      clearPendingAction,
+      snapshot,
+    ],
   );
 
   const keepPrevious = useCallback(
@@ -349,12 +464,16 @@ export function FoldweaveChatGptWidget({
       if (!snapshot) {
         throw new Error("Foldweave has no previous proposal to keep.");
       }
+      pendingRevisionContextRef.current = null;
       beginPendingAction("keep");
-      const response = await callBoundTool("keep_previous_proposal", {
-        ...exactPreviewBinding(snapshot),
-        ...payload,
-        channel: "chatgpt_hosted",
-      }).catch((caught: unknown) => {
+      const response = await callJobBoundTool(
+        "keep_previous_proposal",
+        snapshot.status.job_id,
+        {
+          ...exactPreviewBinding(snapshot),
+          ...payload,
+        },
+      ).catch((caught: unknown) => {
         clearPendingAction();
         setRequiresRefresh(true);
         throw caught;
@@ -368,7 +487,7 @@ export function FoldweaveChatGptWidget({
     [
       applyToolResponse,
       beginPendingAction,
-      callBoundTool,
+      callJobBoundTool,
       clearPendingAction,
       snapshot,
     ],
@@ -387,14 +506,17 @@ export function FoldweaveChatGptWidget({
     }
     refreshingRef.current = true;
     setRefreshing(true);
+    setTerminalAction("verify");
     setVerificationNotice(null);
     setError(null);
     try {
-      const response = await callBoundTool("verify_result", {
-        job_id: snapshot.status.job_id,
-        organized_tree_commitment: snapshot.result!.organized_tree_commitment,
-        channel: "chatgpt_hosted",
-      });
+      const response = await callJobBoundTool(
+        "verify_result",
+        snapshot.status.job_id,
+        {
+          organized_tree_commitment: snapshot.result!.organized_tree_commitment,
+        },
+      );
       const structuredContent = extractStructuredContent(response);
       if (structuredContent === undefined) {
         throw new Error("Foldweave did not return independent verification evidence.");
@@ -410,12 +532,86 @@ export function FoldweaveChatGptWidget({
     } finally {
       refreshingRef.current = false;
       setRefreshing(false);
+      setTerminalAction(null);
     }
-  }, [callBoundTool, snapshot]);
+  }, [callJobBoundTool, snapshot]);
+
+  const getChangeFile = useCallback(async (): Promise<void> => {
+    if (
+      !snapshot ||
+      snapshot.status.lifecycle !== "verified" ||
+      snapshot.result?.change_file_fingerprint === null ||
+      snapshot.result?.change_file_fingerprint === undefined ||
+      refreshingRef.current
+    ) {
+      return;
+    }
+    refreshingRef.current = true;
+    setRefreshing(true);
+    setTerminalAction("change_file");
+    setError(null);
+    try {
+      const response = await callJobBoundTool(
+        "get_change_file",
+        snapshot.status.job_id,
+        {},
+      );
+      const structuredContent = extractStructuredContent(response);
+      if (structuredContent === undefined) {
+        throw new Error("Foldweave did not return the verified Change File identity.");
+      }
+      const evidence = parseHostedChangeFileResult(
+        structuredContent,
+        snapshot.status.job_id,
+        snapshot.result.change_file_fingerprint,
+      );
+      setChangeFileEvidence(evidence);
+    } catch (caught) {
+      setError(publicError(caught));
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+      setTerminalAction(null);
+    }
+  }, [callJobBoundTool, snapshot]);
+
+  const recreateOriginal = useCallback(async (): Promise<void> => {
+    if (!snapshot || snapshot.status.lifecycle !== "verified" || refreshingRef.current) {
+      return;
+    }
+    refreshingRef.current = true;
+    setRefreshing(true);
+    setTerminalAction("reconstruct");
+    setError(null);
+    try {
+      const response = await callJobBoundTool(
+        "recreate_original",
+        snapshot.status.job_id,
+        {},
+      );
+      const structuredContent = extractStructuredContent(response);
+      if (structuredContent === undefined) {
+        throw new Error("Foldweave did not return verified reconstruction evidence.");
+      }
+      const evidence = parseHostedReconstructionResult(
+        structuredContent,
+        snapshot.status.job_id,
+        snapshot.preview.source_commitment,
+        snapshot.result!.complete_file_count,
+      );
+      setReconstructionEvidence(evidence);
+    } catch (caught) {
+      setError(publicError(caught));
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+      setTerminalAction(null);
+    }
+  }, [callJobBoundTool, snapshot]);
 
   const hostStatus = useMemo(() => {
     if (pendingAction === "revision") {
-      return "ChatGPT is revising the exact proposal with the host model.";
+      return "Revision request sent to ChatGPT; waiting for a revised preview.";
     }
     if (pendingAction === "accept") {
       return "The paired Foldweave app is creating and verifying the separate copy.";
@@ -479,10 +675,15 @@ export function FoldweaveChatGptWidget({
         </Card>
       ) : snapshot.status.lifecycle === "verified" ? (
         <VerifiedResult
+          changeFileEvidence={changeFileEvidence}
           notice={verificationNotice}
+          onGetChangeFile={() => void getChangeFile()}
+          onRecreateOriginal={() => void recreateOriginal()}
           onVerify={() => void verifyResult()}
+          reconstructionEvidence={reconstructionEvidence}
           refreshing={refreshing}
           snapshot={snapshot}
+          terminalAction={terminalAction}
         />
       ) : (
         <ReviewIsland
@@ -506,12 +707,22 @@ function VerifiedResult({
   snapshot,
   refreshing,
   notice,
+  changeFileEvidence,
+  reconstructionEvidence,
   onVerify,
+  onGetChangeFile,
+  onRecreateOriginal,
+  terminalAction,
 }: {
   snapshot: FoldweaveChatGptReviewV1;
   refreshing: boolean;
   notice: string | null;
+  changeFileEvidence: FoldweaveChangeFileResultV1 | null;
+  reconstructionEvidence: FoldweaveReconstructionResultV1 | null;
   onVerify: () => void;
+  onGetChangeFile: () => void;
+  onRecreateOriginal: () => void;
+  terminalAction: TerminalAction;
 }): ReactElement {
   const result = snapshot.result!;
   return (
@@ -523,9 +734,54 @@ function VerifiedResult({
         changed. The selected source remained unchanged.
       </p>
       {notice && <Callout intent="success" role="status">{notice}</Callout>}
-      <Button disabled={refreshing} loading={refreshing} onClick={onVerify}>
-        Verify again
-      </Button>
+      {changeFileEvidence && (
+        <Callout intent="primary" role="status" title="Foldweave Change File ready">
+          <p>
+            Opaque local item <code>{changeFileEvidence.item.handle}</code> identifies{" "}
+            <strong>{changeFileEvidence.item.display_name}</strong>.
+          </p>
+          <p>
+            Change File <code>{changeFileEvidence.change_file_fingerprint}</code>; receipt{" "}
+            <code>{changeFileEvidence.originating_receipt_fingerprint}</code>.
+          </p>
+        </Callout>
+      )}
+      {reconstructionEvidence && (
+        <Callout intent="success" role="status" title="Original layout recreated and verified">
+          <p>
+            Opaque local item <code>{reconstructionEvidence.item.handle}</code> identifies{" "}
+            <strong>{reconstructionEvidence.item.display_name}</strong>.
+          </p>
+          <p>
+            {reconstructionEvidence.restored_file_count} files and{" "}
+            {reconstructionEvidence.restored_empty_directory_count} empty directories restored;
+            receipt <code>{reconstructionEvidence.receipt_fingerprint}</code>.
+          </p>
+        </Callout>
+      )}
+      <div className="fw-chatgpt-terminal-actions">
+        <Button
+          disabled={refreshing}
+          loading={terminalAction === "verify"}
+          onClick={onVerify}
+        >
+          Verify again
+        </Button>
+        <Button
+          disabled={refreshing || result.change_file_fingerprint === null}
+          loading={terminalAction === "change_file"}
+          onClick={onGetChangeFile}
+        >
+          Get Change File
+        </Button>
+        <Button
+          disabled={refreshing}
+          loading={terminalAction === "reconstruct"}
+          onClick={onRecreateOriginal}
+        >
+          Recreate original
+        </Button>
+      </div>
     </Card>
   );
 }
@@ -534,11 +790,76 @@ function WidgetShell({ children }: { children: React.ReactNode }): ReactElement 
   return <main className="fw-chatgpt-widget bp6-dark">{children}</main>;
 }
 
+function bindHostedJobToolArguments(
+  jobId: string,
+  argumentsValue: Record<string, unknown>,
+): Record<string, unknown> {
+  if ("job_id" in argumentsValue) {
+    throw new Error("Foldweave blocked a caller-supplied hosted job identity.");
+  }
+  return { job_id: jobId, ...argumentsValue };
+}
+
+function isCurrentRevisionParent(
+  current: FoldweaveChatGptReviewV1,
+  revisionContext: PendingRevisionContext | null,
+): revisionContext is PendingRevisionContext {
+  return (
+    revisionContext !== null &&
+    current.status.job_id === revisionContext.parentJobId &&
+    current.preview.compiled_candidate_fingerprint ===
+      revisionContext.parentCandidateFingerprint &&
+    current.preview.preview_fingerprint === revisionContext.parentPreviewFingerprint &&
+    current.preview.source_commitment === revisionContext.sourceCommitment
+  );
+}
+
+function isBoundDerivativeStatus(
+  current: FoldweaveChatGptReviewV1,
+  status: FoldweaveHostedJobStatusV1,
+  revisionContext: PendingRevisionContext | null,
+): boolean {
+  return (
+    isCurrentRevisionParent(current, revisionContext) &&
+    current.journey === "apply" &&
+    status.job_id !== revisionContext.parentJobId &&
+    status.lifecycle === "revising" &&
+    status.planning_basis === "derivative" &&
+    status.model_transport === "chatgpt_hosted" &&
+    status.execution_origin === "none" &&
+    status.source_commitment === revisionContext.sourceCommitment &&
+    status.has_preview === false &&
+    status.candidate_fingerprint === null &&
+    status.preview_fingerprint === null
+  );
+}
+
+function isBoundDerivativeReview(
+  current: FoldweaveChatGptReviewV1,
+  next: FoldweaveChatGptReviewV1,
+  revisionContext: PendingRevisionContext | null,
+): boolean {
+  return (
+    isCurrentRevisionParent(current, revisionContext) &&
+    current.journey === "apply" &&
+    next.journey === "apply" &&
+    next.status.job_id !== revisionContext.parentJobId &&
+    next.status.planning_basis === "derivative" &&
+    next.status.model_transport === "chatgpt_hosted" &&
+    next.status.execution_origin === "none" &&
+    next.preview.proposal_basis === "gpt_derivative" &&
+    next.preview.immediate_parent_candidate_fingerprint ===
+      revisionContext.parentCandidateFingerprint &&
+    next.preview.source_commitment === revisionContext.sourceCommitment &&
+    next.preview.imported_change_file_fingerprint ===
+      current.preview.imported_change_file_fingerprint
+  );
+}
+
 function exactPreviewBinding(
   snapshot: FoldweaveChatGptReviewV1,
 ): Record<string, unknown> {
   return {
-    job_id: snapshot.status.job_id,
     proposal_revision: snapshot.preview.proposal_revision,
     source_commitment: snapshot.preview.source_commitment,
     imported_change_file_fingerprint:
@@ -558,6 +879,7 @@ function createRevisionPrompt(
     `Use the Foldweave host-planning tools and bind the replacement to job revision ${payload.expected_revision}, candidate ${payload.candidate_fingerprint}, and preview ${payload.preview_fingerprint}.`,
     `Reuse this exact idempotency key: ${payload.idempotency_key}.`,
     "Submit one complete mechanically checked replacement preview; do not execute it and do not call the Foldweave direct Responses API.",
+    'For this path-only revision, set every sparse entry evidence_ids exactly to ["initial_inventory"]. Do not call evidence tools after revise_plan; they are unavailable while the exact revision is reserved.',
     `The user's requested change is: ${JSON.stringify(payload.instruction)}.`,
   ].join("\n");
 }

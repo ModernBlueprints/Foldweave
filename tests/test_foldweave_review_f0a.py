@@ -166,6 +166,7 @@ def test_f0a_origin_and_receiver_review_accept_converge_and_reconstruct(
     for job in (accepted_origin, accepted_receiver):
         verification = service.verify_result(job.job_path)
         assert verification.status is ConnectedReceiptVerificationStatus.VERIFIED
+        assert verification.schema_version == "folder-receipt-verification.v3"
         assert verification.job_id == job.job_id
 
     assert accepted_receiver.final_result_path is not None

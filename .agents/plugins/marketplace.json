@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "name-atlas",
+      "name": "foldweave",
       "source": {
         "source": "local",
-        "path": "./plugins/name-atlas"
+        "path": "./plugins/foldweave"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -1,35 +1,68 @@
-# Limitations and claim boundaries
+# Foldweave limitations and claim boundaries
 
-Reversible Name Atlas is a local-first Build Week project for one precise job:
-rename and reorganize files in a connected project folder while accounting for
-every admitted file, preserve the supported relative Markdown links between
-those files, and create a separate result that can be checked and reconstructed.
-It is not a universal file manager, content-understanding system,
-synchronization service, or production backup product.
+**Foldweave — Change the structure. Keep the connections.**
 
-## What Name Atlas changes
+Foldweave is a local-first Build Week application for one precise job: propose
+and review a reorganization of a connected project folder, preserve every
+admitted file and the supported relative Markdown links between those files,
+and create a separate verified result only after the user accepts the exact
+preview. It is not a universal file manager, content-understanding system,
+synchronization service, real-time collaboration product, or production backup
+system.
 
-Name Atlas can:
+This document describes the current supported contract and the limits on public
+claims. A checked-in implementation, passing unit test, or visible UI is not by
+itself evidence that an external distribution surface is publicly available.
+
+## Review before execution
+
+Every new Foldweave transaction stops in review before it can create a result.
+The review shows the selected source structure and one complete proposed
+structure from a single immutable `folder-plan-preview.v1` value. The preview
+accounts for every admitted file, protected member, explicit empty directory,
+and supported link effect.
+
+The action **Accept this structure and create copy** binds the durable job
+revision, source commitment, candidate fingerprint, preview fingerprint,
+destination, channel, and idempotency key. Stale tabs, changed sources, changed
+Change Files, changed destinations, concurrent revisions, duplicate clicks, and
+conflicting retries block rather than authorizing a different proposal.
+
+A user can request at most two model-assisted revisions for one planning job.
+Each successful revision creates a complete replacement preview and fixed code
+rechecks file accounting, protected members, paths, collisions, and supported
+link rewrites. A failed revision leaves the preceding valid proposal intact;
+the failed proposal cannot be accepted as if it succeeded. Mechanical checker
+failures are not converted into open-ended model retries.
+
+No source file is renamed, moved, edited, or deleted. No result, receipt, or
+transferable Change File exists merely because a proposal reached review.
+
+## What Foldweave changes
+
+Within the supported contract, Foldweave can:
 
 - rename files;
 - move files into a new folder structure;
 - preserve every admitted source file exactly once;
 - preserve protected members at their original relative paths;
-- update the supported relative Markdown links when a note, its target, or both
-  move; and
-- create a separate verified result while leaving the selected source folder
-  unchanged.
+- update supported relative Markdown links when a note, its target, or both
+  move;
+- compare a receiver's differently arranged local tree with a shared proposal;
+- revise a shared proposal into a new derivative proposal; and
+- create a separate verified result while leaving the selected source unchanged.
 
-It does not delete, omit, merge, deduplicate, extract, convert, or edit the
-general contents of files. It does not refactor source code or repair imports,
-configuration, databases, application references, spreadsheets, Office/PDF
-links, or media-library catalogs. A request that requires those operations is
-outside the supported contract and must not produce an accepted result.
+Foldweave does not delete, omit, merge, deduplicate, extract, convert, or edit
+the general contents of files. It does not refactor source code or repair
+imports, configuration, databases, application references, spreadsheets,
+Office/PDF links, or media-library catalogs. A request that requires those
+operations is outside the supported contract and must not produce an accepted
+result.
 
 The demonstrated JPG, PNG, WAV, MP3, PDF, XLSX, and other opaque formats are
-copied byte-for-byte. GPT-5.6 does not inspect or semantically understand their
-contents; it can use only their admitted path and basic metadata as planning
-evidence.
+copied byte-for-byte. A planning model does not inspect or semantically
+understand their contents; it can use only their admitted path and basic
+metadata as planning evidence.
 
 ## Admitted folder boundary
 
@@ -44,33 +77,33 @@ Each `.md` or `.markdown` file is limited to 16 MiB. Symlinks, hard-linked
 regular files, special files, unreadable members, changing sources, overlapping
 source/result locations, insufficient free space, or an existing final result
 block the transaction. Hidden files are included rather than silently skipped.
-Empty directories are preserved explicitly at the same relative path.
+Empty directories are represented explicitly.
 
-This release defines a conservative Name Atlas naming profile: Unicode NFC,
-bounded component/path lengths, no Windows-reserved basenames or forbidden
-characters, exact/NFC/casefold uniqueness, and no file/directory ancestor
-conflicts. That is an application rule set, not a claim of native operation on
-every filesystem or a tested native Windows runtime.
+Foldweave uses a conservative naming profile: Unicode NFC, bounded component
+and path lengths, no Windows-reserved basenames or forbidden characters,
+exact/NFC/casefold uniqueness, and no file/directory ancestor conflicts. That is
+an application rule set, not a claim of native operation on every filesystem.
 
-A Name Atlas Change File is limited to 16 MiB of strict UTF-8 JSON. Invalid
+A Foldweave Change File is limited to 16 MiB of strict UTF-8 JSON. Invalid
 UTF-8, duplicate JSON keys, non-finite values, unknown fields, unsupported
-schema versions, and invalid canonical fingerprints block before the receiver
-folder is scanned.
+schema versions, oversized files, and invalid canonical fingerprints block
+before receiver execution.
 
 ## Protected members
 
 Dotfiles, members below dot-directories or version-control directories, and
 common credential/key filenames are protected. They remain in the complete
 inventory and result, keep their exact original relative paths, and their
-contents are not offered to GPT-5.6 as planning evidence.
+contents are not offered to a planning model.
 
 A protected Markdown file containing a supported local link is outside this
-release contract, because preserving the relationship could require exposing or
-rewriting content that the product deliberately keeps out of planning.
+release contract because preserving the relationship could require exposing or
+rewriting content that Foldweave deliberately keeps out of planning.
 
-## Supported Markdown links
+## Supported connections
 
-Name Atlas handles a deliberately narrow, testable Markdown subset:
+“Connections” means only the supported relative Markdown links inside the
+selected folder. Foldweave handles a deliberately narrow, testable subset:
 
 - UTF-8 `.md` and `.markdown` files;
 - inline links and inline images;
@@ -80,79 +113,135 @@ Name Atlas handles a deliberately narrow, testable Markdown subset:
 - optional fragments; and
 - UTF-8 percent encoding.
 
-It preserves every byte outside the exact accepted destination spans and proves
-that a rewritten link still resolves to the same logical file.
+Foldweave preserves every byte outside the exact accepted destination spans and
+proves that each rewritten link still resolves to the same logical file.
 
 External schemes and anchor-only links are left unchanged. Root-relative or
 absolute paths, `file:` URLs, query strings, root escape, malformed escapes,
 encoded slash/backslash ambiguity, directory or dangling targets,
 case-mismatched targets, and local reference-style links/definitions are not
-supported. Name Atlas does not claim to preserve arbitrary links embedded in
+supported. Foldweave does not claim to preserve arbitrary links embedded in
 Office documents, PDFs, source code, databases, design files, or media catalogs.
 
-## GPT-5.6 planning boundary
+## Four execution modes
 
-GPT-5.6 is used only for the origin planning transaction. It receives the
-plain-English instruction, relative names and folder structure, basic file
-metadata needed to bind the plan, selected excerpts from eligible text and
+Foldweave keeps four model and credential modes separate:
+
+| Mode | Model inference | Credential and billing boundary |
+|---|---|---|
+| Native direct API | Exact `gpt-5.6` through the OpenAI Responses API | Uses the user's OpenAI API key and the sole Foldweave direct-API budget ledger |
+| ChatGPT-hosted | Model supplied by the user's ChatGPT session | Uses no Foldweave Responses API key and makes no Foldweave direct-API budget reservation |
+| Recorded replay | None | Keyless, model-free replay of exact labelled planning evidence |
+| Unchanged Change File application | None | Keyless and model-free deterministic preparation, review, and execution |
+
+A ChatGPT subscription and OpenAI API billing are separate. Pairing Foldweave
+with ChatGPT does not turn a ChatGPT subscription into Responses API credit. The
+ChatGPT-hosted path is truthful only when the ChatGPT session supplies model
+inference; it may not silently call the direct API.
+
+Codex is an additional access surface over the same bounded MCP and deterministic
+domain services. It does not create a fifth model-provenance category or a
+second execution engine.
+
+## Direct GPT-5.6 boundary
+
+Direct live planning uses exact model alias `gpt-5.6`, the Responses API,
+strict tools and schemas, `store=false`, no model fallback, and no provider
+retry. The model receives the plain-English instruction, relative names and
+folder structure, basic file metadata, selected excerpts from eligible text and
 Markdown files, and supported-link context. It does not receive absolute local
-paths, protected contents, or arbitrary opaque file bytes.
+paths, protected contents, credentials, or arbitrary opaque file bytes.
 
-GPT-5.6 proposes a complete rename/move plan. Fixed code then requires every
-eligible file exactly once, injects protected files and empty directories,
-checks names and relationships, derives link rewrites, copies the data, and
-verifies the result. GPT-5.6 cannot directly write, rename, delete, promote, or
-verify files. A mechanical defect may be repaired within a fixed limit; genuinely
-missing user intent can produce at most one question and one answer.
+The model proposes a complete plan or a strict bounded revision. Fixed code
+requires every eligible file exactly once, injects protected files and empty
+directories, checks names and relationships, derives link rewrites, renders the
+preview, copies the accepted data, and verifies the result. A model cannot
+write, rename, delete, promote, approve, or verify files and cannot manufacture
+receipt or verifier authority.
 
-The live integration uses exact model alias `gpt-5.6`, the Responses API,
-strict tools, no model fallback, no provider retry, and `store=false`.
-`store=false` means the application does not ask OpenAI to retain the generated
-response for later API retrieval. Standard abuse-monitoring and prompt-caching
-retention may still apply. The project does not claim zero retention, complete
-privacy, or that nothing leaves the computer during an origin planning run.
+`store=false` means Foldweave does not ask the Responses API to retain the
+generated response as retrievable application state. Standard abuse-monitoring
+and prompt-caching retention may still apply. Foldweave does not claim zero
+retention, complete privacy, or that nothing leaves the computer during direct
+live planning.
 
-The recorded demonstration replays two exact successful GPT-5.6 planning runs
-and makes no provider call. Its interface labels that mode **Recorded GPT-5.6
-planning run**.
+The native application stores a direct API key in macOS Keychain. The key is
+read by the trusted Python process only; it does not enter React, the DOM,
+browser storage, jobs, receipts, replays, MCP traffic, ChatGPT, logs, or
+screenshots. Development and automated qualification may use an environment
+credential without copying it into the product Keychain item.
 
-## Name Atlas Change File boundary
+## ChatGPT-hosted and companion boundary
 
-A Name Atlas Change File records a verified change so another person can apply
-it to a differently arranged equivalent copy without another GPT call.
+The ChatGPT architecture is:
 
-It contains no project payload bytes. It does contain sensitive project
-metadata: names and structure, file sizes and hashes, supported link
-relationships, the original instruction, target names, and proof identifiers.
-“No project payload bytes are transferred” is accurate; “nothing about the
-project is shared” is not.
+`ChatGPT app and Foldweave widget -> authenticated public gateway -> paired outbound companion -> local deterministic engine`
+
+The remote widget cannot inspect the local filesystem. Folder and Change File
+selection occurs through the local companion, and the host receives opaque
+handles rather than absolute local paths. The local durable job remains the
+sole product-operation and idempotency authority; the gateway is not a second
+planner, job store, receipt service, or filesystem authority.
+
+ChatGPT-hosted planning uses bounded Foldweave evidence tools and returns a
+complete proposal for deterministic compilation. Current-tree extraction,
+receiver matching, preview construction, acceptance, execution, verification,
+and reconstruction are deterministic. Martin's current tree can therefore be
+rendered against a shared proposal without a GPT call.
+
+The checked-in gateway and companion implementation is not itself proof of a
+public deployment, consumer pairing, directory approval, or public listing.
+Those claims require separate observed qualification. Until that evidence is
+recorded, Foldweave must not be described as publicly listed or universally
+available inside ChatGPT.
+
+## Change File and collaboration boundary
+
+New Foldweave output uses a complete `*.foldweave-change.json` file. It can be
+applied unchanged to a strictly equivalent receiver source, or used as the
+immutable parent of one model-assisted derivative job. An unchanged application
+uses no model and does not touch the direct-API budget. A derivative revision
+does use the selected live planning transport and therefore cannot be described
+as `capsule_applied`.
+
+A derivative child Change File is complete and self-contained. It records only
+its immediate parent identity rather than recursively embedding every ancestor.
+The workflow supports explicit serial forks; it does not implement automatic
+merge, live co-editing, accounts, permissions, or cloud synchronization.
+
+A Foldweave Change File contains no project payload bytes. It does contain
+sensitive project metadata: names and structure, file sizes and hashes,
+supported-link relationships, the original instruction, target names, lineage,
+and proof identifiers. “No project payload bytes are transferred” is accurate;
+“nothing about the project is shared” is not.
 
 Receiver matching is deterministic and intentionally conservative. Ordinary
 files must match exact size and SHA-256 descriptors. Markdown prose, labels,
 line endings, fragments, link count/order, and supported relationship structure
-must match; only the supported destination text may differ. Protected files
-also require the same original relative path and bytes. Empty-directory
-requirements must agree.
+must match; only supported destination text may differ. Protected files also
+require the same original relative path and bytes. Empty-directory requirements
+must agree.
 
 An extra or missing member, changed payload, changed Markdown prose, changed
 supported relationship, incompatible suffix, protected-member disagreement,
 empty-directory disagreement, invalid Change File, or unresolved symmetric
-duplicate group blocks instead of being guessed. Name Atlas does not reconcile
+duplicate group blocks instead of being guessed. Foldweave does not reconcile
 independently edited copies, infer semantic equivalence, or solve general graph
 isomorphism.
 
-Applying a Change File initializes no GPT provider, requires no API key, makes
-no budget reservation, and makes no external network request. The local browser
-still uses loopback HTTP between the browser and the application, so the project
-does not make the broader claim that the browser uses no networking at all.
+Local unchanged Change File application initializes no model provider, reads no
+API key, and makes no direct-API budget reservation. The browser fallback still
+uses loopback HTTP. The ChatGPT access surface also uses gateway networking even
+when the underlying unchanged application is model-free, so “no networking” is
+not a universal product claim.
 
-## What verification proves
+## Verification and reconstruction
 
-`name-atlas verify-receipt` is read-only, keyless, source-free, and independent
-of the live job, browser, GPT provider, and network. It validates the portable
-result, strict artifact schemas, exact recorded commitments, complete file
-accounting, accepted paths, supported link rewrites, inverse maps, preserved
-original Markdown bytes, and reported findings.
+`foldweave verify-receipt` is read-only, keyless, source-free, and independent
+of the live planning provider. It validates the portable result, strict artifact
+schemas, exact recorded commitments, complete file accounting, accepted paths,
+supported link rewrites, inverse maps, preserved original Markdown bytes, and
+reported findings.
 
 Without `--source`, verification proves internal consistency against the source
 description committed inside the result. It does not prove that the producer's
@@ -161,49 +250,111 @@ supplied current folder with that committed description.
 
 The receipt and Change File are not signatures. They do not authenticate a
 sender, establish authorship or institutional authorization, prevent a party
-from deliberately issuing a wholly new self-consistent receipt, or provide
-compliance certification. The controlled altered-result example demonstrates
-receipt-bound inconsistency detection, not tamper-proofing.
+from issuing a wholly new self-consistent artifact, or provide compliance
+certification. Controlled altered-result examples demonstrate receipt-bound
+inconsistency detection, not tamper-proofing.
 
-## Reconstruction boundary
+`foldweave restore-receipt` and **Recreate original layout** verify the selected
+result first, refuse an existing destination, and recreate the source chosen for
+that particular transaction. A receiver result reconstructs the receiver's own
+starting layout, not the producer's layout or the first ancestor in a
+collaboration chain.
 
-`name-atlas restore-receipt` and **Recreate original layout** verify the result
-first, refuse an existing destination, and create another folder matching that
-job's admitted original relative paths and bytes. A receiver result reconstructs
-the receiver's own starting layout, not the producer's different layout.
-
-The reconstruction does not change the source, organized result, or Change
-File. It does not preserve timestamps, ownership, access-control lists,
+Reconstruction does not preserve timestamps, ownership, access-control lists,
 extended attributes, resource forks, hard-link or symlink identity, undeclared
-references, or arbitrary filesystem state. “Recreates every in-scope source
-member's relative path and bytes within the supported Name Atlas folder
-contract” is the complete supported claim.
+references, or arbitrary filesystem state. The supported claim is limited to
+recreating every in-scope source member's relative path and bytes.
 
-## Browser, macOS bridge, CLI, MCP, and plugin
+## Native application and platform boundary
 
-The standard product is a loopback FastAPI/Jinja browser application. Manual
-absolute path fields work on every supported judge path. On macOS, fixed
-application-controlled AppleScript opens native folder/file selection and
-Finder for verified job-owned results. The product is not a native desktop or
-mobile application and does not provide remote phone file access.
+The tested native profile is `Foldweave.app` on macOS Apple Silicon. It uses a
+pywebview shell around one private FastAPI loopback control plane. React,
+TypeScript, BlueprintJS, and Vite provide the focused review tree and ChatGPT
+widget; they do not own durable product state or require Node.js at runtime.
 
-The shared STDIO MCP server exposes exactly seven high-level Name Atlas tools.
-It does not expose arbitrary file reads/writes, shell commands, direct compiler
-bypass, receipt construction, or proof override. Mutation retries use the
-existing durable job authority so an identical request returns the same job or
-result instead of duplicating work.
+The packaged app has been qualified as an unsigned/ad-hoc judge build. No Apple
+Developer ID identity is available, so Foldweave does not claim notarization,
+Developer ID signing, Mac App Store distribution, or warning-free Gatekeeper
+launch on every machine. The browser and CLI remain supported fallback paths.
 
-The Codex plugin is a thin package around that same MCP server. It was qualified
-through a clean-clone marketplace installation, a fresh Codex task, real tool
-discovery and invocation, keyless replay/verification/reconstruction, and clear
-missing-key live behavior. Codex is the tested plugin client. The project does
-not claim tested compatibility with Claude, Cursor, OpenCode, Grok, or other
-hosts that were not exercised.
+Foldweave does not claim a native Windows or Linux application, mobile access,
+or remote phone file access. Only macOS Apple Silicon is included in the native
+release claim.
 
-## Release status
+## MCP, Codex, and public distribution
 
-This is a hackathon release, not a production-readiness claim. The evidence
-demonstrates the exact bundled fixtures and supported contract. It does not
-establish universal zero-question behavior, measured time savings, market
-adoption, native Windows support, legal compliance, or a universal organizer
+One MCP implementation exposes bounded host-planning and reviewed workflow tool
+families through local STDIO for Codex and Streamable HTTP for ChatGPT. It does
+not expose arbitrary filesystem reads/writes/moves/deletes, shell execution,
+compiler bypass, receipt construction, verification override, arbitrary
+companion RPC, or provider credentials.
+
+Mutations bind durable job identity, expected revision, exact fingerprints,
+idempotency, source and Change File commitments, and trusted channel. Status
+polling and preview retrieval cannot trigger a provider call.
+
+The Foldweave Codex plugin is a thin package around that same MCP server; it does
+not contain a copied planner or product engine. Public claims about a fresh-task
+installed-copy transaction require observed clean-clone installation,
+discovery, invocation, and cache/version evidence for the current Foldweave
+build. Historical Name Atlas plugin qualification does not automatically prove
+the renamed plugin.
+
+Similarly, developer-mode ChatGPT qualification, consumer pairing, publication
+readiness, submission for review, approval, and public listing are separate
+states. A tunnel is a developer route, not proof of the consumer gateway, and
+submission for review is not approval.
+
+## Current command boundary
+
+The primary commands are:
+
+- `uv run foldweave app` — native macOS application;
+- `uv run foldweave app --browser` — loopback browser fallback;
+- `uv run foldweave demo --mode replay` — bundled keyless proposal replay;
+- `uv run foldweave run --mode live|replay --source SOURCE` — prepare an origin
+  proposal and stop for review;
+- `uv run foldweave apply-change CHANGE_FILE --source SOURCE` — prepare a
+  receiver-local proposal and stop for review;
+- `uv run foldweave preview JOB [--json]` — inspect the immutable preview;
+- `uv run foldweave revise JOB --instruction TEXT --idempotency-key KEY` —
+  request a bounded revision;
+- `uv run foldweave accept JOB --preview-fingerprint SHA256
+  --idempotency-key KEY` — accept exactly one preview and create a copy;
+- `uv run foldweave verify-receipt RESULT_BAG [--source SOURCE]`;
+- `uv run foldweave restore-receipt RESULT_BAG RESTORE_DESTINATION`;
+- `uv run foldweave mcp --transport stdio` — local Codex MCP;
+- `uv run foldweave mcp --transport streamable-http --surface
+  chatgpt-hosted` — loopback ChatGPT developer transport; and
+- `uv run foldweave companion register|approve|run|status|revoke` — paired
+  companion lifecycle.
+
+`run` and `apply-change` prepare review jobs; neither command executes the
+proposal without a later exact `accept` action.
+
+## Legacy compatibility
+
+The internal Python package remains `name_atlas`, and `name-atlas` remains a
+documented legacy command alias for historical workflows. Historical schema
+identifiers, fingerprint domains, receipt paths, job files, proof artifacts,
+and `*.nameatlas-change.json` files retain their original names and strict
+dispatch semantics. Foldweave does not globally rename history or silently
+migrate nonterminal legacy jobs.
+
+Old finalized v1/v2 jobs and receipts remain readable under their original
+contracts. A nonterminal legacy job requires a fresh Foldweave job rather than
+being reinterpreted as `folder-refactor-job.v3`.
+
+## Release claim boundary
+
+Foldweave is a hackathon release, not a production-readiness claim. The
+evidence demonstrates the exact tested fixtures, current macOS Apple Silicon
+build, and supported contract. It does not establish universal zero-question
+behavior, semantic correctness, measured time savings, market adoption, legal
+compliance, universal portability or reversibility, or a universal organizer
 for every file format and relationship.
+
+The final public video, `/feedback`, eligibility and ownership attestations,
+submission-hold release, and Devpost submission remain separate user-owned
+completion steps. No release document may imply those steps occurred until
+their evidence exists.

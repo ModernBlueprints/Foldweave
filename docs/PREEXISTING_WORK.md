@@ -2,10 +2,12 @@
 
 Status: **SELECTIVE MECHANICAL ADAPTATION DISCLOSED; NO WHOLESALE CODE OR RUNTIME DEPENDENCY**
 
-This file records the boundary between Reversible Name Atlas and an earlier
-Build Week feasibility spike. The spike is evidence about selected mechanical
-behaviors, not the foundation, architecture, runtime dependency, or product
-implementation for this repository.
+This file records the boundary between **Foldweave**—formerly released during
+Build Week as Reversible Name Atlas/Name Atlas—and an earlier Build Week
+feasibility spike. The spike is evidence about selected mechanical behaviors,
+not the foundation, architecture, runtime dependency, or product implementation
+for this repository. Historical product names, package paths, artifacts, and
+commit descriptions below are preserved rather than retroactively rebranded.
 
 ## Source identity
 
@@ -101,17 +103,17 @@ No code, prompt, executable, scoring rule, or transport behavior from
 product has no runtime, test, or judge-path dependency on the ephemeral spike
 root.
 
-## Current release provenance
+## Build Week repository provenance
 
 The table above is the complete adaptation record for the disclosed feasibility
 spike. No additional source fragment, prompt, executable, scoring rule,
 evaluation harness, or transport implementation from that spike was copied or
 imported during the later product cycles.
 
-The current Connected Change release evolved from work already written in this
-same repository during Build Week. That internal evolution is disclosed here so
-the final product is not presented as if every subsystem appeared for the first
-time in the last revision.
+The Connected Change predecessor and the current Foldweave cycle evolved from
+work already written in this same repository during Build Week. That internal
+evolution is disclosed here so the final product is not presented as if every
+subsystem appeared for the first time in the latest revision.
 
 | Build Week checkpoint | Reused repository-owned foundation | New or materially rewritten work at that checkpoint |
 |---|---|---|
@@ -124,20 +126,32 @@ time in the last revision.
 | C3 `9e8d3db` | The bounded planner/provider and fixture machinery created in A1–A3 | Final 24-file Sofia/Martin fixtures; two new real GPT-5.6 planner records; exact sanitized replays; final convergence and refusal evidence; monotonic migration of the sole budget ledger |
 | C4 `bc1898e` | The existing browser/CLI domain services and durable v2 job | One shared seven-tool STDIO MCP server, consent and job-bound idempotency, restart recovery, and actual Codex tool qualification |
 | C5 `7314c58` / feature-freeze checkpoint `0dc4776` | The verified shared MCP server | Thin Codex plugin and repository marketplace metadata; clean-clone installation, fresh-task discovery/invocation, installed-cache proof, and uninstall instructions |
+| Foldweave governance `8eedb02` | Complete connected-folder scanner, compiler, matcher, copy transaction, v2 receipt/verifier/reconstruction, browser, CLI, MCP, and release evidence at predecessor `1023999` | Refrozen Foldweave identity, native-review contract, dual live planning transports, serial derivative workflow, compatibility policy, and new execution sequence; governance only |
+| Foldweave F0a `ba37014` | Existing deterministic inventory, compiler, Change File matcher, and copy/proof services | Durable `folder-refactor-job.v3`, immutable `folder-plan-preview.v1`, no-output review state, current/proposed tree projection, and exact fingerprint-bound acceptance |
+| Foldweave F0b `dfa85b4` | One FastAPI control plane, established provider boundary, native picker/Finder bridge, and Blueprint visual system | Packaged pywebview macOS shell, focused React/TypeScript review island, Keychain-backed direct credentials, PyInstaller profile, live direct review/revision/acceptance, and restart/shutdown qualification |
+| Foldweave hosted checkpoint `13fb54e` | F0a preview DTO and the same durable engine | Bounded host-planning services, ChatGPT widget bridge, opaque local handles, truthful hosted provenance, and provider-free hosted surface; this checkpoint did not claim completed consumer pairing or public availability |
+| Foldweave F1 authority `2322076` | Durable v3 review job and exact authorization boundary | Append-only mutation history, exact-request rehydration, destination reservation, bounded revision recovery, and strengthened stale/duplicate/race refusal behavior |
 
-The Connected Change matcher, Change File contracts, v2 provenance and receipt
+The Connected Change matcher, Change File contracts, provenance and receipt
 semantics, receiver application, current browser journeys, shared MCP server,
-and Codex plugin were implemented in this repository for the current Build Week
-submission. They are not wrappers around the old spike and do not import it at
-runtime or during tests.
+and Codex plugin were implemented in this repository during Build Week. The
+Foldweave review authority, native application, React review island, hosted
+planning services, derivative contracts, gateway/companion code, and renamed
+plugin are further repository-owned work. None is a wrapper around the old
+spike, and none imports that spike at runtime or during tests.
 
-The Codex plugin's initial manifest structure was created through OpenAI's
-official plugin-creator workflow after its product gate returned `GO`. The
-committed plugin contains only marketplace metadata and a relative MCP
-configuration around the same Name Atlas server; it contains no copied product
-implementation.
+The historical Name Atlas Codex plugin's initial manifest structure was created
+through OpenAI's official plugin-creator workflow after its product gate
+returned `GO`. The Foldweave plugin remains a thin successor around the same
+repository engine and relative MCP configuration; it contains no copied product
+implementation. Historical installed-copy qualification proves only the Name
+Atlas predecessor. The current Foldweave plugin requires its own fresh-task,
+installed-copy evidence before that qualification can be claimed for the new
+release.
 
-The historical archive release and A1–A3 checkpoints remain in ordinary Git
-history as traceable predecessors. The selected release-facing product is the
-feature-frozen `CONNECTED_CHANGE_GO` profile, and the public documentation must
-not present the superseded archive workflow as its current experience.
+The archive release, A1–A3 foundation, and Connected Change C0–C7 release remain
+in ordinary Git history as traceable predecessors. The active release-facing
+identity is Foldweave. Public material must preserve those predecessors as
+historical evidence while presenting review-before-execution, the packaged
+macOS application, and the four execution modes as the current contract only
+after their applicable qualification evidence is complete.

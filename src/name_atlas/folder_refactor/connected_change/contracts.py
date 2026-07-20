@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from typing import Literal, Self
+from typing import Literal, Self, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from name_atlas.folder_refactor.connected_change.receipt_contracts import (
     FolderReceiptEnvelopeV2,
+    FolderReceiptEnvelopeV3,
 )
 from name_atlas.folder_refactor.foldweave_planning_contracts import (
     GptPlannedExecutionOriginV2,
@@ -18,10 +19,15 @@ from name_atlas.folder_refactor.naming import (
     validate_result_folder_name,
     validate_target_path,
 )
-from name_atlas.folder_refactor.serialization import canonical_sha256
+from name_atlas.folder_refactor.serialization import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
 
 SHA256_PATTERN = r"^[a-f0-9]{64}$"
 MAX_CHANGE_FILE_BYTES = 16 * 1024 * 1024
+MAX_CONNECTED_CHANGE_GENERATION = 32
+MAX_CONNECTED_CHANGE_LINEAGE_BYTES = 1_048_576
 MATCHING_RULE_VERSION = "name-atlas-partition-refinement.v1"
 
 CONNECTED_CHANGE_CLAIMS = (
@@ -199,6 +205,202 @@ class ConnectedChangeCore(StrictFrozenConnectedModel):
         return self
 
 
+class ConnectedChangeMemberBindingV1(StrictFrozenConnectedModel):
+    """One exact immediate-parent logical role bound to one child role."""
+
+    parent_logical_member_id: str = Field(pattern=SHA256_PATTERN)
+    child_logical_member_id: str = Field(pattern=SHA256_PATTERN)
+
+
+class ConnectedChangeLineageV1(StrictFrozenConnectedModel):
+    """Bounded immediate-parent identity without recursive ancestor envelopes."""
+
+    schema_version: Literal["connected-change-lineage.v1"] = (
+        "connected-change-lineage.v1"
+    )
+    generation: int = Field(ge=0, le=MAX_CONNECTED_CHANGE_GENERATION)
+    parent_generation: int | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_CONNECTED_CHANGE_GENERATION - 1,
+    )
+    parent_change_file_schema_version: (
+        Literal[
+            "connected-change-file.v1",
+            "connected-change-file.v2",
+        ]
+        | None
+    ) = None
+    parent_core_schema_version: (
+        Literal[
+            "connected-change-core.v1",
+            "connected-change-core.v2",
+        ]
+        | None
+    ) = None
+    parent_change_file_fingerprint: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    parent_core_fingerprint: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    parent_originating_receipt_fingerprint: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    parent_organized_tree_commitment: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    parent_candidate_fingerprint: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    revision_instruction_fingerprint: str | None = Field(
+        default=None,
+        pattern=SHA256_PATTERN,
+    )
+    member_bindings: tuple[ConnectedChangeMemberBindingV1, ...] = ()
+
+    @model_validator(mode="after")
+    def require_exact_lineage_shape(self) -> Self:
+        parent_fields = (
+            self.parent_generation,
+            self.parent_change_file_schema_version,
+            self.parent_core_schema_version,
+            self.parent_change_file_fingerprint,
+            self.parent_core_fingerprint,
+            self.parent_originating_receipt_fingerprint,
+            self.parent_organized_tree_commitment,
+            self.parent_candidate_fingerprint,
+            self.revision_instruction_fingerprint,
+        )
+        if self.generation == 0:
+            if any(value is not None for value in parent_fields):
+                raise ValueError("Root lineage cannot carry an immediate parent.")
+            if self.member_bindings:
+                raise ValueError("Root lineage cannot carry parent member bindings.")
+        else:
+            if any(value is None for value in parent_fields):
+                raise ValueError("Child lineage requires every parent identity.")
+            if self.parent_generation is None or (
+                self.generation != self.parent_generation + 1
+            ):
+                raise ValueError(
+                    "Child generation must equal parent generation plus one."
+                )
+            if not self.member_bindings:
+                raise ValueError("Child lineage requires complete member bindings.")
+        parent_ids = tuple(
+            binding.parent_logical_member_id for binding in self.member_bindings
+        )
+        child_ids = tuple(
+            binding.child_logical_member_id for binding in self.member_bindings
+        )
+        if parent_ids != tuple(sorted(parent_ids)) or len(parent_ids) != len(
+            set(parent_ids)
+        ):
+            raise ValueError("Lineage parent member IDs must be sorted and unique.")
+        if len(child_ids) != len(set(child_ids)):
+            raise ValueError("Lineage child member IDs must be unique.")
+        require_connected_change_lineage_size(canonical_json_bytes(self))
+        return self
+
+
+class ConnectedChangeCoreV2(StrictFrozenConnectedModel):
+    """Complete Foldweave Change File Core with immediate-parent lineage."""
+
+    schema_version: Literal["connected-change-core.v2"] = "connected-change-core.v2"
+    matching_rule_version: Literal["name-atlas-partition-refinement.v1"] = (
+        MATCHING_RULE_VERSION
+    )
+    request: str = Field(min_length=1, max_length=20_000)
+    request_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    requested_result_folder_name: str = Field(min_length=1, max_length=240)
+    origin_source_commitment: str = Field(pattern=SHA256_PATTERN)
+    members: tuple[ConnectedChangeMember, ...] = Field(min_length=1, max_length=500)
+    empty_directory_requirements: tuple[str, ...] = ()
+    expected_file_count: int = Field(ge=1, le=500)
+    expected_empty_directory_count: int = Field(ge=0, le=1_000)
+    expected_supported_link_count: int = Field(ge=0, le=10_000)
+    expected_organized_tree_commitment: str = Field(pattern=SHA256_PATTERN)
+    origin_proof_identifiers: tuple[str, ...] = ()
+    lineage: ConnectedChangeLineageV1
+    claims: tuple[str, ...] = CONNECTED_CHANGE_CLAIMS
+    limitations: tuple[str, ...] = CONNECTED_CHANGE_LIMITATIONS
+
+    @model_validator(mode="after")
+    def require_complete_core(self) -> Self:
+        from name_atlas.folder_refactor.serialization import request_fingerprint
+
+        if self.request != self.request.strip():
+            raise ValueError("The exact request must be nonempty and trimmed.")
+        if self.request_fingerprint != request_fingerprint(self.request):
+            raise ValueError("Request fingerprint does not match the exact request.")
+        validate_result_folder_name(self.requested_result_folder_name)
+        member_ids = tuple(member.logical_member_id for member in self.members)
+        if member_ids != tuple(sorted(member_ids)) or len(member_ids) != len(
+            set(member_ids)
+        ):
+            raise ValueError("Connected Change members must be ID-sorted and unique.")
+        origins = tuple(member.origin_relative_path for member in self.members)
+        targets = tuple(member.target_relative_path for member in self.members)
+        if len(origins) != len(set(origins)) or len(targets) != len(set(targets)):
+            raise ValueError("Origin and accepted target paths must be unique.")
+        if self.expected_file_count != len(self.members):
+            raise ValueError("Expected file count does not match logical members.")
+        empty = self.empty_directory_requirements
+        if empty != tuple(sorted(empty)) or len(empty) != len(set(empty)):
+            raise ValueError("Empty-directory requirements must be sorted and unique.")
+        for path in empty:
+            _require_relative_posix(path, label="Empty-directory path")
+            validate_target_path(path, original_path=path, protected=True)
+        if self.expected_empty_directory_count != len(empty):
+            raise ValueError("Expected empty-directory count is not exact.")
+        expected_links = sum(len(member.link_slots) for member in self.members)
+        if self.expected_supported_link_count != expected_links:
+            raise ValueError("Expected supported-link count is not exact.")
+        known = set(member_ids)
+        if any(
+            slot.target_logical_member_id not in known
+            for member in self.members
+            for slot in member.link_slots
+        ):
+            raise ValueError("A Markdown link targets an unknown logical member.")
+        validate_complete_target_tree(list(targets), list(empty))
+        if self.claims != CONNECTED_CHANGE_CLAIMS:
+            raise ValueError("Connected Change claims differ from the frozen contract.")
+        if self.limitations != CONNECTED_CHANGE_LIMITATIONS:
+            raise ValueError(
+                "Connected Change limitations differ from the frozen contract."
+            )
+        if tuple(sorted(self.origin_proof_identifiers)) != (
+            self.origin_proof_identifiers
+        ) or len(self.origin_proof_identifiers) != len(
+            set(self.origin_proof_identifiers)
+        ):
+            raise ValueError("Origin proof identifiers must be sorted and unique.")
+        if any(
+            not identifier
+            or len(identifier.encode("utf-8")) > 512
+            or "\x00" in identifier
+            for identifier in self.origin_proof_identifiers
+        ):
+            raise ValueError("Origin proof identifiers must be bounded UTF-8 text.")
+        if self.lineage.generation > 0:
+            child_ids = tuple(
+                binding.child_logical_member_id
+                for binding in self.lineage.member_bindings
+            )
+            if len(child_ids) != len(member_ids) or set(child_ids) != set(member_ids):
+                raise ValueError(
+                    "Child lineage must bind every child logical member exactly once."
+                )
+        return self
+
+
 class ConnectedChangeFile(StrictFrozenConnectedModel):
     """Transferable envelope whose fingerprint excludes itself."""
 
@@ -220,6 +422,52 @@ class ConnectedChangeFile(StrictFrozenConnectedModel):
         if self.change_file_fingerprint != connected_change_file_fingerprint(self):
             raise ValueError("Connected Change File fingerprint mismatch.")
         return self
+
+
+class ConnectedChangeFileV2(StrictFrozenConnectedModel):
+    """Self-contained Foldweave envelope with a finalized v3 receipt."""
+
+    schema_version: Literal["connected-change-file.v2"] = "connected-change-file.v2"
+    core: ConnectedChangeCoreV2
+    core_fingerprint: str = Field(pattern=SHA256_PATTERN)
+    originating_receipt: FolderReceiptEnvelopeV3
+    change_file_fingerprint: str = Field(pattern=SHA256_PATTERN)
+
+    @model_validator(mode="after")
+    def require_acyclic_fingerprints(self) -> Self:
+        if self.core_fingerprint != connected_change_core_v2_fingerprint(self.core):
+            raise ValueError("Foldweave Change File Core fingerprint mismatch.")
+        receipt_core = self.originating_receipt.receipt
+        if receipt_core.execution_role not in {"origin", "derivative"}:
+            raise ValueError(
+                "A Foldweave Change File receipt must declare origin or derivative."
+            )
+        if (
+            receipt_core.connected_change_core_schema_version
+            != "connected-change-core.v2"
+            or receipt_core.connected_change_core_fingerprint != self.core_fingerprint
+        ):
+            raise ValueError("Originating receipt does not commit this v2 Core.")
+        if receipt_core.lineage_generation != self.core.lineage.generation:
+            raise ValueError("Receipt and Core lineage generations differ.")
+        if receipt_core.execution_role == "derivative":
+            lineage = self.core.lineage
+            if not (
+                lineage.generation > 0
+                and receipt_core.imported_change_file_fingerprint
+                == lineage.parent_change_file_fingerprint
+                and receipt_core.originating_receipt_fingerprint
+                == lineage.parent_originating_receipt_fingerprint
+            ):
+                raise ValueError(
+                    "Derivative receipt does not bind the immediate parent lineage."
+                )
+        if self.change_file_fingerprint != connected_change_file_v2_fingerprint(self):
+            raise ValueError("Foldweave Change File fingerprint mismatch.")
+        return self
+
+
+ConnectedChangeFileAny: TypeAlias = ConnectedChangeFile | ConnectedChangeFileV2
 
 
 class ConnectedChangeMatchMapping(StrictFrozenConnectedModel):
@@ -366,6 +614,12 @@ def connected_change_core_fingerprint(core: ConnectedChangeCore) -> str:
     return canonical_sha256(core)
 
 
+def connected_change_core_v2_fingerprint(core: ConnectedChangeCoreV2) -> str:
+    """Return the canonical immutable v2 Core fingerprint."""
+
+    return canonical_sha256(core)
+
+
 def connected_change_file_fingerprint(change_file: ConnectedChangeFile) -> str:
     """Hash the envelope while excluding its own fingerprint field."""
 
@@ -374,6 +628,41 @@ def connected_change_file_fingerprint(change_file: ConnectedChangeFile) -> str:
         exclude={"change_file_fingerprint"},
     )
     return canonical_sha256(payload)
+
+
+def connected_change_file_v2_fingerprint(change_file: ConnectedChangeFileV2) -> str:
+    """Hash the v2 envelope while excluding its own fingerprint field."""
+
+    return canonical_sha256(
+        change_file.model_dump(
+            mode="json",
+            exclude={"change_file_fingerprint"},
+        )
+    )
+
+
+def connected_change_lineage_fingerprint(
+    lineage: ConnectedChangeLineageV1,
+) -> str:
+    """Return one canonical immediate-parent lineage identity."""
+
+    return canonical_sha256(lineage)
+
+
+def require_connected_change_lineage_size(payload: bytes) -> None:
+    """Enforce the inclusive 1 MiB canonical immediate-parent boundary."""
+
+    if not isinstance(payload, bytes):
+        raise ConnectedChangeError(
+            "change_file_lineage_invalid",
+            "Canonical lineage input must be bytes.",
+        )
+    if len(payload) > MAX_CONNECTED_CHANGE_LINEAGE_BYTES:
+        raise ConnectedChangeError(
+            "change_file_lineage_too_large",
+            "Immediate-parent lineage exceeds "
+            f"{MAX_CONNECTED_CHANGE_LINEAGE_BYTES} canonical bytes.",
+        )
 
 
 def connected_change_match_report_fingerprint(

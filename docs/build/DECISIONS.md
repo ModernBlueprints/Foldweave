@@ -1107,3 +1107,29 @@ overrides those artifacts.
   explicitly releases the hold.
 - Rationale: Submission includes user-owned voice, attestations, and final
   authority that implementation progress cannot replace.
+
+## D-117 — Separate the defensive lineage byte ceiling from valid v2 shape acceptance
+
+- Date: 20 July 2026
+- Decision: Retain the inclusive 1,048,576-byte lineage parser ceiling and its
+  one-byte-over refusal, but test valid current-schema acceptance with the
+  maximum 500 fixed-shape member bindings rather than requiring an unreachable
+  one-MiB v2 lineage object. Do not add padding or enlarge the product member
+  boundary to manufacture that size.
+- Rationale: The maximum valid 500-binding v2 lineage serializes far below one
+  MiB, so the earlier exact-valid-object boundary requirement contradicted the
+  frozen 500-member schema. This correction preserves the defensive limit while
+  making product acceptance semantically possible.
+
+## D-118 — Keep the public job capability inside the trusted local authority
+
+- Date: 20 July 2026
+- Decision: Persist only the local device-key-derived job-capability hash and
+  binding metadata in JobV3, and validate that capability inside the companion/
+  host after verified device, OAuth-grant, scope, request, and job binding. Never
+  return or accept the raw capability through MCP, `structuredContent`, `_meta`,
+  the model, the widget, gateway state, browser state, or logs.
+- Rationale: A raw bearer capability in an Apps SDK tool result is visible to
+  the model and conversation transcript, contradicting UX-022's strict secret
+  boundary. Server-side derivation preserves the thirty-minute per-job
+  authority without exposing a secret to an untrusted presentation surface.

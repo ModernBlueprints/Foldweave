@@ -69,18 +69,18 @@ var de = `${h}-alert`;
 `${de}`, `${de}`, `${de}`;
 var fe = `${h}-breadcrumb`;
 `${fe}`, `${fe}`, `${fe}`;
-var pe = `${h}-button`, me = `${pe}-group`, he = `${pe}-spinner`, ge = `${pe}-text`, O = `${h}-callout`;
-`${O}`, `${O}`;
-var _e = `${h}-card`;
+var pe = `${h}-button`, me = `${pe}-group`, he = `${pe}-spinner`, ge = `${pe}-text`, _e = `${h}-callout`;
+`${_e}`, `${_e}`;
+var ve = `${h}-card`;
 `${h}`, `${h}`, `${h}`, `${h}`, `${h}`, `${h}`;
-var ve = `${h}-context-menu`;
-`${ve}`, `${ve}`, `${ve}`, `${h}`;
-var ye = `${h}-dialog`;
-`${ye}`, `${ye}`, `${ye}`, `${ye}`, `${ye}`, `${ye}`, `${ye}`, `${ye}`, `${ye}`;
-var be = `${h}-dialog-step`;
-`${be}`, `${be}`, `${be}`, `${be}`, `${h}`;
-var xe = `${h}-drawer`;
-`${xe}`, `${xe}`, `${xe}`;
+var ye = `${h}-context-menu`;
+`${ye}`, `${ye}`, `${ye}`, `${h}`;
+var be = `${h}-dialog`;
+`${be}`, `${be}`, `${be}`, `${be}`, `${be}`, `${be}`, `${be}`, `${be}`, `${be}`;
+var xe = `${h}-dialog-step`;
+`${xe}`, `${xe}`, `${xe}`, `${xe}`, `${h}`;
+var O = `${h}-drawer`;
+`${O}`, `${O}`, `${O}`;
 var Se = `${h}-editable-text`;
 `${Se}`, `${Se}`, `${Se}`, `${Se}`;
 var Ce = `${h}-entity-title`;
@@ -5765,7 +5765,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 		}
 		return null;
 	}
-	function O(e) {
+	function _e(e) {
 		switch (typeof e) {
 			case "boolean":
 			case "number":
@@ -5775,12 +5775,12 @@ var S0 = /* @__PURE__ */ s(((e) => {
 			default: return "";
 		}
 	}
-	function _e(e) {
+	function ve(e) {
 		var t = e.type;
 		return (e = e.nodeName) && e.toLowerCase() === "input" && (t === "checkbox" || t === "radio");
 	}
-	function ve(e) {
-		var t = _e(e) ? "checked" : "value", n = Object.getOwnPropertyDescriptor(e.constructor.prototype, t), r = "" + e[t];
+	function ye(e) {
+		var t = ve(e) ? "checked" : "value", n = Object.getOwnPropertyDescriptor(e.constructor.prototype, t), r = "" + e[t];
 		if (!e.hasOwnProperty(t) && n !== void 0 && typeof n.get == "function" && typeof n.set == "function") {
 			var i = n.get, a = n.set;
 			return Object.defineProperty(e, t, {
@@ -5804,17 +5804,17 @@ var S0 = /* @__PURE__ */ s(((e) => {
 			};
 		}
 	}
-	function ye(e) {
-		e._valueTracker ||= ve(e);
-	}
 	function be(e) {
+		e._valueTracker ||= ye(e);
+	}
+	function xe(e) {
 		if (!e) return !1;
 		var t = e._valueTracker;
 		if (!t) return !0;
 		var n = t.getValue(), r = "";
-		return e && (r = _e(e) ? e.checked ? "true" : "false" : e.value), e = r, e === n ? !1 : (t.setValue(e), !0);
+		return e && (r = ve(e) ? e.checked ? "true" : "false" : e.value), e = r, e === n ? !1 : (t.setValue(e), !0);
 	}
-	function xe(e) {
+	function O(e) {
 		if (e ||= typeof document < "u" ? document : void 0, e === void 0) return null;
 		try {
 			return e.activeElement || e.body;
@@ -5833,7 +5833,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 	}
 	function Ce(e, t) {
 		var n = t.defaultValue == null ? "" : t.defaultValue, r = t.checked == null ? t.defaultChecked : t.checked;
-		n = O(t.value == null ? n : t.value), e._wrapperState = {
+		n = _e(t.value == null ? n : t.value), e._wrapperState = {
 			initialChecked: r,
 			initialValue: n,
 			controlled: t.type === "checkbox" || t.type === "radio" ? t.checked != null : t.value != null
@@ -5844,13 +5844,13 @@ var S0 = /* @__PURE__ */ s(((e) => {
 	}
 	function Te(e, t) {
 		we(e, t);
-		var n = O(t.value), r = t.type;
+		var n = _e(t.value), r = t.type;
 		if (n != null) r === "number" ? (n === 0 && e.value === "" || e.value != n) && (e.value = "" + n) : e.value !== "" + n && (e.value = "" + n);
 		else if (r === "submit" || r === "reset") {
 			e.removeAttribute("value");
 			return;
 		}
-		t.hasOwnProperty("value") ? De(e, t.type, n) : t.hasOwnProperty("defaultValue") && De(e, t.type, O(t.defaultValue)), t.checked == null && t.defaultChecked != null && (e.defaultChecked = !!t.defaultChecked);
+		t.hasOwnProperty("value") ? De(e, t.type, n) : t.hasOwnProperty("defaultValue") && De(e, t.type, _e(t.defaultValue)), t.checked == null && t.defaultChecked != null && (e.defaultChecked = !!t.defaultChecked);
 	}
 	function Ee(e, t, n) {
 		if (t.hasOwnProperty("value") || t.hasOwnProperty("defaultValue")) {
@@ -5861,7 +5861,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 		n = e.name, n !== "" && (e.name = ""), e.defaultChecked = !!e._wrapperState.initialChecked, n !== "" && (e.name = n);
 	}
 	function De(e, t, n) {
-		(t !== "number" || xe(e.ownerDocument) !== e) && (n == null ? e.defaultValue = "" + e._wrapperState.initialValue : e.defaultValue !== "" + n && (e.defaultValue = "" + n));
+		(t !== "number" || O(e.ownerDocument) !== e) && (n == null ? e.defaultValue = "" + e._wrapperState.initialValue : e.defaultValue !== "" + n && (e.defaultValue = "" + n));
 	}
 	var Oe = Array.isArray;
 	function ke(e, t, n, r) {
@@ -5870,7 +5870,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 			for (var i = 0; i < n.length; i++) t["$" + n[i]] = !0;
 			for (n = 0; n < e.length; n++) i = t.hasOwnProperty("$" + e[n].value), e[n].selected !== i && (e[n].selected = i), i && r && (e[n].defaultSelected = !0);
 		} else {
-			for (n = "" + O(n), t = null, i = 0; i < e.length; i++) {
+			for (n = "" + _e(n), t = null, i = 0; i < e.length; i++) {
 				if (e[i].value === n) {
 					e[i].selected = !0, r && (e[i].defaultSelected = !0);
 					return;
@@ -5901,10 +5901,10 @@ var S0 = /* @__PURE__ */ s(((e) => {
 			}
 			t ??= "", n = t;
 		}
-		e._wrapperState = { initialValue: O(n) };
+		e._wrapperState = { initialValue: _e(n) };
 	}
 	function Me(e, t) {
-		var n = O(t.value), r = O(t.defaultValue);
+		var n = _e(t.value), r = _e(t.defaultValue);
 		n != null && (n = "" + n, n !== e.value && (e.value = n), t.defaultValue == null && e.defaultValue !== n && (e.defaultValue = n)), r != null && (e.defaultValue = "" + r);
 	}
 	function Ne(e) {
@@ -6875,7 +6875,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 		mi(e, 0);
 	}
 	function wr(e) {
-		if (be(Yi(e))) return e;
+		if (xe(Yi(e))) return e;
 	}
 	function Tr(e, t) {
 		if (e === "change") return t;
@@ -6961,7 +6961,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 		return e && t ? e === t ? !0 : e && e.nodeType === 3 ? !1 : t && t.nodeType === 3 ? Vr(e, t.parentNode) : "contains" in e ? e.contains(t) : e.compareDocumentPosition ? !!(e.compareDocumentPosition(t) & 16) : !1 : !1;
 	}
 	function Hr() {
-		for (var e = window, t = xe(); t instanceof e.HTMLIFrameElement;) {
+		for (var e = window, t = O(); t instanceof e.HTMLIFrameElement;) {
 			try {
 				var n = typeof t.contentWindow.location.href == "string";
 			} catch {
@@ -6969,7 +6969,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 			}
 			if (n) e = t.contentWindow;
 			else break;
-			t = xe(e.document);
+			t = O(e.document);
 		}
 		return t;
 	}
@@ -7001,7 +7001,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 	var Gr = c && "documentMode" in document && 11 >= document.documentMode, Kr = null, qr = null, Jr = null, Yr = !1;
 	function Xr(e, t, n) {
 		var r = n.window === n ? n.document : n.nodeType === 9 ? n : n.ownerDocument;
-		Yr || Kr == null || Kr !== xe(r) || (r = Kr, "selectionStart" in r && Ur(r) ? r = {
+		Yr || Kr == null || Kr !== O(r) || (r = Kr, "selectionStart" in r && Ur(r) ? r = {
 			start: r.selectionStart,
 			end: r.selectionEnd
 		} : (r = (r.ownerDocument && r.ownerDocument.defaultView || window).getSelection(), r = {
@@ -9057,10 +9057,10 @@ var S0 = /* @__PURE__ */ s(((e) => {
 						}
 						switch (n) {
 							case "input":
-								ye(i), Ee(i, s, !0);
+								be(i), Ee(i, s, !0);
 								break;
 							case "textarea":
-								ye(i), Ne(i);
+								be(i), Ne(i);
 								break;
 							case "select":
 							case "option": break;
@@ -9115,13 +9115,13 @@ var S0 = /* @__PURE__ */ s(((e) => {
 							}
 							switch (n) {
 								case "input":
-									ye(e), Ee(e, i, !1);
+									be(e), Ee(e, i, !1);
 									break;
 								case "textarea":
-									ye(e), Ne(e);
+									be(e), Ne(e);
 									break;
 								case "option":
-									i.value != null && e.setAttribute("value", "" + O(i.value));
+									i.value != null && e.setAttribute("value", "" + _e(i.value));
 									break;
 								case "select":
 									e.multiple = !!i.multiple, s = i.value, s == null ? i.defaultValue != null && ke(e, !!i.multiple, i.defaultValue, !0) : ke(e, !!i.multiple, s, !1);
@@ -10812,7 +10812,7 @@ var S0 = /* @__PURE__ */ s(((e) => {
 						if (i !== e && i.form === e.form) {
 							var a = Xi(i);
 							if (!a) throw Error(r(90));
-							be(i), Te(i, a);
+							xe(i), Te(i, a);
 						}
 					}
 				}
@@ -10939,7 +10939,7 @@ E0.displayName = `${j}.ButtonGroup`;
 var D0 = (0, A.forwardRef)((e, t) => {
 	let { className: n, elevation: r = f.ZERO, interactive: i = !1, selected: a, compact: o, ...s } = e;
 	return (0, $.jsx)("div", {
-		className: (0, Q1.default)(n, _e, vt(r), {
+		className: (0, Q1.default)(n, ve, vt(r), {
 			[C]: i,
 			[y]: o,
 			[ie]: a
@@ -11297,50 +11297,61 @@ var Y0 = [
 	moved_and_renamed: "Moved + renamed",
 	protected: "Protected",
 	empty_directory: "Empty directory"
-};
-function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, keepPrevious: a, acceptanceScopeFingerprint: o = "", actionsDisabled: s = !1, idempotencyKeyFactory: c = d2 }) {
-	let [l, u] = (0, A.useState)("proposed"), [d, f] = (0, A.useState)(!0), [p, m] = (0, A.useState)(/* @__PURE__ */ new Set()), [h, g] = (0, A.useState)(""), [_, v] = (0, A.useState)(e.member_changes.find(s2)?.member_id ?? e.member_changes[0]?.member_id ?? null), [y, b] = (0, A.useState)(() => a2(e)), [x, S] = (0, A.useState)(null), [C, w] = (0, A.useState)(""), [ee, te] = (0, A.useState)(!1), [ne, re] = (0, A.useState)(null), [T, ie] = (0, A.useState)(!1), [ae, oe] = (0, A.useState)(null), [se, E] = (0, A.useState)(null), ce = (0, A.useRef)(e), le = (0, A.useRef)(null), D = (0, A.useRef)(null), ue = (0, A.useRef)(null), de = (0, A.useRef)(null), fe = (0, A.useRef)([]), pe = (0, A.useMemo)(() => new Map(e.member_changes.map((e) => [e.member_id, e])), [e.member_changes]), me = l === "current" ? e.current_tree_members : e.proposed_tree_members, he = (0, A.useMemo)(() => me.filter((e) => {
-		let t = pe.get(e.member_id);
+}, Z0 = 200;
+function Q0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, keepPrevious: a, acceptanceScopeFingerprint: o = "", actionsDisabled: s = !1, idempotencyKeyFactory: c = p2 }) {
+	let [l, u] = (0, A.useState)("proposed"), [d, f] = (0, A.useState)(() => e.member_changes.length >= Z0), [p, m] = (0, A.useState)(/* @__PURE__ */ new Set()), [h, g] = (0, A.useState)(""), [_, v] = (0, A.useState)(e.member_changes.find(l2)?.member_id ?? e.member_changes[0]?.member_id ?? null), [y, b] = (0, A.useState)(() => s2(e)), [x, S] = (0, A.useState)(null), [C, w] = (0, A.useState)(""), [ee, te] = (0, A.useState)(!1), [ne, re] = (0, A.useState)(null), [T, ie] = (0, A.useState)(!1), [ae, oe] = (0, A.useState)(null), [se, E] = (0, A.useState)(null), ce = (0, A.useRef)(e), le = (0, A.useRef)(null), D = (0, A.useRef)(null), ue = (0, A.useRef)(null), de = (0, A.useRef)(null), fe = (0, A.useRef)([]), pe = (0, A.useRef)(null), me = (0, A.useRef)(0), he = (0, A.useRef)(null), ge = (0, A.useRef)(e.preview_fingerprint), _e = (0, A.useMemo)(() => new Map(e.member_changes.map((e) => [e.member_id, e])), [e.member_changes]), ve = l === "current" ? e.current_tree_members : e.proposed_tree_members, ye = (0, A.useMemo)(() => ve.filter((e) => {
+		let t = _e.get(e.member_id);
 		if (!t) return !1;
-		let n = h.trim().toLocaleLowerCase();
-		return n.length === 0 || t.current_relative_path.toLocaleLowerCase().includes(n) || t.proposed_relative_path.toLocaleLowerCase().includes(n) ? p.size > 0 ? [...p].some((e) => o2(t, e)) : !d || s2(t) : !1;
+		let n = h.trim().toLowerCase();
+		return n.length === 0 || t.current_relative_path.toLowerCase().includes(n) || t.proposed_relative_path.toLowerCase().includes(n) ? p.size > 0 ? [...p].some((e) => c2(t, e)) : !d || l2(t) : !1;
 	}), [
 		p,
-		pe,
+		_e,
 		d,
-		me,
+		ve,
 		h
-	]), ge = (0, A.useMemo)(() => n2(he), [he]), O = (0, A.useMemo)(() => i2(ge, y), [y, ge]), _e = _ === null ? void 0 : pe.get(_), ve = (0, A.useMemo)(() => _e === void 0 ? [] : e.supported_link_effects.filter((e) => e.source_member_id === _e.member_id || e.target_member_id === _e.member_id), [e.supported_link_effects, _e]);
+	]), be = (0, A.useMemo)(() => r2(ye), [ye]), xe = (0, A.useMemo)(() => o2(be, y), [y, be]), O = _ === null ? void 0 : _e.get(_), Se = (0, A.useMemo)(() => O === void 0 ? [] : e.supported_link_effects.filter((e) => e.source_member_id === O.member_id || e.target_member_id === O.member_id), [e.supported_link_effects, O]);
 	(0, A.useEffect)(() => {
-		_ !== null && he.some((e) => e.member_id === _) || v(he[0]?.member_id ?? null);
-	}, [_, he]), (0, A.useEffect)(() => {
-		if (O.some((e) => e.key === x)) return;
-		let e = O.find((e) => e.memberId === _);
-		S(e?.key ?? O[0]?.key ?? null);
+		_ !== null && ye.some((e) => e.member_id === _) || v(ye[0]?.member_id ?? null);
+	}, [_, ye]), (0, A.useEffect)(() => {
+		if (xe.some((e) => e.key === x)) return;
+		let e = xe.find((e) => e.memberId === _);
+		S(e?.key ?? xe[0]?.key ?? null);
 	}, [
 		x,
-		O,
+		xe,
 		_
 	]), (0, A.useEffect)(() => {
 		let t = ce.current;
 		if (t.preview_fingerprint === e.preview_fingerprint) return;
-		let n = new Map(t.member_changes.map((e) => [e.member_id, e.proposed_relative_path])), r = e.member_changes.filter((e) => n.get(e.member_id) !== e.proposed_relative_path).length;
-		E(`${r} ${r === 1 ? "mapping" : "mappings"} changed from the previous proposal.`), ce.current = e;
-	}, [e]);
-	let ye = (e) => {
+		D.current = null, w(""), oe(null);
+		let n = new Map(t.member_changes.map((e) => [e.member_id, e.proposed_relative_path])), r = e.member_changes.flatMap((e) => {
+			let t = n.get(e.member_id);
+			return t === void 0 || t === e.proposed_relative_path ? [] : [{
+				memberId: e.member_id,
+				previousPath: t,
+				currentPath: e.proposed_relative_path
+			}];
+		}).sort((e, t) => a2(e.memberId, t.memberId));
+		E({ items: r }), ce.current = e;
+	}, [e]), (0, A.useLayoutEffect)(() => {
+		let t = pe.current, n = ge.current !== e.preview_fingerprint, r = he.current;
+		t && (n || r !== null) && (t.scrollTop = r ?? me.current), he.current = null, ge.current = e.preview_fingerprint;
+	}, [e.preview_fingerprint, l]);
+	let Ce = (e) => {
 		f(!1), m((t) => {
 			let n = new Set(t);
 			return n.has(e) ? n.delete(e) : n.add(e), n;
 		});
-	}, be = (e, t, n) => {
+	}, we = (e, t, n) => {
 		if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Home" || e.key === "End") {
 			e.preventDefault();
-			let n = e.key === "Home" ? 0 : e.key === "End" ? O.length - 1 : e.key === "ArrowDown" ? t + 1 : t - 1;
-			xe(n);
+			let n = e.key === "Home" ? 0 : e.key === "End" ? xe.length - 1 : e.key === "ArrowDown" ? t + 1 : t - 1;
+			Te(n);
 			return;
 		}
 		if (n.kind === "directory" && e.key === "ArrowRight") {
-			e.preventDefault(), y.has(n.path) ? O[t + 1]?.depth === n.depth + 1 && xe(t + 1) : b((e) => new Set(e).add(n.path));
+			e.preventDefault(), y.has(n.path) ? xe[t + 1]?.depth === n.depth + 1 && Te(t + 1) : b((e) => new Set(e).add(n.path));
 			return;
 		}
 		if (e.key === "ArrowLeft") {
@@ -11351,15 +11362,15 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 				});
 				return;
 			}
-			for (let e = t - 1; e >= 0; --e) if (O[e].depth === n.depth - 1) {
-				xe(e);
+			for (let e = t - 1; e >= 0; --e) if (xe[e].depth === n.depth - 1) {
+				Te(e);
 				return;
 			}
 		}
-	}, xe = (e) => {
-		let t = O[e];
+	}, Te = (e) => {
+		let t = xe[e];
 		t && (S(t.key), t.memberId !== null && v(t.memberId), fe.current[e]?.focus());
-	}, Se = async () => {
+	}, Ee = async () => {
 		if (ee || T || s || t.revision_failure !== null || e.counts.blocker_count > 0) return;
 		te(!0), re(null);
 		let n = JSON.stringify([
@@ -11367,7 +11378,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 			e.compiled_candidate_fingerprint,
 			e.preview_fingerprint,
 			o
-		]), i = Q0(le, n, c);
+		]), i = $0(le, n, c);
 		try {
 			await r({
 				candidate_fingerprint: e.compiled_candidate_fingerprint,
@@ -11378,7 +11389,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 		} catch (e) {
 			re(e instanceof Error ? e.message : "Acceptance was blocked."), te(!1);
 		}
-	}, Ce = async () => {
+	}, De = async () => {
 		let n = C.trim();
 		if (T || ee || s || !t.revision_available || n.length === 0) return;
 		ie(!0), oe(null);
@@ -11387,7 +11398,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 			e.compiled_candidate_fingerprint,
 			e.preview_fingerprint,
 			n
-		]), a = Q0(D, r, c);
+		]), a = $0(D, r, c);
 		try {
 			await i({
 				candidate_fingerprint: e.compiled_candidate_fingerprint,
@@ -11395,20 +11406,20 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 				idempotency_key: a,
 				instruction: n,
 				preview_fingerprint: e.preview_fingerprint
-			}), D.current = null, w("");
+			});
 		} catch (e) {
 			oe(e instanceof Error ? e.message : "Revision was blocked.");
 		} finally {
 			ie(!1);
 		}
-	}, we = async () => {
+	}, Oe = async () => {
 		if (T || s || t.revision_failure === null) return;
 		ie(!0), oe(null);
 		let n = JSON.stringify([
 			e.expected_job_revision,
 			e.compiled_candidate_fingerprint,
 			e.preview_fingerprint
-		]), r = Q0(ue, n, c);
+		]), r = $0(ue, n, c);
 		try {
 			await a({
 				candidate_fingerprint: e.compiled_candidate_fingerprint,
@@ -11421,7 +11432,11 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 		} finally {
 			ie(!1);
 		}
-	}, Te = n === "apply" ? "Your current folder" : "Original structure", Ee = n === "apply" ? "Shared proposal" : "Proposed structure";
+	}, ke = n === "apply" ? "Your current folder" : "Original structure", Ae = n === "apply" ? "Shared proposal" : "Proposed structure", je = n === "apply" && t.lifecycle === "reviewing" && e.proposal_basis === "imported_change_file" && e.imported_change_file_fingerprint !== null && e.match_report_fingerprint !== null, Me = n === "apply" && t.lifecycle === "reviewing" && e.proposal_basis === "gpt_derivative" && e.immediate_parent_candidate_fingerprint !== null, Ne = (e) => {
+		if (e === l) return;
+		let t = pe.current?.scrollTop ?? me.current;
+		me.current = t, he.current = t, u(e);
+	};
 	return /* @__PURE__ */ (0, $.jsxs)("div", {
 		className: "fw-review bp6-dark",
 		children: [
@@ -11429,31 +11444,55 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 				className: "fw-trust-strip",
 				"aria-label": "Plan trust summary",
 				children: [
-					/* @__PURE__ */ (0, $.jsx)($0, {
+					/* @__PURE__ */ (0, $.jsx)(e2, {
 						icon: "lock",
 						label: "Source unchanged",
-						value: "No output yet"
+						value: t.lifecycle === "reviewing" ? "No result exists during review" : "Result state not asserted"
 					}),
-					/* @__PURE__ */ (0, $.jsx)($0, {
+					/* @__PURE__ */ (0, $.jsx)(e2, {
 						icon: "tick-circle",
 						label: "Complete accounting",
-						value: `${e.counts.file_count} files`
+						value: `${m2(e.counts.file_count, "file")} + ${m2(e.counts.empty_directory_count, "empty directory", "empty directories")}`
 					}),
-					/* @__PURE__ */ (0, $.jsx)($0, {
+					/* @__PURE__ */ (0, $.jsx)(e2, {
 						icon: "shield",
 						label: "Protected",
 						value: `${e.counts.protected_count} fixed`
 					}),
-					/* @__PURE__ */ (0, $.jsx)($0, {
+					/* @__PURE__ */ (0, $.jsx)(e2, {
 						icon: "link",
 						label: "Supported links",
 						value: `${e.counts.link_updated_count} updates`
 					}),
-					/* @__PURE__ */ (0, $.jsx)($0, {
+					/* @__PURE__ */ (0, $.jsx)(e2, {
 						icon: "folder-new",
 						label: "Output",
 						value: "Created only after accept"
 					})
+				]
+			}),
+			(je || Me) && /* @__PURE__ */ (0, $.jsxs)("section", {
+				className: "fw-receiver-evidence",
+				"aria-label": "Receiver preparation evidence",
+				children: [/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)(r0, {
+					icon: "git-pull",
+					"aria-hidden": "true"
+				}), /* @__PURE__ */ (0, $.jsxs)("span", { children: [/* @__PURE__ */ (0, $.jsx)("strong", { children: je ? "Deterministic receiver match" : "Model-derived receiver revision" }), /* @__PURE__ */ (0, $.jsx)("small", { children: je ? "Change File and receiver match report are bound to this preview." : "This replacement remains bound to its exact parent proposal." })] })] }), /* @__PURE__ */ (0, $.jsxs)("dl", { children: [
+					e.imported_change_file_fingerprint !== null && /* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Change File" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: /* @__PURE__ */ (0, $.jsx)("code", { children: e.imported_change_file_fingerprint }) })] }),
+					je && /* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Match report" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: /* @__PURE__ */ (0, $.jsx)("code", { children: e.match_report_fingerprint }) })] }),
+					Me && /* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Parent proposal" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: /* @__PURE__ */ (0, $.jsx)("code", { children: e.immediate_parent_candidate_fingerprint }) })] }),
+					/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Model use" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: je ? "0 GPT calls so far" : "GPT used for this derivative proposal" })] })
+				] })]
+			}),
+			/* @__PURE__ */ (0, $.jsxs)("section", {
+				className: "fw-count-summary",
+				"aria-label": "Exact proposal counts",
+				children: [
+					/* @__PURE__ */ (0, $.jsx)("span", { children: h2(e.counts.file_count, "file") }),
+					/* @__PURE__ */ (0, $.jsx)("span", { children: h2(e.counts.empty_directory_count, "explicit empty directory", "explicit empty directories") }),
+					/* @__PURE__ */ (0, $.jsx)("span", { children: h2(e.counts.changed_path_count, "changed path") }),
+					/* @__PURE__ */ (0, $.jsx)("span", { children: h2(e.counts.link_updated_count, "updated link") }),
+					/* @__PURE__ */ (0, $.jsx)("span", { children: h2(e.counts.protected_count, "protected member") })
 				]
 			}),
 			/* @__PURE__ */ (0, $.jsxs)("div", {
@@ -11464,13 +11503,13 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 						children: [/* @__PURE__ */ (0, $.jsx)(g0, {
 							"aria-pressed": l === "current",
 							intent: l === "current" ? "primary" : "none",
-							onClick: () => u("current"),
-							children: Te
+							onClick: () => Ne("current"),
+							children: ke
 						}), /* @__PURE__ */ (0, $.jsx)(g0, {
 							"aria-pressed": l === "proposed",
 							intent: l === "proposed" ? "primary" : "none",
-							onClick: () => u("proposed"),
-							children: Ee
+							onClick: () => Ne("proposed"),
+							children: Ae
 						})]
 					}),
 					/* @__PURE__ */ (0, $.jsx)("div", { className: "fw-toolbar-spacer" }),
@@ -11498,7 +11537,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 					checked: p.has(e),
 					inline: !0,
 					label: t,
-					onChange: () => ye(e)
+					onChange: () => Ce(e)
 				}, e))
 			}),
 			/* @__PURE__ */ (0, $.jsxs)("div", {
@@ -11511,38 +11550,42 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 						children: [/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("span", {
 							className: "fw-eyebrow",
 							children: l === "current" ? "CURRENT" : "PROPOSED"
-						}), /* @__PURE__ */ (0, $.jsx)("h2", { children: l === "current" ? Te : Ee })] }), /* @__PURE__ */ (0, $.jsxs)(z0, {
+						}), /* @__PURE__ */ (0, $.jsx)("h2", { children: l === "current" ? ke : Ae })] }), /* @__PURE__ */ (0, $.jsxs)(z0, {
 							minimal: !0,
-							children: [he.length, " shown"]
+							children: [ye.length, " shown"]
 						})]
 					}), /* @__PURE__ */ (0, $.jsx)("div", {
 						className: "fw-tree",
+						onScroll: (e) => {
+							me.current = e.currentTarget.scrollTop;
+						},
+						ref: pe,
 						role: "tree",
-						"aria-label": `${l === "current" ? Te : Ee} folder tree`,
-						children: O.length === 0 ? /* @__PURE__ */ (0, $.jsx)("div", {
+						"aria-label": `${l === "current" ? ke : Ae} folder tree`,
+						children: xe.length === 0 ? /* @__PURE__ */ (0, $.jsx)("div", {
 							className: "fw-empty-state",
 							children: "No members match these filters."
-						}) : O.map((e, t) => {
-							let n = e.memberId === null ? void 0 : pe.get(e.memberId), r = e.kind === "directory", i = y.has(e.path);
+						}) : xe.map((e, t) => {
+							let n = e.memberId === null ? void 0 : _e.get(e.memberId), r = e.kind === "directory", i = y.has(e.path);
 							return /* @__PURE__ */ (0, $.jsxs)("button", {
-								"aria-label": t2(e, n),
+								"aria-label": n2(e, n),
 								"aria-expanded": r ? i : void 0,
 								"aria-level": e.depth + 1,
 								"aria-selected": e.memberId !== null && _ === e.memberId,
 								className: `fw-tree-row ${e.memberId !== null && _ === e.memberId ? "is-selected" : ""}`,
 								onClick: () => {
-									S(e.key), r && b((t) => u2(t, e.path)), e.memberId !== null && v(e.memberId);
+									S(e.key), r && b((t) => f2(t, e.path)), e.memberId !== null && v(e.memberId);
 								},
 								onFocus: () => {
 									S(e.key), e.memberId !== null && v(e.memberId);
 								},
-								onKeyDown: (n) => be(n, t, e),
+								onKeyDown: (n) => we(n, t, e),
 								ref: (e) => {
 									fe.current[t] = e;
 								},
 								role: "treeitem",
 								style: { "--fw-depth": e.depth },
-								tabIndex: e.key === (x ?? O[0]?.key) ? 0 : -1,
+								tabIndex: e.key === (x ?? xe[0]?.key) ? 0 : -1,
 								type: "button",
 								children: [
 									/* @__PURE__ */ (0, $.jsx)("span", {
@@ -11558,7 +11601,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 										className: "fw-tree-label",
 										children: e.label
 									}),
-									n && /* @__PURE__ */ (0, $.jsx)(e2, { change: n })
+									n && /* @__PURE__ */ (0, $.jsx)(t2, { change: n })
 								]
 							}, e.key);
 						})
@@ -11566,24 +11609,24 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 				}), /* @__PURE__ */ (0, $.jsx)(D0, {
 					className: "fw-detail-panel",
 					compact: !0,
-					children: _e ? /* @__PURE__ */ (0, $.jsxs)($.Fragment, { children: [
+					children: O ? /* @__PURE__ */ (0, $.jsxs)($.Fragment, { children: [
 						/* @__PURE__ */ (0, $.jsxs)("div", {
 							className: "fw-detail-heading",
 							children: [/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("span", {
 								className: "fw-eyebrow",
 								children: "SELECTED MEMBER"
-							}), /* @__PURE__ */ (0, $.jsx)("h2", { children: l === "current" ? _e.current_relative_path : _e.proposed_relative_path })] }), /* @__PURE__ */ (0, $.jsx)(z0, {
-								intent: l2(_e),
-								children: X0[_e.change_classification]
+							}), /* @__PURE__ */ (0, $.jsx)("h2", { children: l === "current" ? O.current_relative_path : O.proposed_relative_path })] }), /* @__PURE__ */ (0, $.jsx)(z0, {
+								intent: d2(O),
+								children: X0[O.change_classification]
 							})]
 						}),
 						/* @__PURE__ */ (0, $.jsxs)("dl", {
 							className: "fw-details",
 							children: [
-								/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Current" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: _e.current_relative_path })] }),
-								/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Proposed" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: _e.proposed_relative_path })] }),
-								/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Authority" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: c2(_e) })] }),
-								/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Reason" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: _e.rationale })] })
+								/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Current" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: O.current_relative_path })] }),
+								/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Proposed" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: O.proposed_relative_path })] }),
+								/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Authority" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: u2(O) })] }),
+								/* @__PURE__ */ (0, $.jsxs)("div", { children: [/* @__PURE__ */ (0, $.jsx)("dt", { children: "Reason" }), /* @__PURE__ */ (0, $.jsx)("dd", { children: O.rationale })] })
 							]
 						}),
 						/* @__PURE__ */ (0, $.jsxs)("section", {
@@ -11592,7 +11635,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 							children: [/* @__PURE__ */ (0, $.jsx)("h3", {
 								id: "link-effects-title",
 								children: "Supported link effects"
-							}), ve.length === 0 ? /* @__PURE__ */ (0, $.jsx)("p", { children: "No supported links originate from this member." }) : /* @__PURE__ */ (0, $.jsx)("ul", { children: ve.map((e) => /* @__PURE__ */ (0, $.jsxs)("li", { children: [
+							}), Se.length === 0 ? /* @__PURE__ */ (0, $.jsx)("p", { children: "No supported links originate from this member." }) : /* @__PURE__ */ (0, $.jsx)("ul", { children: Se.map((e) => /* @__PURE__ */ (0, $.jsxs)("li", { children: [
 								/* @__PURE__ */ (0, $.jsx)(z0, {
 									intent: e.status === "rewritten" ? "warning" : "success",
 									minimal: !0,
@@ -11633,7 +11676,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 							disabled: e.counts.blocker_count > 0 || ee || T || s || t.revision_failure !== null,
 							intent: "success",
 							loading: ee,
-							onClick: () => void Se(),
+							onClick: () => void Ee(),
 							rightIcon: "arrow-right",
 							children: "Accept this structure and create copy"
 						})]
@@ -11643,10 +11686,33 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 						role: "alert",
 						children: ne
 					}),
-					se && /* @__PURE__ */ (0, $.jsx)("div", {
+					se && /* @__PURE__ */ (0, $.jsxs)("section", {
 						className: "fw-revision-delta",
+						"aria-labelledby": "revision-delta-title",
 						role: "status",
-						children: se
+						children: [
+							/* @__PURE__ */ (0, $.jsx)("strong", {
+								id: "revision-delta-title",
+								children: "Previous proposal delta"
+							}),
+							/* @__PURE__ */ (0, $.jsxs)("p", { children: [
+								se.items.length,
+								" ",
+								se.items.length === 1 ? "mapping" : "mappings",
+								" changed from the previous proposal."
+							] }),
+							se.items.length > 0 && /* @__PURE__ */ (0, $.jsx)("ul", { children: se.items.map((e) => /* @__PURE__ */ (0, $.jsxs)("li", {
+								"data-member-id": e.memberId,
+								children: [
+									/* @__PURE__ */ (0, $.jsx)("code", { children: e.previousPath }),
+									/* @__PURE__ */ (0, $.jsx)("span", {
+										"aria-hidden": "true",
+										children: "→"
+									}),
+									/* @__PURE__ */ (0, $.jsx)("code", { children: e.currentPath })
+								]
+							}, e.memberId)) })
+						]
 					}),
 					t.revision_failure && /* @__PURE__ */ (0, $.jsxs)("div", {
 						className: "fw-error",
@@ -11662,7 +11728,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 									children: "Try another change"
 								}), /* @__PURE__ */ (0, $.jsx)(g0, {
 									disabled: T || s,
-									onClick: () => void we(),
+									onClick: () => void Oe(),
 									children: "Keep previous proposal"
 								})]
 							})
@@ -11694,7 +11760,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 							disabled: !t.revision_available || C.trim().length === 0 || T || ee || s,
 							intent: "primary",
 							loading: T,
-							onClick: () => void Ce(),
+							onClick: () => void De(),
 							rightIcon: "send-message",
 							children: "Send changes"
 						})]
@@ -11704,7 +11770,7 @@ function Z0({ preview: e, status: t, journey: n, acceptPlan: r, revisePlan: i, k
 		]
 	});
 }
-function Q0(e, t, n) {
+function $0(e, t, n) {
 	if (e.current?.requestFingerprint === t) return e.current.idempotencyKey;
 	let r = n();
 	return e.current = {
@@ -11712,7 +11778,7 @@ function Q0(e, t, n) {
 		idempotencyKey: r
 	}, r;
 }
-function $0({ icon: e, label: t, value: n }) {
+function e2({ icon: e, label: t, value: n }) {
 	return /* @__PURE__ */ (0, $.jsxs)("div", {
 		className: "fw-trust-item",
 		children: [/* @__PURE__ */ (0, $.jsx)(r0, {
@@ -11721,7 +11787,7 @@ function $0({ icon: e, label: t, value: n }) {
 		}), /* @__PURE__ */ (0, $.jsxs)("span", { children: [/* @__PURE__ */ (0, $.jsx)("strong", { children: t }), /* @__PURE__ */ (0, $.jsx)("small", { children: n })] })]
 	});
 }
-function e2({ change: e }) {
+function t2({ change: e }) {
 	return /* @__PURE__ */ (0, $.jsxs)("span", {
 		className: "fw-status-signals",
 		children: [
@@ -11744,12 +11810,12 @@ function e2({ change: e }) {
 		]
 	});
 }
-function t2(e, t) {
+function n2(e, t) {
 	if (!t) return e.label;
 	let n = [X0[t.change_classification]];
 	return t.link_updated && n.push("supported link updated"), `${e.label}, ${n.join(", ")}`;
 }
-function n2(e) {
+function r2(e) {
 	let t = {
 		key: "root",
 		label: "",
@@ -11786,25 +11852,33 @@ function n2(e) {
 			children: []
 		});
 	}
-	return r2(t), t.children;
+	return i2(t), t.children;
 }
-function r2(e) {
-	e.children.sort((e, t) => e.kind === t.kind ? e.label.localeCompare(t.label) : e.kind === "directory" ? -1 : 1), e.children.forEach(r2);
+function i2(e) {
+	e.children.sort((e, t) => e.kind === t.kind ? a2(e.label, t.label) : e.kind === "directory" ? -1 : 1), e.children.forEach(i2);
 }
-function i2(e, t) {
+function a2(e, t) {
+	let n = Array.from(e, (e) => e.codePointAt(0) ?? 0), r = Array.from(t, (e) => e.codePointAt(0) ?? 0), i = Math.min(n.length, r.length);
+	for (let e = 0; e < i; e += 1) {
+		let t = n[e] - r[e];
+		if (t !== 0) return t;
+	}
+	return n.length - r.length;
+}
+function o2(e, t) {
 	let n = [];
-	for (let r of e) n.push(r), r.kind === "directory" && t.has(r.path) && n.push(...i2(r.children, t));
+	for (let r of e) n.push(r), r.kind === "directory" && t.has(r.path) && n.push(...o2(r.children, t));
 	return n;
 }
-function a2(e) {
+function s2(e) {
 	let t = /* @__PURE__ */ new Set();
-	for (let n of e.member_changes.filter(s2)) for (let e of [n.current_relative_path, n.proposed_relative_path]) {
+	for (let n of e.member_changes.filter(l2)) for (let e of [n.current_relative_path, n.proposed_relative_path]) {
 		let r = e.split("/"), i = n.member_kind === "empty_directory" ? r.length : r.length - 1;
 		for (let e = 1; e <= i; e += 1) t.add(r.slice(0, e).join("/"));
 	}
 	return t;
 }
-function o2(e, t) {
+function c2(e, t) {
 	switch (t) {
 		case "moved": return e.change_classification === "moved" || e.change_classification === "moved_and_renamed";
 		case "renamed": return e.change_classification === "renamed" || e.change_classification === "moved_and_renamed";
@@ -11814,25 +11888,35 @@ function o2(e, t) {
 		case "empty_directory": return e.member_kind === "empty_directory";
 	}
 }
-function s2(e) {
+function l2(e) {
 	return e.current_relative_path !== e.proposed_relative_path || e.link_updated;
 }
-function c2(e) {
+function u2(e) {
 	return e.authority_source === "change_file" ? "Imported Foldweave Change File" : e.authority_source === "gpt_plan" ? "Planning proposal, checked by deterministic code" : "Protected by deterministic policy";
 }
-function l2(e) {
+function d2(e) {
 	return e.protected || e.change_classification === "unchanged" ? "none" : e.link_updated ? "warning" : "primary";
 }
-function u2(e, t) {
+function f2(e, t) {
 	let n = new Set(e);
 	return n.has(t) ? n.delete(t) : n.add(t), n;
 }
-function d2() {
+function p2() {
 	if (typeof crypto.randomUUID == "function") return crypto.randomUUID();
 	let e = crypto.getRandomValues(/* @__PURE__ */ new Uint8Array(16));
 	return Array.from(e, (e) => e.toString(16).padStart(2, "0")).join("");
 }
-function f2() {
+function m2(e, t, n = `${t}s`) {
+	return `${e} ${e === 1 ? t : n}`;
+}
+function h2(e, t, n = `${t}s`) {
+	return /* @__PURE__ */ (0, $.jsxs)($.Fragment, { children: [
+		/* @__PURE__ */ (0, $.jsx)("strong", { children: e }),
+		" ",
+		e === 1 ? t : n
+	] });
+}
+function g2() {
 	return /* @__PURE__ */ (0, $.jsxs)("div", {
 		className: "fw-loading",
 		children: [/* @__PURE__ */ (0, $.jsx)(d0, { size: 24 }), /* @__PURE__ */ (0, $.jsx)("span", { children: "Loading the verified preview…" })]
@@ -11840,11 +11924,11 @@ function f2() {
 }
 //#endregion
 //#region src/main.tsx
-function p2({ bootstrap: e }) {
+function _2({ bootstrap: e }) {
 	let [t, n] = (0, A.useState)(null), [r, i] = (0, A.useState)(null), [a, o] = (0, A.useState)(null);
 	if ((0, A.useEffect)(() => {
 		let t = new AbortController();
-		return Promise.all([m2(`/api/jobs/${encodeURIComponent(e.jobId)}/preview`, t.signal), m2(`/api/jobs/${encodeURIComponent(e.jobId)}/status`, t.signal)]).then(([t, r]) => {
+		return Promise.all([v2(`/api/jobs/${encodeURIComponent(e.jobId)}/preview`, t.signal), v2(`/api/jobs/${encodeURIComponent(e.jobId)}/status`, t.signal)]).then(([t, r]) => {
 			if (U0(t, e.jobId), W0(r, e.jobId), t.expected_job_revision !== r.job_revision || t.compiled_candidate_fingerprint !== r.candidate_fingerprint || t.preview_fingerprint !== r.preview_fingerprint) throw Error("The visible preview no longer matches the durable job.");
 			n(t), i(r);
 		}).catch((e) => {
@@ -11855,7 +11939,7 @@ function p2({ bootstrap: e }) {
 		title: "Review unavailable",
 		description: a
 	});
-	if (!t || !r) return /* @__PURE__ */ (0, $.jsx)(f2, {});
+	if (!t || !r) return /* @__PURE__ */ (0, $.jsx)(g2, {});
 	let s = async (t) => {
 		let n = {
 			...t,
@@ -11870,8 +11954,8 @@ function p2({ bootstrap: e }) {
 			},
 			body: JSON.stringify(n)
 		}), a = await i.json();
-		if (!i.ok) throw Error(h2(a));
-		if (!g2(a) || a.lifecycle !== "verified" || typeof a.done_url != "string") throw Error("Foldweave did not return a verified result destination.");
+		if (!i.ok) throw Error(y2(a));
+		if (!b2(a) || a.lifecycle !== "verified" || typeof a.done_url != "string") throw Error("Foldweave did not return a verified result destination.");
 		window.location.assign(a.done_url);
 	}, c = async (e) => {
 		await u("revision", e);
@@ -11887,13 +11971,13 @@ function p2({ bootstrap: e }) {
 			},
 			body: JSON.stringify(r)
 		}), o = await a.json();
-		if (!a.ok) throw Error(h2(o));
+		if (!a.ok) throw Error(y2(o));
 		W0(o, e.jobId);
-		let s = await m2(`/api/jobs/${encodeURIComponent(e.jobId)}/preview`, new AbortController().signal);
+		let s = await v2(`/api/jobs/${encodeURIComponent(e.jobId)}/preview`, new AbortController().signal);
 		if (U0(s, e.jobId), s.expected_job_revision !== o.job_revision || s.compiled_candidate_fingerprint !== o.candidate_fingerprint || s.preview_fingerprint !== o.preview_fingerprint) throw Error("The revised preview no longer matches the durable job.");
 		n(s), i(o);
 	};
-	return /* @__PURE__ */ (0, $.jsx)(Z0, {
+	return /* @__PURE__ */ (0, $.jsx)(Q0, {
 		acceptanceScopeFingerprint: JSON.stringify([r.output_parent, r.result_folder_name]),
 		acceptPlan: s,
 		journey: e.journey,
@@ -11903,22 +11987,22 @@ function p2({ bootstrap: e }) {
 		status: r
 	});
 }
-async function m2(e, t) {
+async function v2(e, t) {
 	let n = await fetch(e, {
 		credentials: "same-origin",
 		headers: { accept: "application/json" },
 		signal: t
 	}), r = await n.json();
-	if (!n.ok) throw Error(h2(r));
+	if (!n.ok) throw Error(y2(r));
 	return r;
 }
-function h2(e) {
-	return g2(e) && typeof e.detail == "string" && e.detail.length > 0 ? e.detail : "Foldweave could not complete this request.";
+function y2(e) {
+	return b2(e) && typeof e.detail == "string" && e.detail.length > 0 ? e.detail : "Foldweave could not complete this request.";
 }
-function g2(e) {
+function b2(e) {
 	return typeof e == "object" && !!e && !Array.isArray(e);
 }
-function _2(e) {
+function x2(e) {
 	let { jobId: t, csrfToken: n, journey: r } = e.dataset;
 	if (!t || !/^[a-f0-9]{32}$/.test(t)) throw Error("The review mount is missing its job identity.");
 	if (!n || n.length < 16) throw Error("The review mount is missing its local authorization token.");
@@ -11929,11 +12013,11 @@ function _2(e) {
 		journey: r
 	};
 }
-var v2 = document.getElementById("foldweave-review-root");
-if (v2) try {
-	let e = _2(v2);
-	(0, B0.createRoot)(v2).render(/* @__PURE__ */ (0, $.jsx)(A.StrictMode, { children: /* @__PURE__ */ (0, $.jsx)(p2, { bootstrap: e }) }));
+var S2 = document.getElementById("foldweave-review-root");
+if (S2) try {
+	let e = x2(S2);
+	(0, B0.createRoot)(S2).render(/* @__PURE__ */ (0, $.jsx)(A.StrictMode, { children: /* @__PURE__ */ (0, $.jsx)(_2, { bootstrap: e }) }));
 } catch (e) {
-	v2.textContent = e instanceof Error ? e.message : "Foldweave review could not start.";
+	S2.textContent = e instanceof Error ? e.message : "Foldweave review could not start.";
 }
 //#endregion

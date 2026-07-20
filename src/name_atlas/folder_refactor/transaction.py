@@ -326,7 +326,7 @@ def scan_folder_with_references(
     ):
         raise FolderTransactionError(
             "protected_markdown_link_context_unsupported: a protected Markdown "
-            "member contains a supported local link, so Name Atlas cannot expose "
+            "member contains a supported local link, so the workflow cannot expose "
             "or rewrite the link context"
         )
     parsed_scan = scan_folder(initial_scan.source_root)

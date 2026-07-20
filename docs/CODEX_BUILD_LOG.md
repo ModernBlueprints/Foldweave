@@ -1,20 +1,26 @@
 # Codex and GPT-5.6 build log
 
-This is the factual development record for Reversible Name Atlas. Codex with
-GPT-5.6 was the primary development environment and integrator. The user chose
-the product direction, authorized the frozen build contracts and plain-English
-requests, supplies the sole clarification answer when required, and owns the
-submission voice-over, eligibility attestations, `/feedback`, and final
-submission-hold release.
+This is the factual development record for **Foldweave**, previously released
+during Build Week as Reversible Name Atlas/Name Atlas. Codex with GPT-5.6 is the
+primary development environment and integrator. The user chose the product
+direction, authorized the frozen build contracts and plain-English requests,
+supplies the sole clarification answer when required, and owns the submission
+voice-over, eligibility attestations, `/feedback`, and final submission-hold
+release. Historical names, commit descriptions, artifacts, and qualification
+claims below remain unchanged because they describe the product that existed at
+those checkpoints.
 
-The current runtime use of GPT-5.6 is central but bounded: it creates a complete
-rename/move plan from the instruction, relative structure, basic metadata,
-selected eligible text excerpts, and supported Markdown-link context. Fixed
-code still requires every admitted file exactly once, injects protected files,
-derives link rewrites, copies into a separate result, and independently verifies
-the outcome. GPT-5.6 has no source-mutation, promotion, or proof authority. The
-older advisory-card role below is preserved as explicitly historical evidence;
-it does not qualify the current planner.
+The current runtime use of model inference is central but bounded. In native
+direct mode, exact `gpt-5.6` proposes a complete plan or sparse revision through
+the Responses API. In ChatGPT-hosted and Codex-hosted modes, the host supplies
+model inference through bounded Foldweave tools. Fixed code still requires every
+admitted file exactly once, injects protected files, derives link rewrites,
+renders one immutable preview, executes only after fingerprint-bound human
+acceptance, copies into a separate result, and independently verifies the
+outcome. No model has source-mutation, acceptance, promotion, receipt, or proof
+authority. The older advisory-card and Connected Change roles below are
+preserved as explicitly historical evidence; they do not by themselves qualify
+the current Foldweave planner or review surfaces.
 
 ## First product cycle — 17 July 2026
 
@@ -589,3 +595,124 @@ Wednesday 22 July 2026 at 02:00 CEST. The required YouTube demonstration remains
 absent and must be publicly viewable, under three minutes, and include audio
 covering the product, Codex, and GPT-5.6. These calls made no project,
 registration, video, hackathon-association, submission, or hold mutation.
+
+## Foldweave native-review cycle — 19–20 July 2026
+
+The user authorized one new implementation branch from the verified Connected
+Change predecessor `1023999f2acc7b806775b407dc01a15af3447e90`. The active
+product identity is now **Foldweave**, with the tagline **Change the structure.
+Keep the connections.** Historical Name Atlas artifacts and schema identifiers
+remain strict compatibility surfaces rather than being rewritten.
+
+The new product contract adds four explicit execution modes:
+
+1. native direct `gpt-5.6` planning through the Responses API;
+2. ChatGPT-hosted planning using the model supplied by the user's ChatGPT
+   session, without a Foldweave Responses API key or direct-budget reservation;
+3. exact recorded replay without model inference; and
+4. unchanged Change File application without model inference.
+
+Codex is a required access surface over the same host-planning tools and durable
+domain services. It does not introduce a separate execution engine or model
+provenance category.
+
+### Published branch checkpoints
+
+| Commit | Outcome | Verified checkpoint |
+|---|---|---|
+| `8eedb02` | Established the Foldweave native-review governance scaffold on `revision/foldweave-native-review`. | Governance only; parent `1023999` and the complete Connected Change release remained intact. |
+| `ba37014` | Added review-before-execution for origin and receiver jobs. | Durable job v3, immutable preview DTO, current/proposed trees, no output in `reviewing`, stale/duplicate refusal, exact acceptance, separate verified result, browser/CLI review semantics. |
+| `dfa85b4` | Qualified the packaged native direct transaction. | PyInstaller `onedir --windowed` Apple-Silicon app, one FastAPI control plane, focused React review island, native picker, Keychain configure/read/remove, exact live direct planning, one bounded revision, exact acceptance, receipt verification, reconstruction, restart, and clean shutdown. The app is unsigned/ad-hoc, not Developer-ID-signed or notarized. |
+| `13fb54e` | Preserved the hosted-review implementation checkpoint. | Bounded host planning, shared ChatGPT widget contract, opaque local handles, truthful `chatgpt_hosted` provenance, provider-free hosted tools, and generated production widget assets. This checkpoint did not claim a completed consumer gateway or public listing. |
+| `2322076` | Hardened the Foldweave review authority. | Append-only v3 mutation history, exact-request rehydration, destination reservation, bounded revision recovery, and additional stale, conflicting, retry, and race refusals. |
+
+### Current implementation after `2322076`
+
+The active working branch continues to integrate the proof-carrying derivative
+transaction and shared host surfaces. Current source and tests cover:
+
+- complete `connected-change-file.v2` children with immediate-parent lineage;
+- receipt/verifier v3 and transaction-specific reconstruction authority;
+- immutable receiver parent jobs and explicit derivative children;
+- direct, ChatGPT-hosted, Codex-hosted, replay, and model-free provenance;
+- a local STDIO MCP profile for Codex and a ChatGPT Streamable HTTP profile;
+- a purpose-built current/proposed React tree shared by the native review island
+  and ChatGPT widget;
+- an outbound-only paired companion and a checked-in Cloudflare gateway profile;
+  and
+- a renamed thin Foldweave Codex plugin around the same MCP and deterministic
+  engine.
+
+Those source surfaces are not release evidence by themselves. At this
+documentation checkpoint, public Cloudflare deployment, consumer pairing,
+ChatGPT directory approval/public listing, a final ChatGPT origin-revision
+transaction, and a final fresh-task Foldweave Codex installed-copy transaction
+must not be claimed unless separately observed and recorded.
+
+### Native and browser boundary
+
+The tested native profile is `Foldweave.app` on macOS Apple Silicon. The
+pywebview window owns no durable product authority; it presents the existing
+FastAPI control plane and a focused React/TypeScript review island. The direct
+credential is stored in macOS Keychain and is never sent to the renderer. The
+browser fallback and CLI remain supported. No Windows/Linux native, notarized,
+Mac App Store, mobile, or remote-phone claim is made.
+
+### ChatGPT and API boundary
+
+ChatGPT subscription access and OpenAI API billing are separate. Native direct
+mode uses a user-supplied OpenAI API key and the sole direct budget ledger.
+ChatGPT-hosted mode uses the model supplied by ChatGPT and may not silently call
+the direct API. Recorded replay and unchanged Change File application remain
+model-free. A ChatGPT widget or tool invocation may use gateway networking even
+when the underlying unchanged application is model-free.
+
+The ChatGPT developer qualification has demonstrated real tool discovery,
+opaque local selection, deterministic receiver matching, and a rendered
+receiver-local current/shared preview without loading a direct API key. The
+consumer gateway and complete final host qualification remain separate gates;
+developer-mode evidence is not a public-distribution claim.
+
+### Current primary commands
+
+- `uv run foldweave app`
+- `uv run foldweave app --browser`
+- `uv run foldweave demo --mode replay`
+- `uv run foldweave run --mode live|replay --source SOURCE [--output OUTPUT]
+  [--job JOB]`
+- `uv run foldweave apply-change CHANGE_FILE --source SOURCE [--output OUTPUT]
+  [--job JOB]`
+- `uv run foldweave preview JOB [--json]`
+- `uv run foldweave revise JOB --instruction TEXT --idempotency-key KEY`
+- `uv run foldweave accept JOB --preview-fingerprint SHA256
+  --idempotency-key KEY`
+- `uv run foldweave verify-receipt RESULT_BAG [--source SOURCE]`
+- `uv run foldweave restore-receipt RESULT_BAG RESTORE_DESTINATION`
+- `uv run foldweave mcp --transport stdio`
+- `uv run foldweave mcp --transport streamable-http --surface
+  chatgpt-hosted`
+- `uv run foldweave companion register|approve|run|status|revoke`
+
+`run` and `apply-change` prepare jobs for review. Neither command executes
+without a later exact `accept` action. The legacy `name-atlas` command and
+historical `*.nameatlas-change.json`/v1/v2 artifacts remain available through
+strict legacy dispatch.
+
+### Privacy and proof boundary
+
+A Foldweave Change File contains no project payload bytes. It does disclose
+names and structure, file sizes and hashes, supported-link relationships, the
+instruction, targets, immediate-parent lineage, and proof identifiers. Live
+planning sends bounded selected evidence. `store=false` is not a zero-retention
+claim. A receipt proves internal consistency against its commitments; it is not
+a signature, sender authentication, authorship proof, institutional approval,
+or tamper-proofing claim.
+
+### Release and submission status
+
+The Connected Change predecessor remains the last complete public release. The
+Foldweave branch has not yet been declared a release candidate in this build
+log. No Cloudflare public deployment, ChatGPT directory approval, signed or
+notarized app, final Foldweave video, `/feedback`, eligibility/ownership
+attestation, final submission-hold release, or Devpost submission is asserted
+here. The submission hold remains active.

@@ -63,6 +63,10 @@ class FoldweavePaths:
         return self.state_root / "diagnostics"
 
     @property
+    def companion_pairing(self) -> Path:
+        return self.state_root / "companion-pairing.json"
+
+    @property
     def instance_lock(self) -> Path:
         return self.state_root / "runtime.lock"
 

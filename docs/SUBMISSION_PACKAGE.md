@@ -337,22 +337,19 @@ The reconstruction destination must not already exist.
 
 Run:
 
-`uv run name-atlas mcp`
+`uv run foldweave mcp --transport stdio`
 
-The STDIO server exposes exactly:
+One shared server exposes bounded host-planning tools and reviewed high-level
+workflow tools through the same durable job, compiler, copy, receipt, verifier,
+and reconstruction services as the native application, browser fallback, and
+CLI. Codex-hosted planning uses Codex's model inference and does not read a
+direct Responses API key or reserve the direct-API budget. Deterministic
+unchanged Change File preparation and application, preview rendering,
+verification, and reconstruction remain model-free.
 
-- `plan_and_create_copy`
-- `job_status`
-- `answer_clarification`
-- `get_change_file`
-- `apply_change_file`
-- `verify_result`
-- `recreate_original`
-
-It exposes no arbitrary file read/write/move/delete, shell, direct planner
-evidence tools, compiler bypass, receipt construction, or proof override.
-Planning requires literal acknowledgement of the outbound-evidence and
-retention disclosure. Mutations use persisted idempotency keys and durable jobs;
+It exposes no arbitrary file read/write/move/delete, shell, compiler bypass,
+receipt construction, proof override, or provider credential. Mutations bind
+persisted idempotency keys, expected revisions, and the exact proposal/preview;
 polling status cannot trigger a provider call.
 
 ### Codex plugin
@@ -362,11 +359,11 @@ From the final clean clone:
 1. `uv sync --frozen`
 2. `CODEX_BIN="/Applications/ChatGPT.app/Contents/Resources/codex"`
 3. `"$CODEX_BIN" plugin marketplace add .`
-4. `"$CODEX_BIN" plugin add name-atlas@personal`
+4. `"$CODEX_BIN" plugin add foldweave@personal`
 5. Refresh or restart Codex.
 6. Start a new Codex task whose working directory is the clean clone.
-7. Ask Codex to use a Name Atlas tool, for example to verify an existing result
-   or apply a Change File.
+7. Ask Codex to use a Foldweave tool, for example to prepare and review a folder
+   plan, verify an existing result, or prepare a Change File for review.
 
 The plugin is a thin package around the same MCP server. It contains no second
 planner, job store, receipt, verifier, reconstruction engine, budget ledger, or
@@ -374,7 +371,7 @@ generic filesystem tool.
 
 Uninstall with:
 
-`"$CODEX_BIN" plugin remove name-atlas@personal`
+`"$CODEX_BIN" plugin remove foldweave@personal`
 
 If the local marketplace is no longer needed:
 

@@ -23,6 +23,7 @@ from name_atlas.folder_refactor.connected_change.job_v3 import (
     FolderJobLifecycleV3,
     FolderRefactorJobV3,
     FolderRefactorJobV3Store,
+    GptDerivativeJobAuthorityV3,
     GptPlannedJobAuthorityV3,
 )
 from name_atlas.folder_refactor.connected_change.review_service import (
@@ -190,7 +191,10 @@ class FoldweaveBrowserReviewService:
         elif job.lifecycle is FolderJobLifecycleV3.AWAITING_CLARIFICATION:
             return _clarification_request(job)
         elif job.lifecycle is FolderJobLifecycleV3.REVISING:
-            job = self._service.recover_interrupted_revision(job.job_path)
+            if isinstance(job.authority, GptDerivativeJobAuthorityV3):
+                job = self._service.recover_interrupted_direct_derivative(job.job_path)
+            else:
+                job = self._service.recover_interrupted_revision(job.job_path)
         elif job.lifecycle is FolderJobLifecycleV3.EXECUTING:
             job = self._service.resume_authorized_execution(job.job_path)
         return self._review_or_terminal(job)
@@ -277,18 +281,69 @@ class FoldweaveBrowserReviewService:
     ) -> FolderReviewHandle:
         """Run one bounded provider revision and return the replacement review."""
 
-        self._require_job_id(job_id)
+        current = self._require_job_id(job_id)
         if self._provider_factory is None:
             raise ValueError("Live proposal revision is unavailable in this mode.")
-        job = await self._service.revise(
-            self._job_path,
-            expected_revision=expected_revision,
-            preview_fingerprint=preview_fingerprint,
-            candidate_fingerprint=candidate_fingerprint,
-            instruction=instruction,
-            idempotency_key=idempotency_key,
-            provider_factory=self._provider_factory.revision_provider,
-        )
+        if isinstance(current.authority, CapsuleAppliedJobAuthorityV2) or (
+            isinstance(current.authority, GptDerivativeJobAuthorityV3)
+            and current.authority.authority_state == "failed"
+        ):
+            _require_exact_revision_surface(
+                current,
+                expected_revision=expected_revision,
+                preview_fingerprint=preview_fingerprint,
+                candidate_fingerprint=candidate_fingerprint,
+            )
+            parent_path = (
+                current.job_path
+                if isinstance(current.authority, CapsuleAppliedJobAuthorityV2)
+                else current.authority.parent_binding.parent_job_path
+            )
+            child, created = (
+                self._service.create_or_resume_derivative_child_with_status(
+                    parent_path,
+                    output_parent=current.output_parent,
+                    instruction=instruction,
+                    idempotency_key=idempotency_key,
+                    provider_kind=self._provider_factory.provider_kind,
+                    channel=self._review_channel,
+                )
+            )
+            self._job_path = child.job_path
+            if created:
+                provider = self._provider_factory.derivative_revision_provider(
+                    child.job_path
+                )
+                job = await self._service.submit_direct_derivative_revision(
+                    child.job_path,
+                    provider=provider,
+                )
+            else:
+                job = self._service.recover_interrupted_direct_derivative(
+                    child.job_path
+                )
+        elif isinstance(current.authority, GptDerivativeJobAuthorityV3) and (
+            current.authority.authority_state == "awaiting_model_response"
+        ):
+            job = self._service.recover_interrupted_direct_derivative(current.job_path)
+        else:
+
+            def provider_factory():
+                if isinstance(current.authority, GptDerivativeJobAuthorityV3):
+                    return self._provider_factory.derivative_revision_provider(
+                        current.job_path
+                    )
+                return self._provider_factory.revision_provider()
+
+            job = await self._service.revise(
+                current.job_path,
+                expected_revision=expected_revision,
+                preview_fingerprint=preview_fingerprint,
+                candidate_fingerprint=candidate_fingerprint,
+                instruction=instruction,
+                idempotency_key=idempotency_key,
+                provider_factory=provider_factory,
+            )
         if job.lifecycle not in {
             FolderJobLifecycleV3.REVIEWING,
             FolderJobLifecycleV3.REVISION_FAILED,
@@ -318,6 +373,7 @@ class FoldweaveBrowserReviewService:
             candidate_fingerprint=candidate_fingerprint,
             idempotency_key=idempotency_key,
         )
+        self._job_path = job.job_path
         return _review_handle(job)
 
     def web_checkpoint(self) -> FolderWebCheckpoint | None:
@@ -391,9 +447,13 @@ class FoldweaveBrowserReviewService:
             raise ValueError("Verified Foldweave job lacks preview or proof facts.")
         assert job.final_result_path is not None
         role = (
-            "receiver"
-            if isinstance(job.authority, CapsuleAppliedJobAuthorityV2)
-            else "origin"
+            "derivative"
+            if isinstance(job.authority, GptDerivativeJobAuthorityV3)
+            else (
+                "receiver"
+                if isinstance(job.authority, CapsuleAppliedJobAuthorityV2)
+                else "origin"
+            )
         )
         return FolderRunPresentation(
             source_root=job.source_root,
@@ -442,7 +502,10 @@ class FoldweaveBrowserReviewService:
                 request=job.user_request,
                 journey=(
                     FolderJourney.APPLY
-                    if isinstance(job.authority, CapsuleAppliedJobAuthorityV2)
+                    if isinstance(
+                        job.authority,
+                        (CapsuleAppliedJobAuthorityV2, GptDerivativeJobAuthorityV3),
+                    )
                     else FolderJourney.ORGANIZE
                 ),
                 resume_required=True,
@@ -478,7 +541,10 @@ class FoldweaveBrowserReviewService:
                 request=job.user_request,
                 journey=(
                     FolderJourney.APPLY
-                    if isinstance(job.authority, CapsuleAppliedJobAuthorityV2)
+                    if isinstance(
+                        job.authority,
+                        (CapsuleAppliedJobAuthorityV2, GptDerivativeJobAuthorityV3),
+                    )
                     else FolderJourney.ORGANIZE
                 ),
                 result=result,
@@ -496,7 +562,10 @@ class FoldweaveBrowserReviewService:
             request=job.user_request,
             journey=(
                 FolderJourney.APPLY
-                if isinstance(job.authority, CapsuleAppliedJobAuthorityV2)
+                if isinstance(
+                    job.authority,
+                    (CapsuleAppliedJobAuthorityV2, GptDerivativeJobAuthorityV3),
+                )
                 else FolderJourney.ORGANIZE
             ),
             blocker=detail,
@@ -523,6 +592,33 @@ def _clarification_request(job: FolderRefactorJobV3) -> FolderClarificationReque
     )
 
 
+def _require_exact_revision_surface(
+    job: FolderRefactorJobV3,
+    *,
+    expected_revision: int,
+    preview_fingerprint: str,
+    candidate_fingerprint: str,
+) -> None:
+    """Reject a stale native/browser Send changes request before child creation."""
+
+    if job.preview is None or job.candidate_plan is None:
+        raise FoldweaveReviewServiceError(
+            "preview_unavailable",
+            "Proposal revision requires one complete visible preview.",
+        )
+    if not (
+        job.lifecycle
+        in {FolderJobLifecycleV3.REVIEWING, FolderJobLifecycleV3.REVISION_FAILED}
+        and job.revision == expected_revision
+        and job.preview.preview_fingerprint == preview_fingerprint
+        and job.preview.compiled_candidate_fingerprint == candidate_fingerprint
+    ):
+        raise FoldweaveReviewServiceError(
+            "revision_preview_stale",
+            "Proposal revision targets a stale or unseen preview.",
+        )
+
+
 def _review_handle(job: FolderRefactorJobV3) -> FolderReviewHandle:
     if job.preview is None or job.candidate_plan is None:
         raise ValueError("Reviewing Foldweave job lacks its complete preview.")
@@ -537,20 +633,39 @@ def _review_handle(job: FolderRefactorJobV3) -> FolderReviewHandle:
         result_folder_name=job.candidate_plan.result_folder_name,
         journey=(
             FolderJourney.APPLY
-            if isinstance(job.authority, CapsuleAppliedJobAuthorityV2)
+            if isinstance(
+                job.authority,
+                (CapsuleAppliedJobAuthorityV2, GptDerivativeJobAuthorityV3),
+            )
             else FolderJourney.ORGANIZE
         ),
         revision_available=(
-            isinstance(job.authority, GptPlannedJobAuthorityV3)
-            and job.authority.evidence_ledger is not None
+            isinstance(
+                job.authority,
+                (GptPlannedJobAuthorityV3, GptDerivativeJobAuthorityV3),
+            )
+            and (
+                not isinstance(job.authority, GptDerivativeJobAuthorityV3)
+                or job.authority.authority_state in {"completed", "failed"}
+            )
+            and (
+                not isinstance(job.authority, GptPlannedJobAuthorityV3)
+                or job.authority.evidence_ledger is not None
+            )
             and job.revision_attempt_count < 2
             and job.proposal_revision < 2
         ),
         revision_attempts_remaining=(
             max(0, 2 - job.revision_attempt_count)
             if (
-                isinstance(job.authority, GptPlannedJobAuthorityV3)
-                and job.authority.evidence_ledger is not None
+                isinstance(
+                    job.authority,
+                    (GptPlannedJobAuthorityV3, GptDerivativeJobAuthorityV3),
+                )
+                and (
+                    not isinstance(job.authority, GptPlannedJobAuthorityV3)
+                    or job.authority.evidence_ledger is not None
+                )
                 and job.proposal_revision < 2
             )
             else 0
