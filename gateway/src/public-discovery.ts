@@ -752,7 +752,7 @@ function publicWidgetHtml(origin: string): string {
   // Cloudflare's static-asset edge can retain an earlier bundle at the stable
   // path after a Worker deployment. Keep the readable filename while changing
   // this cache key whenever the widget resource contract changes.
-  const assetCacheKey = "review-v36";
+  const assetCacheKey = "review-v37";
   const stylesheet = `${origin}/foldweave-chatgpt-widget.css?asset=${assetCacheKey}`;
   const javascript = `${origin}/foldweave-chatgpt-widget.js?asset=${assetCacheKey}`;
   return (

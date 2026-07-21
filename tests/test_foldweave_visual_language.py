@@ -217,6 +217,10 @@ def test_pointer_focus_does_not_draw_blue_disclosure_boxes() -> None:
         "  border-color: var(--fw-control-border);" in review_css
     )
     assert ".fw-chatgpt-widget summary:focus-visible" in widget_css
+    assert (
+        ":where(button, input, textarea, summary):focus:not(:focus-visible)"
+        in widget_css
+    )
 
 
 def test_settings_headings_use_native_sentence_case_without_tracking() -> None:

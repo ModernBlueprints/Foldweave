@@ -215,6 +215,12 @@ body {
   outline-offset: 1px;
 }
 
+.fw-chatgpt-widget
+  :where(button, input, textarea, summary):focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
 .fw-chatgpt-widget summary:focus {
   outline: none;
   box-shadow: none;

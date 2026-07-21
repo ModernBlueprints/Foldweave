@@ -418,7 +418,7 @@ describe("public worker metadata", () => {
       'id="foldweave-chatgpt-widget-root"',
     );
     expect(String(resource.result.contents[0]?.text)).toContain(
-      "https://gateway.example/foldweave-chatgpt-widget.js?asset=review-v36",
+      "https://gateway.example/foldweave-chatgpt-widget.js?asset=review-v37",
     );
     expect(resource.result.contents[0]?._meta).toMatchObject({
       "openai/widgetCSP": {
@@ -459,7 +459,7 @@ describe("public worker metadata", () => {
         uri: compatibilityUri,
       });
       expect(String(compatibilityResource.result.contents[0]?.text)).toContain(
-        "https://gateway.example/foldweave-chatgpt-widget.js?asset=review-v36",
+        "https://gateway.example/foldweave-chatgpt-widget.js?asset=review-v37",
       );
     }
   });
@@ -680,7 +680,7 @@ describe("device registration and signed local approval", () => {
         uri,
       });
       expect(String(body.result.contents[0]?.text)).toContain(
-        "https://gateway.example/foldweave-chatgpt-widget.js?asset=review-v36",
+        "https://gateway.example/foldweave-chatgpt-widget.js?asset=review-v37",
       );
     }
   });
@@ -1008,7 +1008,7 @@ describe("device registration and signed local approval", () => {
       uri: WIDGET_RESOURCE_URI,
     });
     expect(String(authenticatedWidgetBody.result.contents[0]?.text)).toContain(
-      "https://gateway.example/foldweave-chatgpt-widget.js?asset=review-v36",
+      "https://gateway.example/foldweave-chatgpt-widget.js?asset=review-v37",
     );
     const authenticatedInitializedNotification =
       await McpApiHandler.prototype.fetch.call(
