@@ -1326,3 +1326,45 @@ owner-only local submission record for Devpost field `27950`. Devpost project
 The final public YouTube video, user-owned eligibility and ownership entries,
 explicit submission-hold release, final submission, and confirmation remain
 pending. The submission hold remains active.
+
+### Public Build Week video and Devpost-draft synchronization — 21 July 2026
+
+The user authorized an AI-narrated final video because illness made a personal
+voice recording impractical. The frozen 317-word evidence-checked script was
+split into 27 timed cues and rendered with OpenAI Text-to-Speech model
+`gpt-4o-mini-tts-2025-12-15`, voice `cedar`. The resulting narration is visibly
+disclosed at the beginning and end of the video and in the YouTube description;
+it is not represented as a live Foldweave model transaction.
+
+The final master is exactly 175.000 seconds (`2:55`), 1920×1080 at 30 fps,
+H.264 High / AAC-LC, with 5,250 frames, −16.3 LUFS integrated loudness, and
+true peak −4.4 dBFS. Its SHA-256 is
+`94ce318dca73f2c6af5ad6a0ec7e0d6316b162e9c77ac436bec4a6bd660b39a8`.
+Full decode, frame-count, audio-level, visual, claim-to-evidence,
+synchronization, and sensitive-data checks passed. An independent read-only
+media audit returned `GO` for upload.
+
+The video was uploaded and published Public on YouTube as **Foldweave — Change
+the Structure. Keep the Connections. | OpenAI Build Week 2026**:
+
+<https://youtu.be/aQgpK5z9OUQ>
+
+YouTube reported **Checks complete. No issues found.** A 27-cue English caption
+track with SHA-256
+`b39b33f811b1ff65db7fb84646160fe3dd8f7b428c69096f2d43bb38cc07b8e6`
+was published in YouTube Studio; public-player caption propagation may lag.
+Google Chrome played the public upload from start to Replay at 2:55 with audio
+enabled and autoplay disabled.
+
+The official rules, dates, and latest announcements were rechecked. The live
+Devpost connector reported `submissions_open` through Wednesday 22 July 2026 at
+02:00 CEST. Devpost project `1327974` was updated to version `8`; connector
+readback shows the exact public YouTube URL, public repository association, and
+`submitted_at: null`. The private `/feedback` Session ID remains confined to
+the ignored owner-only submission record and required field `27950`.
+
+The remaining actions are user-owned submitter type, country, eligibility,
+ownership, representative-authority where applicable, other personal/legal
+attestations, and explicit release of the submission hold. Final Devpost
+submission and confirmation have not occurred. The submission hold remains
+active.

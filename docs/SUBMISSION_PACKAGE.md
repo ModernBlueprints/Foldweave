@@ -1,9 +1,9 @@
 # Foldweave — Build Week release and submission package
 
-Status: **FOLDWEAVE PRODUCT RELEASE CANDIDATE ACCEPTED — FRESH CLEAN-CLONE
-PACKAGE, REPLAY, ORIGIN/RECEIVER, AND NATIVE-REVIEW EVIDENCE ARE RECORDED;
-PUBLIC-`main` PROMOTION IS COMPLETE; FINAL MEDIA, USER-OWNED ATTESTATIONS,
-AND FINAL SUBMISSION REMAIN PENDING**
+Status: **FOLDWEAVE PRODUCT RELEASE ACCEPTED — PUBLIC-`main`, CLEAN-CLONE,
+PRODUCT, PROOF, PUBLIC VIDEO, AND DEVPOST-DRAFT EVIDENCE ARE COMPLETE;
+USER-OWNED ATTESTATIONS, EXPLICIT HOLD RELEASE, AND FINAL SUBMISSION REMAIN
+PENDING**
 
 Submission hold: **ACTIVE — FINAL DEVPOST SUBMISSION IS PROHIBITED UNTIL THE
 USER EXPLICITLY RELEASES THE HOLD**
@@ -42,7 +42,7 @@ external approval, release the submission hold, or authorize final submission.
 | Release candidate | Product baseline `4e9ec44b02b25f515017ceb9922fff4fdf84ae46` plus final UI/runtime checkpoint `68aba38a643d95f69e9aacd392904ef310f6994c` are selected and accepted; a fresh unrelated clean clone rebuilt and exercised the exact final product code successfully |
 | Final public `main` | Contains the accepted Foldweave release evidence through an ordinary no-force fast-forward; the exact current SHA is reported in the release handoff rather than embedded self-referentially |
 | Final screenshots and thumbnail | Nine UI captures, one explicitly labelled installed-copy Codex evidence card, and the thumbnail are visually reviewed, hash-recorded, and published in current release-evidence history; final focus/runtime corrections are verified separately and do not make a false recapture claim |
-| Final public video | **NOT CREATED OR UPLOADED** |
+| Final public video | **VERIFIED PUBLIC** — 2:55, <https://youtu.be/aQgpK5z9OUQ>; complete public playback reached Replay at 2:55 with audio enabled; YouTube checks reported no issues |
 | `/feedback` Session ID | **CAPTURED PRIVATELY** — exact value reserved for required Devpost field `27950` |
 | Personal eligibility and ownership attestations | **USER ACTION PENDING** |
 | Submission-hold release | **USER ACTION PENDING** |
@@ -106,8 +106,8 @@ user must personally review and make every personal or legal attestation.
 | Fresh clean-clone wheel digest | `foldweave-0.1.0-py3-none-any.whl`; SHA-256 `7de05603f9be06627888f8369581a987693ad69b7e9ca1dd340cf78414c1df07` |
 | Fresh clean-clone Change File, receipt, and verifier identities | Origin Change File fingerprint `9cadf68fe3207e6de89a2fd3b1fd7ed3d97cb7a1d41dfba483911e4f507d79e0`, receipt `0e33b16b6a7dc26cd171def18b0a01eaf0098315f32e154915373ff5cd6fcd1b`; receiver receipt `c0122b6ee7ed278c2aa7b18396bc8a35f628cbbbd0f3a0ab092f7ae0f24c77a8`; equal organized-tree commitment `a11ab49b9b48151aae4343c189c2eecae8c0a67a91cac45144656eb0ece02f7e`; source-free/source-aware verification and both reconstructions passed |
 | Final screenshots and thumbnail | Nine Foldweave UI captures, one installed-copy Codex evidence card, and the thumbnail are visually reviewed, hash-recorded, and published in current release-evidence history; the evidence card is not represented as a literal Codex UI screenshot |
-| Devpost project copy | Public project `1327974`, version `7`, is synchronized to the accepted product candidate and renders the public repository, judge path, and captured-status `/feedback` evidence without exposing the identifier; required submission-field entry, video URL, and personal attestations remain pending |
-| Public video URL | `[PENDING FINAL CAPTURE, USER VOICE, EDIT, PUBLIC UPLOAD, AND PLAYBACK VERIFICATION]` |
+| Devpost project copy | Public project `1327974`, version `8`, is synchronized to the accepted product candidate and includes the public repository, judge path, thumbnail, and verified public video without exposing the private `/feedback` identifier; required submission-field answers and personal attestations remain pending |
+| Public video URL | <https://youtu.be/aQgpK5z9OUQ> — Public; exact local master duration 175.000 seconds; public playback verified end to end |
 | `/feedback` Session ID | `[CAPTURED PRIVATELY FROM THE PRIMARY CODEX BUILD TASK; ENTER IN REQUIRED FIELD 27950]` |
 | Entrant type and country | `[USER ACTION REQUIRED; DO NOT INFER]` |
 | Eligibility/ownership attestations | `[USER ACTION REQUIRED; READ AND PERSONALLY ATTEST]` |
@@ -425,8 +425,9 @@ a fallback.
 
 Codex was the primary implementation and integration environment. The user
 selected and refined the product direction, approved the frozen contracts, and
-retained authority over the final voice, personal attestations, `/feedback`,
-submission hold, and final submission.
+authorized the disclosed OpenAI Text-to-Speech narration while retaining
+authority over personal attestations, `/feedback`, the submission hold, and
+final submission.
 
 In the primary task, Codex:
 
@@ -625,8 +626,8 @@ not substitute a hidden direct API request.
 The following combines earlier qualification with a fresh unrelated clean-clone
 release reproduction. The product-source evidence is release-candidate evidence
 now fast-forwarded to public `main`; the required `/feedback` Session ID is
-captured, while video, legal attestations, and submission remain intentionally
-separate gates.
+captured and the public video is verified, while personal/legal attestations,
+hold release, and final submission remain separate gates.
 
 | Surface | Latest verified evidence |
 |---|---|
@@ -749,19 +750,33 @@ production hardening are outside this release.
 | Judge instructions | `Use the final README from the accepted release. The fastest keyless path is uv sync --frozen followed by uv run foldweave demo --mode replay. Review the proposed structure, accept the exact preview, verify the separate result, and recreate the selected source. No API key is required for replay.` |
 | Plugin/developer-tool instructions | `Use the final plugins/foldweave/README.md from the accepted clean clone. Install foldweave@personal, restart or refresh Codex, open a fresh task, and invoke the installed Foldweave tools. Installed-copy release qualification is verified evidence for the accepted release candidate.` |
 | ChatGPT availability | `DEVELOPER_MODE_VERIFIED; CONSUMER_PAIRING_VERIFIED; technically PUBLICATION_READY. Not submitted for review, approved, published, publicly listed, or generally available.` |
-| Public video URL | `[PENDING]` |
+| Public video URL | `https://youtu.be/aQgpK5z9OUQ` — Public, 2:55, playback verified |
 | `/feedback` Session ID | `[CAPTURED PRIVATELY; USE THE EXACT PRIMARY-TASK VALUE IN FIELD 27950]` |
 | Submitter type | `[USER CONFIRM: INDIVIDUAL / TEAM / ORGANIZATION]` |
 | Country | `[USER CONFIRM; DO NOT INFER]` |
 | Eligibility/ownership | `[USER READS AND PERSONALLY ATTESTS]` |
 | Submission hold | `ACTIVE — FINAL SUBMISSION PROHIBITED UNTIL EXPLICIT USER RELEASE` |
 
-## Under-three-minute demonstration plan
+## Final public video and demonstration record
 
-Target exported duration: **2:55**. The final encoded file must remain strictly
-below 3:00 after narration, transitions, and upload processing. This plan is
-frozen for recording; pacing-only delivery adjustments may be made if they do
-not alter the verified claims or shot sequence.
+The final Build Week demo is public at <https://youtu.be/aQgpK5z9OUQ>.
+
+| Property | Verified result |
+|---|---|
+| Title | `Foldweave — Change the Structure. Keep the Connections. | OpenAI Build Week 2026` |
+| Visibility | Public |
+| Exact master duration | 175.000 seconds (`2:55`) |
+| Video | H.264 High, 1920×1080, 30 fps, progressive BT.709, 5,250 frames |
+| Audio | AAC-LC, 48 kHz stereo; −16.3 LUFS; true peak −4.4 dBFS |
+| Master SHA-256 | `94ce318dca73f2c6af5ad6a0ec7e0d6316b162e9c77ac436bec4a6bd660b39a8` |
+| Narration | AI-generated with OpenAI Text-to-Speech from the frozen, evidence-checked script; disclosed on screen and in the YouTube description |
+| Captions | 27-cue English SRT, SHA-256 `b39b33f811b1ff65db7fb84646160fe3dd8f7b428c69096f2d43bb38cc07b8e6`, published in YouTube Studio; public-player propagation may lag |
+| YouTube processing | Checks complete; no issues found |
+| Public playback | Verified from start to Replay at 2:55 in Google Chrome with audio enabled and autoplay disabled |
+
+The following table is the executed shot plan. The exported master remains five
+seconds below the three-minute maximum after narration, transitions, and final
+encoding.
 
 | Time | Visual and action | Purpose |
 |---:|---|---|
@@ -775,7 +790,7 @@ not alter the verified claims or shot sequence.
 | 2:02–2:22 | Build and review one T2 derivative through the selected live host; accept exact preview | Show serial collaboration rather than blind replay |
 | 2:22–2:38 | Apply CF2 to Sofia or a verified T1 result; show equal organized-tree proof and source-specific reconstruction | Demonstrate convergence and reversibility within the contract |
 | 2:38–2:48 | Brief ChatGPT widget and Codex installed-tool evidence | Explain the shared host surfaces and model-authority split |
-| 2:48–2:55 | Foldweave end card and repository | Close with the product promise |
+| 2:48–2:55 | Foldweave end card | Close with the product promise; the public repository remains in the YouTube description and Devpost field |
 
 F0d has passed, so the final video may show the qualified consumer ChatGPT path
 with the explicit same-conversation revision-recovery limitation. Do not imply
@@ -784,16 +799,11 @@ availability.
 
 ## Timed narration script
 
-This frozen script must be read aloud and timed before final export. The user may
-make pacing-only delivery adjustments without changing its verified claims. It
-intentionally avoids a public-listing claim and may use the verified
-developer-mode and consumer-pairing evidence with their exact qualifications.
-The script contains **317 whitespace-delimited words**.
-A local macOS synthetic-speech preflight of this exact text measured
-**150.304 seconds (2:30.304)** at 125 words per minute and **148.652 seconds
-(2:28.652)** at 130 words per minute. It confirms useful script margin inside
-the 2:55 storyboard, but it is not the user's voice and does not substitute for
-timing the final narration or the final encoded video.
+This is the frozen script used by the final OpenAI Text-to-Speech narration. It
+intentionally avoids a public-listing claim and uses the verified developer-mode
+and consumer-pairing evidence with their exact qualifications. The script
+contains **317 whitespace-delimited words**. Its 27 timed cues end at 2:53.800,
+leaving a 1.2-second silent end-card hold inside the exact 2:55 master.
 
 > A project folder is more than filenames. Notes connect reports, research,
 > meetings, images, and working files. Reorganizing that folder with AI is easy.
@@ -836,13 +846,13 @@ timing the final narration or the final encoded video.
 >
 > Foldweave. Change the structure. Keep the connections.
 
-Narration acceptance remains pending until:
+Narration and media acceptance are complete:
 
-- the lexical word count and a real spoken timing are recorded;
-- every sentence maps to the final accepted release evidence;
-- the user's final voice is intelligible and approved;
-- the complete exported video is strictly below 3:00; and
-- the public upload is watched end to end with audio.
+- the lexical word count and timed cue map are recorded;
+- every sentence maps to accepted release evidence;
+- the AI narration is intelligible, level-checked, and visibly disclosed;
+- the complete exported video is exactly 2:55; and
+- the public upload was played from start to Replay with audio enabled.
 
 ## Capture and media checklist
 
@@ -1064,8 +1074,8 @@ pywebview, PyInstaller, and every other dependency or asset obligation.
 | Codex plugin is installed and uses the same engine | Final clean-clone install, cache identity, fresh task, discovery, invocation, complete reviewed path, uninstall | `CLEAN-CLONE PLUGIN VALIDATION AND STDIO MCP DISCOVERY PASSED; FULL INSTALLED-COPY UI INVOCATION EVIDENCE REMAINS CURRENT LOCAL QUALIFICATION` |
 | Consumer ChatGPT pairing works | Real OAuth/PKCE, pairing, WSS, reconnect, bounded refusal/revocation coverage, origin and receiver derivative, unchanged ledger | `CONSUMER_PAIRING_VERIFIED`; standard `ui/message` continuation still requires the documented explicit same-conversation recovery |
 | Foldweave is public in ChatGPT | Observed approval and publication | `NOT ESTABLISHED — DO NOT CLAIM` |
-| Foldweave is recording-ready | Accepted release commit, fresh public clean clone, all mandatory modes, final proof, screenshots, frozen narration/shot package, timing preflight, and no planned product/design work | `VERIFIED — recording package and /feedback Session ID are ready. Final user voice, public video, personal attestations, hold release, and submission remain pending.` |
-| Video and submission are complete | Public playback, captured `/feedback` Session ID, attestations, hold release, Devpost confirmation | `PENDING USER AND FINAL CLOSURE ACTIONS` |
+| Foldweave public video is complete | Accepted release commit, fresh public clean clone, all mandatory modes, final proof, 2:55 master, public YouTube playback, disclosed narration, and no planned product/design work | `VERIFIED — https://youtu.be/aQgpK5z9OUQ; Devpost project version 8 contains the URL` |
+| Final submission is complete | Captured `/feedback` Session ID, personal/legal attestations, explicit hold release, Devpost submission, and confirmation | `PENDING USER-OWNED ATTESTATIONS, HOLD RELEASE, AND FINAL SUBMISSION` |
 
 ## Due-diligence checklist
 
@@ -1136,23 +1146,26 @@ pywebview, PyInstaller, and every other dependency or asset obligation.
       notification, pairing secret, authorization code, or private callback
       appears in current public-facing release material. Historical evidence is
       retained only where provenance requires it.
-- [x] Confirm every currently prepared screenshot, narration sentence, README
-      claim, Devpost project-copy field, and planned video statement maps to
-      accepted evidence. The actual video and user-owned form entries remain
-      outside this check.
+- [x] Confirm every screenshot, narration sentence, README claim, Devpost
+      project-copy field, and final video statement maps to accepted evidence.
+      User-owned form entries remain outside this check.
 - [x] Confirm MIT licensing, third-party notices, bundled sample provenance,
-      screenshot/thumbnail origins, and repository asset obligations. Final
-      video music, footage, and voice remain user-owned media obligations.
-- [ ] Confirm no unlicensed music or footage.
+      screenshot/thumbnail origins, and repository asset obligations. The final
+      video uses no music, uses repository-owned or generated visual material,
+      and discloses its OpenAI Text-to-Speech narration.
+- [x] Confirm no unlicensed music or footage.
 - [x] Run the macOS synthetic-speech timing preflight for the frozen 317-word
       narration: 150.304 seconds at 125 words per minute and 148.652 seconds
       at 130 words per minute. This is timing-margin evidence only.
-- [ ] Perform a real spoken narration timing and revise for comfortable pacing.
-- [ ] Record the user's voice.
-- [ ] Export a complete video strictly below 3:00 with intelligible audio.
-- [ ] Watch the complete local video.
-- [ ] Upload the video Public to YouTube.
-- [ ] Watch the complete public playback and verify the URL.
+- [x] Time the final narrated master and verify comfortable cue/shot pacing.
+- [x] Generate and disclose the authorized OpenAI Text-to-Speech narration.
+- [x] Export a complete video strictly below 3:00 with intelligible audio:
+      exact duration 175.000 seconds, −16.3 LUFS, no decode errors.
+- [x] Decode and inspect the complete local master; independently audit its
+      visuals, claims, timing, and sensitive-data boundary.
+- [x] Upload the video Public to YouTube and publish the English caption track.
+- [x] Play the complete public upload from start to Replay with audio enabled
+      and verify <https://youtu.be/aQgpK5z9OUQ>.
 
 ### Devpost and user-owned actions
 
@@ -1162,17 +1175,20 @@ pywebview, PyInstaller, and every other dependency or asset obligation.
 - [x] Update the actual Build Week project record `1327974` with Foldweave
       public project copy, repository link, technology list, and verified
       thumbnail without submitting. Devpost retained its supplied
-      `preflight-8s9awt` slug. Version `7` also renders the public repository,
-      keyless judge path, and captured-status `/feedback` evidence without
-      exposing the identifier; no unsupported slug mutation was attempted.
+      `preflight-8s9awt` slug. Version `8` renders the public repository,
+      keyless judge path, verified public video, and captured-status `/feedback`
+      evidence without exposing the identifier; no unsupported slug mutation
+      was attempted.
 - [x] Freeze **Work & Productivity** as the submission category. Devpost exposes
       this only as submission field `27947`; it will be supplied with the final
-      submission after the video exists and the user releases the hold.
+      submission after the user completes the personal fields and releases the
+      hold.
 - [x] Verify repository, judge, plugin, platform, and ChatGPT-state instructions
       against the final public clone. The public `main` clone installed cleanly,
       reproduced the keyless review/accept/verify/reconstruct path, and passed
       the final local Markdown-link and release-state checks.
-- [ ] Add the verified public YouTube URL.
+- [x] Add the verified public YouTube URL to Devpost project `1327974`; version
+      `8` reports `https://youtu.be/aQgpK5z9OUQ` and remains unsubmitted.
 - [x] Capture the primary Codex task's exact `/feedback` Session ID privately
       for required Devpost field `27950`; do not duplicate it in public release
       files.

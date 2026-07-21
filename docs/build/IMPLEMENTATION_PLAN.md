@@ -1,10 +1,11 @@
 # Foldweave — Sole Native-Review Implementation Plan
 
-Status: **FOLDWEAVE EXECUTION ACTIVE; F0A–F0D AND F1–F7 ARE VERIFIED COMPLETE;
-PUBLIC-`main` PROMOTION IS COMPLETE; RECORDING PACKAGE READY;
-CONNECTED-CHANGE C0–C7 BASELINE COMPLETE; SUBMISSION HOLD ACTIVE**
+Status: **FOLDWEAVE F0A–F0D AND F1–F7 ARE VERIFIED COMPLETE; PUBLIC-`main`,
+PUBLIC VIDEO, AND DEVPOST DRAFT ARE COMPLETE; CONNECTED-CHANGE C0–C7 BASELINE
+COMPLETE; USER-OWNED ATTESTATIONS AND FINAL SUBMISSION REMAIN; SUBMISSION HOLD
+ACTIVE**
 
-Phase: **RECORDING_READY — PUBLIC-`main` RELEASE AND CAPTURE PACKAGE COMPLETE**
+Phase: **WAITING_FOR_SUBMISSION_HOLD_RELEASE**
 
 Submission hold: **ACTIVE**
 
@@ -2225,8 +2226,8 @@ held.
 - **Actual status:** `COMPLETE — RECORDING_READY`. The accepted public release
   and capture package are ready. The primary Codex `/feedback` Session ID is
   captured privately for required Devpost field `27950`. This does not assert
-  that a user voice-over, public video, personal attestation, hold release, or
-  Devpost submission exists.
+  that a public video, personal attestation, hold release, or Devpost submission
+  existed at the F7 checkpoint.
 - **Actual verification:** a fresh unrelated clone of exact final
   implementation checkpoint `68aba38a643d95f69e9aacd392904ef310f6994c`
   passed 1,184 Python tests, frontend and gateway suites/builds, native packaging,
@@ -2242,14 +2243,24 @@ held.
   user's final voice or video. No product or design change is planned. The
   submission hold remains active.
 
+- **Post-F7 public-video completion:** on Tuesday 21 July 2026, the frozen
+  evidence-checked script was rendered with an authorized and visibly disclosed
+  OpenAI Text-to-Speech voice into an exact 175.000-second (`2:55`) 1920×1080
+  master. Full decode, frame-count, loudness, visual, claim, sensitive-data, and
+  independent media audits passed. The video was published Public at
+  <https://youtu.be/aQgpK5z9OUQ>, YouTube checks reported no issues, the 27-cue
+  English caption track was published in YouTube Studio, and Google Chrome
+  playback reached Replay at 2:55 with audio enabled. Devpost project `1327974`
+  version `8` contains the video URL and remains unsubmitted.
+
 ## 19. Protected final 16-hour reserve and submission hold
 
 After F7, the primary `/feedback` Session ID was captured privately for required
-Devpost field `27950`. The remaining reserved work is the user's voice recording,
-final screen capture, editing and audio cleanup, public upload and playback
-verification, eligibility and ownership attestations, final rules/claims audit,
-final clean run, Devpost completion, explicit submission-hold release,
-submission, and receipt confirmation.
+Devpost field `27950`. Product, release, public-video, public-playback,
+rules/claims, and Devpost-draft work are now complete. The remaining reserved
+work is the user's submitter-type, country, eligibility, ownership,
+representative-authority, and other personal/legal attestations; explicit
+submission-hold release; final submission; and receipt confirmation.
 
 The submission hold remains binding:
 

@@ -22,9 +22,9 @@ integrated implementation baseline. Product release baseline
 correction checkpoint `68aba38a643d95f69e9aacd392904ef310f6994c` passed
 renewed clean-clone acceptance and is included in the release fast-forwarded to
 public `main`.
-Its product and capture package are `RECORDING_READY`; it is not a completed
-public video or submitted Devpost entry. The following distinctions are part of
-the claim boundary:
+Its product, capture package, and 2:55 public Build Week video are complete; the
+Devpost entry remains unsubmitted. The following distinctions are part of the
+claim boundary:
 
 | Surface | Current evidence-backed state |
 |---|---|
@@ -36,7 +36,7 @@ the claim boundary:
 | Codex | Foldweave plugin `0.1.0+codex.20260721091729` is installed and enabled from the repository marketplace; installed cache inspection and stdio MCP initialization/tool discovery pass against the same local MCP server |
 | Integrated regression | 1,184 Python tests passed with one upstream deprecation warning; frontend passed 80/80; gateway passed 50/50; the sole direct ledger remained byte-identical at SHA-256 `d76924e416de3e8a6f4cd7878399f9d54d711b1fadd6fa57dd524264ebd21af9` |
 | Public ChatGPT availability | Not submitted for review, approved, published, publicly listed, or claimed |
-| Foldweave product release candidate | Accepted and fast-forwarded to public `main`; recording package complete; `/feedback` Session ID captured privately for the required submission field; final video, personal attestations, and explicit hold release remain separate gates |
+| Foldweave product release candidate | Accepted and fast-forwarded to public `main`; public video verified at <https://youtu.be/aQgpK5z9OUQ>; `/feedback` Session ID captured privately for the required submission field; personal attestations and explicit hold release remain separate gates |
 
 The operational checkpoint in `docs/build/STATE.md` changes as qualification
 continues. This document intentionally states only the minimum durable boundary
@@ -404,7 +404,7 @@ behavior, semantic correctness, measured time savings, market adoption, legal
 compliance, universal portability or reversibility, or a universal organizer
 for every file format and relationship.
 
-The primary `/feedback` Session ID is captured. The final public video,
-eligibility and ownership attestations, submission-hold release, and Devpost
-submission remain separate user-owned completion steps. No release document may
-imply those remaining steps occurred until their evidence exists.
+The primary `/feedback` Session ID is captured and the final public video is
+verified. Eligibility and ownership attestations, submission-hold release, and
+Devpost submission remain separate user-owned completion steps. No release
+document may imply those remaining steps occurred until their evidence exists.

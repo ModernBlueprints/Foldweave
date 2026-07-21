@@ -1,17 +1,17 @@
 # Foldweave build state
 
-Observed: **Tuesday 21 July 2026 at 20:40:18 CEST** using
+Observed: **Tuesday 21 July 2026 at 21:38:04 CEST** using
 `oslo_tz = ZoneInfo("Europe/Oslo")`.
 
-Phase: **RECORDING_READY — PUBLIC-`main` RELEASE AND CAPTURE PACKAGE COMPLETE**
+Phase: **WAITING_FOR_SUBMISSION_HOLD_RELEASE**
 
 Submission hold: **ACTIVE**
 
-Global blocker: **NONE**. `RECORDING_READY` means the accepted Foldweave
-product and capture package are ready for the user's recording work. The
-required `/feedback` Session ID is captured privately for required Devpost field
-`27950`. A user voice-over, public YouTube video, personal/legal attestation,
-release of the submission hold, and Devpost submission have not occurred.
+Global blocker: **NONE**. Every independently actionable product, release,
+public-video, due-diligence, `/feedback`, and Devpost-draft requirement is
+complete. The remaining gates are the user's personal/legal attestations and
+explicit release of the submission hold. Final Devpost submission has not
+occurred.
 
 ## History and repository
 
@@ -29,10 +29,10 @@ release of the submission hold, and Devpost submission have not occurred.
 
 | Boundary | Absolute Oslo time | State at observation |
 |---|---|---:|
-| Feature freeze | Tuesday 21 July 2026 at 01:00 CEST | passed by 19 hours, 40 minutes, 18 seconds |
-| Release candidate | Tuesday 21 July 2026 at 06:00 CEST | passed by 14 hours, 40 minutes, 18 seconds |
-| Recording readiness | Tuesday 21 July 2026 at 10:00 CEST | passed by 10 hours, 40 minutes, 18 seconds |
-| Submission | Wednesday 22 July 2026 at 02:00 CEST | 5 hours, 19 minutes, 42 seconds remained |
+| Feature freeze | Tuesday 21 July 2026 at 01:00 CEST | passed by 20 hours, 38 minutes, 4 seconds |
+| Release candidate | Tuesday 21 July 2026 at 06:00 CEST | passed by 15 hours, 38 minutes, 4 seconds |
+| Recording readiness | Tuesday 21 July 2026 at 10:00 CEST | passed by 11 hours, 38 minutes, 4 seconds |
+| Submission | Wednesday 22 July 2026 at 02:00 CEST | 4 hours, 21 minutes, 56 seconds remained |
 
 F+0 did not reset the 44-hour envelope. Only release-safe work is now
 permitted.
@@ -50,9 +50,9 @@ permitted.
 | Gateway and companion | `VERIFIED COMPLETE` — deployed `workers.dev` gateway, OAuth/pairing, outbound companion, reconnect, and refusal matrix |
 | Regression and source checks | 1,184 Python tests, 80 frontend tests, 50 gateway tests; lock, lint, format, packaging, visual, and claim scans pass as recorded in the plan and build log |
 | Public clone judge path | `VERIFIED COMPLETE` — public `main` clone installed with `uv sync --frozen`; keyless replay reached review, served `/review`, accepted the exact preview, verified, and reconstructed source paths and bytes exactly |
-| Release visuals and recording package | `VERIFIED COMPLETE` — nine UI captures, one explicitly labelled installed-copy Codex evidence card, current thumbnail, 317-word narration, 11 shots, 2:55 target, and speech-timing margin; this is not a user voice or video |
+| Public video | `VERIFIED COMPLETE` — Public at <https://youtu.be/aQgpK5z9OUQ>; exact 175.000-second master, disclosed OpenAI Text-to-Speech narration, no-music/repository-owned visuals, YouTube checks passed, English captions published in Studio, and public playback reached Replay at 2:55 with audio enabled |
 | `/feedback` | `CAPTURED PRIVATELY` — exact primary Codex Session ID reserved for Devpost field `27950` |
-| Devpost project preparation | `COMPLETE WITHOUT SUBMISSION` — public project `1327974`, version `7`, has Foldweave project copy, public repository, technology list, thumbnail, keyless judge guidance, and captured-status `/feedback` evidence without exposing the identifier; the exact value is ready for field `27950`, **Work & Productivity** is frozen for field `27947`, and only the video, user fields, hold release, and submission remain pending |
+| Devpost project preparation | `COMPLETE WITHOUT SUBMISSION` — public project `1327974`, version `8`, has Foldweave project copy, public repository, technology list, thumbnail, verified public video, keyless judge guidance, and captured-status `/feedback` evidence without exposing the identifier; the exact value is ready for field `27950`, **Work & Productivity** is frozen for field `27947`, and only user-owned fields, hold release, and submission remain pending |
 | Devpost submission | `NOT PERFORMED` |
 
 The category decision is complete: **Work & Productivity** will be supplied as
@@ -79,42 +79,47 @@ unsubmitted project record is not a missing product decision.
 - Public gateway Worker version
   `77598fb6-72e4-48ee-919e-27488a60a515` serves byte-matched `review-v37`
   assets and reports ready with all required bindings.
+- Final public media: 175.000-second H.264/AAC master SHA-256
+  `94ce318dca73f2c6af5ad6a0ec7e0d6316b162e9c77ac436bec4a6bd660b39a8`;
+  full decode, 5,250-frame count, −16.3 LUFS audio, visual/claim/privacy audit,
+  YouTube checks, and complete public playback passed. The 27-cue English SRT
+  SHA-256 is
+  `b39b33f811b1ff65db7fb84646160fe3dd8f7b428c69096f2d43bb38cc07b8e6`.
+- Devpost connector readback: project `1327974`, version `8`, video URL
+  `https://youtu.be/aQgpK5z9OUQ`, Build Week `submitted_at: null`; live key-date
+  state `submissions_open` through Wednesday 22 July 2026 at 02:00 CEST.
 
 ## User-owned work still pending
 
-1. Record the English narration in `docs/SUBMISSION_PACKAGE.md` against the
-   frozen 11-shot 2:55 plan.
-2. Export a public YouTube video strictly below three minutes; watch its complete
-   public playback with audio and provide the URL.
-3. Complete submitter type, country, eligibility, ownership, representative, and
+1. Complete submitter type, country, eligibility, ownership, representative, and
    other personal/legal Devpost entries.
-4. Reread the final Devpost form and explicitly release the submission hold only
+2. Reread the final Devpost form and explicitly release the submission hold only
    after every prerequisite is complete.
 
 ## Exact next operation
 
-`User records and publicly uploads the strictly-under-three-minute English video
-using docs/SUBMISSION_PACKAGE.md, supplies the verified YouTube URL, completes
-personal form and attestation fields, and later explicitly releases the
-submission hold. The /feedback Session ID is already captured. Do not submit
-before that explicit release.`
+`User completes the personal form and legal attestation fields, rereads the
+final Devpost entry, and explicitly releases the submission hold. The public
+video, repository, project description, judge path, and /feedback Session ID are
+already prepared. Do not submit before that explicit release.`
 
 ## Compact recovery capsule
 
-- **Phase:** `RECORDING_READY`.
+- **Phase:** `WAITING_FOR_SUBMISSION_HOLD_RELEASE`.
 - **Branch / checkpoint:** `revision/foldweave-native-review`; product
   baseline `4e9ec44b02b25f515017ceb9922fff4fdf84ae46`; final implementation
   `68aba38a643d95f69e9aacd392904ef310f6994c`; final documentation SHA is
   reported in the handoff.
 - **Evidence:** job/preview, Change File/receipt/verifier/reconstruction,
-  native/browser, direct/hosted/replay, gateway, MCP/Codex, nine UI captures,
-  and the Codex evidence card are verified; detailed fingerprints remain in the
-  sole plan and build log.
+  native/browser, direct/hosted/replay, gateway, MCP/Codex, release visuals,
+  final 2:55 public video, Devpost project version 8, and the Codex evidence
+  card are verified; detailed fingerprints remain in the sole plan and build
+  log.
 - **Budget:** sole USD 40 ledger; no further direct call is needed for the
   recording package.
 - **Release materials:** Foldweave-current and public; the tournament and
   predecessor-fixture provenance are explicitly disclosed.
 - **Submission hold:** `ACTIVE`.
-- **Blockers:** none globally; current prerequisite actions are user-owned.
-  Agent-controlled closure resumes after the verified video URL and explicit
-  submission-hold release.
+- **Blockers:** none globally; remaining prerequisites are user-owned personal
+  and legal attestations plus explicit submission-hold release. Agent-controlled
+  final submission resumes only after that release.

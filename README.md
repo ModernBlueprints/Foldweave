@@ -16,6 +16,12 @@ rewrites the supported relative Markdown links that connect files, and produces
 a payload-free **Foldweave Change File** that another person can review, apply
 unchanged, or use as the parent of a new proposal.
 
+**[Watch the 2:55 OpenAI Build Week demo on YouTube](https://youtu.be/aQgpK5z9OUQ)**
+
+The public demo uses an AI-generated OpenAI narration voice reading the frozen,
+evidence-checked script. The narration is disclosed on screen and is not
+presented as a live model interaction.
+
 > **Current build status:** the Foldweave product release baseline
 > `4e9ec44b02b25f515017ceb9922fff4fdf84ae46` is preserved, and final UI/runtime
 > correction checkpoint `68aba38a643d95f69e9aacd392904ef310f6994c`
@@ -35,12 +41,14 @@ unchanged, or use as the parent of a new proposal.
 > user-authorized Google Chrome route. Foldweave is technically
 > `PUBLICATION_READY` for review submission, but it has not been submitted for
 > ChatGPT review, approved, published, or publicly listed. The product release
-> and capture package are `RECORDING_READY`: the final Foldweave product and
-> under-three-minute recording plan are ready to record. The primary Codex
+> and capture package are complete. The final public Build Week video is
+> available at <https://youtu.be/aQgpK5z9OUQ>; its exact duration is 2:55 and
+> its complete public playback has been verified. The primary Codex
 > `/feedback` Session ID is captured and reserved for the required Devpost
 > submission field. The project is not a notarized app, a public ChatGPT listing,
-> a completed public video, or a submitted Devpost entry; the submission hold
-> remains active.
+> or a submitted Devpost entry. The Devpost draft includes the video and public
+> repository, but personal/legal attestations and the explicit submission-hold
+> release remain user-owned; the submission hold remains active.
 
 ## Why Foldweave exists
 
@@ -157,9 +165,9 @@ reconstruction, then repeated the origin transaction from the installed wheel.
 The exact changing operational state belongs in
 [`docs/build/STATE.md`](docs/build/STATE.md). The accepted release is public on
 `main`, and the required `/feedback` Session ID is captured privately as
-described above. The final
-video, personal attestations, explicit hold release, and final Devpost
-submission remain separately controlled.
+described above. The final public video is verified; personal/legal
+attestations, explicit hold release, and final Devpost submission remain
+separately controlled.
 
 ## Review before execution
 
