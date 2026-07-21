@@ -1155,8 +1155,10 @@ pywebview, PyInstaller, and every other dependency or asset obligation.
       thumbnail without submitting. Devpost retained its supplied
       `preflight-8s9awt` slug; no unsupported slug mutation was attempted.
 - [ ] Select **Work & Productivity**.
-- [ ] Verify repository, judge, plugin, platform, and ChatGPT-state instructions
-      against the final public clone.
+- [x] Verify repository, judge, plugin, platform, and ChatGPT-state instructions
+      against the final public clone. The public `main` clone installed cleanly,
+      reproduced the keyless review/accept/verify/reconstruct path, and passed
+      the final local Markdown-link and release-state checks.
 - [ ] Add the verified public YouTube URL.
 - [ ] User runs `/feedback` in the primary Codex task and supplies the exact
       Session ID.
