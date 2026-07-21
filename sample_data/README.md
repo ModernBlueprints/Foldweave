@@ -1,17 +1,19 @@
 # Sample-data provenance
 
-All release-facing sample content is synthetic and was created specifically for
-Reversible Name Atlas during OpenAI Build Week. It contains no personal project
-data and no third-party project payload. Unless a subdirectory says otherwise,
-the samples are distributed under the repository's MIT license.
+All release-facing sample content is synthetic and was created for Foldweave
+during OpenAI Build Week. It contains no personal project data and no
+third-party project payload. Unless a subdirectory says otherwise, the samples
+are distributed under the repository's MIT license. Historical files may retain
+their original Name Atlas identity where that is necessary for provenance or
+compatibility.
 
 ## Primary release fixtures: `connected_change/`
 
 [`connected_change/`](connected_change) is the only current polished product
-fixture family. It demonstrates the feature-frozen `CONNECTED_CHANGE_GO`
-profile: GPT-5.6 plans one connected-folder change for Sofia, and fixed code
-applies the resulting Name Atlas Change File to Martin's differently arranged
-equivalent project without another GPT call or transfer of project payload
+fixture family. It demonstrates Foldweave's review-before-execution workflow:
+bounded model planning creates an immutable proposal for Sofia, and fixed code
+can apply the resulting Foldweave Change File to Martin's differently arranged
+equivalent project without another model call or transfer of project payload
 bytes.
 
 Its exact local provenance notes are in
@@ -39,11 +41,11 @@ The exact hero request is:
 
 > Prepare this Apollo client-project folder for handoff as Northstar. Keep every file. Use the briefing and project notes to organize approved deliverables, working material, research, and meeting notes into clear folders. Rename Apollo-labelled paths to Northstar and keep every supported link working.
 
-The final recorded hero keeps all 24 admitted files exactly once, changes 23 paths,
-rewrites and verifies 23 supported relative Markdown links, leaves the protected
-`.env.example` fixed, preserves the explicit empty directory, and creates a
-separate verified Northstar result and Change File. Sofia's source remains
-unchanged.
+The final recorded hero keeps all 24 admitted files exactly once, changes 23
+paths, rewrites and verifies 23 supported relative Markdown links, leaves the
+protected `.env.example` fixed, preserves the explicit empty directory, and
+creates a separate verified Northstar result and Foldweave Change File. Sofia's
+source remains unchanged.
 
 ### `connected_change/martin_apollo/`
 
@@ -79,7 +81,7 @@ The ambiguity fixture is a separate four-file textual qualification case:
 - two synthetic PDF candidates are both retained; and
 - neither note identifies which candidate is approved.
 
-The request asks Name Atlas to place the approved presentation in final
+The request asks Foldweave to place the approved presentation in final
 deliverables and the other in working material while preserving both files and
 their supported links. The real GPT-5.6 qualification run asked exactly one
 question:
@@ -93,8 +95,8 @@ second clarification is used.
 ### Refusal cases
 
 The release refusal matrix derives controlled disposable variants from the same
-fixture family rather than creating more polished projects. It proves that Name
-Atlas blocks instead of guessing when there is:
+fixture family rather than creating more polished projects. It proves that
+Foldweave blocks instead of guessing when there is:
 
 - a changed ordinary payload;
 - changed Markdown prose outside a supported destination span;
@@ -102,7 +104,7 @@ Atlas blocks instead of guessing when there is:
 - a symmetric duplicate group with no deterministic unique match;
 - protected-member disagreement;
 - an invalid Change File fingerprint; or
-- a BagIt-valid artifact alteration inconsistent with its Name Atlas receipt.
+- a BagIt-valid artifact alteration inconsistent with its Foldweave receipt.
 
 These variants are test/evidence products, not additional user-facing sample
 collections. Canonical sources and accepted results are not mutated to create

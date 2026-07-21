@@ -746,7 +746,7 @@ production hardening are outside this release.
 | Technologies | `Codex, GPT-5.6, OpenAI Responses API, OpenAI Apps SDK, MCP, Python 3.11, Pydantic, FastAPI, Uvicorn, Jinja2, React, TypeScript, BlueprintJS, Vite, pywebview, PyInstaller, macOS Keychain, Cloudflare Workers, OAuth 2.1/PKCE, Durable Objects, Workers KV, WebSockets, BagIt, uv, pytest, Ruff, Vitest, GitHub` |
 | Tested platform | `macOS Apple Silicon; unsigned/ad-hoc judge build. Browser fallback and CLI use the same local engine.` |
 | Judge instructions | `Use the final README from the accepted release. The fastest keyless path is uv sync --frozen followed by uv run foldweave demo --mode replay. Review the proposed structure, accept the exact preview, verify the separate result, and recreate the selected source. No API key is required for replay.` |
-| Plugin/developer-tool instructions | `Use the final plugins/foldweave/README.md from the accepted clean clone. Install foldweave@personal, restart or refresh Codex, open a fresh task, and invoke the installed Foldweave tools. Final installed-copy release evidence remains a release-candidate gate.` |
+| Plugin/developer-tool instructions | `Use the final plugins/foldweave/README.md from the accepted clean clone. Install foldweave@personal, restart or refresh Codex, open a fresh task, and invoke the installed Foldweave tools. Installed-copy release qualification is verified evidence for the accepted release candidate.` |
 | ChatGPT availability | `DEVELOPER_MODE_VERIFIED; CONSUMER_PAIRING_VERIFIED; technically PUBLICATION_READY. Not submitted for review, approved, published, publicly listed, or generally available.` |
 | Public video URL | `[PENDING]` |
 | `/feedback` Session ID | `[USER ACTION REQUIRED]` |

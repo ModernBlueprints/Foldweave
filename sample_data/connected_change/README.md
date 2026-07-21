@@ -1,7 +1,9 @@
 # Connected Change release fixtures
 
-All project content below is synthetic and was generated for Reversible Name
-Atlas. No third-party project content or personal information is included.
+All project content below is synthetic and was generated for Foldweave. No
+third-party project content or personal information is included. Historical
+internal paths and schema names may retain their original Name Atlas spelling
+where strict compatibility requires it.
 
 - `sofia_apollo/` and `martin_apollo/` contain the same 24 logical files in
   different local layouts. Corresponding files have identical payload bytes,

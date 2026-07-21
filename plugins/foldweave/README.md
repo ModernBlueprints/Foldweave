@@ -28,6 +28,21 @@ configuration. The MCP command launches
 checkout; it contains no absolute developer path and requires no runtime Node
 process.
 
+For a safe installed-copy smoke test, first materialize the top-level README's
+keyless replay fixture from the same clean clone:
+
+```text
+DEMO_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/foldweave-plugin.XXXXXX")"
+uv run foldweave demo --mode replay --root "$DEMO_ROOT"
+```
+
+Then refresh or restart Codex, open a fresh task rooted in that clone, and ask
+Codex to use the installed Foldweave tools to inspect the immutable 24-file
+review job and explain the exact-acceptance boundary. The bundled fixture is
+disposable; use it—not an irreplaceable folder—for any test of a mutation tool.
+The top-level README supplies the exact provider-free acceptance, verification,
+and reconstruction commands. This smoke path needs no OpenAI API key.
+
 ## Use
 
 The shared server provides two bounded tool families.
@@ -43,6 +58,7 @@ immutable preview. The family includes:
 - `inspect_markdown_links`
 - `request_clarification`
 - `submit_plan`
+- `submit_compact_plan`
 - `submit_plan_revision`
 - `get_compiler_failures`
 - `get_plan_preview`
@@ -56,11 +72,16 @@ visible preview, and use the existing proof services. The family includes:
 - `job_status`
 - `answer_clarification`
 - `revise_plan`
+- `recover_revision`
 - `keep_previous_proposal`
 - `accept_plan_and_create_copy`
 - `get_change_file`
 - `verify_result`
 - `recreate_original`
+
+The paired native companion additionally exposes `choose_local_item` only for
+the fixed local selection roles. It returns an opaque device-bound handle, not
+an absolute path, and is not a general filesystem tool.
 
 Codex supplies model inference for Codex-hosted planning. That mode does not
 read a direct Responses API key and does not reserve or mutate Foldweave's
