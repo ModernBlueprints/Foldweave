@@ -899,7 +899,7 @@ Current screenshot and thumbnail hashes:
 |---|---:|---:|---|
 | `docs/screenshots/01-home.png` | 1229×768 | 49,102 | `dd1d3aedce87630f05ac7ea11662ab78ff8f3c4cf473221c490b946de5788d78` |
 | `docs/screenshots/02-create.png` | 1440×900 | 96,013 | `31b43b0f55c08da4a883614b0a8bc612bd7efdd5c79de8c027024cdcd1fce842` |
-| `docs/screenshots/03-origin-review.png` | 1728×940 | 106,861 | `291b174ea71c139464779f9a93305b0dac002fdcfeb9b41cc4c53ba3a57cc9ae` |
+| `docs/screenshots/03-origin-review.png` | 1728×940 | 421,008 | `36fc1998d28f574337616a944eeaa90dd019f9e4f302e5b3933d493595cbdc27` |
 | `docs/screenshots/04-origin-revision.png` | 1440×900 | 172,864 | `aabb9b11534d6caa96fdaadd102f31f72828c4f735dd0f2084730ccba5ba2e30` |
 | `docs/screenshots/05-origin-done.png` | 3456×1880 | 136,825 | `30deed3a7618e42dd2a7589763fcfe7ac6d93cded51e3f6d2db740dc14e0fa25` |
 | `docs/screenshots/06-receiver-review.png` | 1440×900 | 199,274 | `4511b7f22171d50d8bc4c89ad4cd5f09e0d834bca20d8d44c68b772de8964bc9` |

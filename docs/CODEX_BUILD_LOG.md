@@ -1111,7 +1111,7 @@ hash-recorded:
 |---|---:|---:|---|
 | `docs/screenshots/01-home.png` | 1229×768 | 49,102 | `dd1d3aedce87630f05ac7ea11662ab78ff8f3c4cf473221c490b946de5788d78` |
 | `docs/screenshots/02-create.png` | 1440×900 | 96,013 | `31b43b0f55c08da4a883614b0a8bc612bd7efdd5c79de8c027024cdcd1fce842` |
-| `docs/screenshots/03-origin-review.png` | 1728×940 | 106,861 | `291b174ea71c139464779f9a93305b0dac002fdcfeb9b41cc4c53ba3a57cc9ae` |
+| `docs/screenshots/03-origin-review.png` | 1728×940 | 421,008 | `36fc1998d28f574337616a944eeaa90dd019f9e4f302e5b3933d493595cbdc27` |
 | `docs/screenshots/04-origin-revision.png` | 1440×900 | 172,864 | `aabb9b11534d6caa96fdaadd102f31f72828c4f735dd0f2084730ccba5ba2e30` |
 | `docs/screenshots/05-origin-done.png` | 3456×1880 | 136,825 | `30deed3a7618e42dd2a7589763fcfe7ac6d93cded51e3f6d2db740dc14e0fa25` |
 | `docs/screenshots/06-receiver-review.png` | 1440×900 | 199,274 | `4511b7f22171d50d8bc4c89ad4cd5f09e0d834bca20d8d44c68b772de8964bc9` |
@@ -1121,6 +1121,13 @@ hash-recorded:
 | `docs/screenshots/10-proof.png` | 3456×1880 | 174,124 | `1cbab91b471abb5d65b2a8f9b07ea1f5d889dcbae6253fb8d1fd6c829c5c2f3f` |
 | `docs/submission-thumbnail.png` | 1500×1000 | 136,792 | `b67e2f845857851fc31335ab85b9634a9f8acf9f65bdc6c95e547030876e7cb6` |
 | `docs/submission-thumbnail.svg` | SVG source | 8,994 | `6f4b2b87c55ddf0b0d3c029261df581782901c555e0aae9d22a7d80ac280637d` |
+
+Final release-artifact inspection found that the original bytes behind the
+`.png` filename for `03-origin-review.png` were JPEG-encoded. The capture was
+decoded and losslessly re-encoded as genuine PNG bytes; a decoded RGB
+pixel-equivalence check preserved its 1728×940 rendered content exactly. The
+table records the normalized asset's new size and SHA-256. No product state,
+claim, or visual content changed.
 
 These are current published `main`/revision-branch and deployed-service
 identities. A fresh unrelated clean clone of the published revision branch
