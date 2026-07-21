@@ -46,10 +46,10 @@ foldweave = "name_atlas.foldweave_launcher:main"
 name-atlas = "name_atlas.launcher:main"
 
 [project.urls]
-Homepage = "https://github.com/ModernBlueprints/reversible-name-atlas"
-Repository = "https://github.com/ModernBlueprints/reversible-name-atlas"
-Issues = "https://github.com/ModernBlueprints/reversible-name-atlas/issues"
-Documentation = "https://github.com/ModernBlueprints/reversible-name-atlas#readme"
+Homepage = "https://github.com/ModernBlueprints/Foldweave"
+Repository = "https://github.com/ModernBlueprints/Foldweave"
+Issues = "https://github.com/ModernBlueprints/Foldweave/issues"
+Documentation = "https://github.com/ModernBlueprints/Foldweave#readme"
 
 [dependency-groups]
 dev = [

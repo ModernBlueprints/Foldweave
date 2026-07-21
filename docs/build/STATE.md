@@ -52,7 +52,8 @@ permitted.
 | Public clone judge path | `VERIFIED COMPLETE` — public `main` clone installed with `uv sync --frozen`; keyless replay reached review, served `/review`, accepted the exact preview, verified, and reconstructed source paths and bytes exactly |
 | Public video | `VERIFIED COMPLETE` — Public at <https://youtu.be/aQgpK5z9OUQ>; exact 175.000-second master, disclosed OpenAI Text-to-Speech narration, no-music/repository-owned visuals, YouTube checks passed, English captions published in Studio, and public playback reached Replay at 2:55 with audio enabled |
 | `/feedback` | `CAPTURED PRIVATELY` — exact primary Codex Session ID reserved for Devpost field `27950` |
-| Devpost project preparation | `COMPLETE WITHOUT SUBMISSION` — public project `1327974`, version `8`, has Foldweave project copy, public repository, technology list, thumbnail, verified public video, keyless judge guidance, and captured-status `/feedback` evidence without exposing the identifier; the exact value is ready for field `27950`, **Work & Productivity** is frozen for field `27947`, and only user-owned fields, hold release, and submission remain pending |
+| Public repository | `VERIFIED COMPLETE` — canonical repository is <https://github.com/ModernBlueprints/Foldweave>; local `origin` uses the canonical URL, both release refs are synchronized, and the historical GitHub slug redirects to Foldweave |
+| Devpost project preparation | `COMPLETE WITHOUT SUBMISSION` — public project `1327974`, version `9`, has Foldweave project copy, canonical public repository URL, technology list, thumbnail, verified public video, keyless judge guidance, and captured-status `/feedback` evidence without exposing the identifier; the exact value is ready for field `27950`, **Work & Productivity** is frozen for field `27947`, and only user-owned fields, hold release, and submission remain pending |
 | Devpost submission | `NOT PERFORMED` |
 
 The category decision is complete: **Work & Productivity** will be supplied as
@@ -85,9 +86,11 @@ unsubmitted project record is not a missing product decision.
   YouTube checks, and complete public playback passed. The 27-cue English SRT
   SHA-256 is
   `b39b33f811b1ff65db7fb84646160fe3dd8f7b428c69096f2d43bb38cc07b8e6`.
-- Devpost connector readback: project `1327974`, version `8`, video URL
-  `https://youtu.be/aQgpK5z9OUQ`, Build Week `submitted_at: null`; live key-date
-  state `submissions_open` through Wednesday 22 July 2026 at 02:00 CEST.
+- Repository and Devpost readback: canonical repository
+  `https://github.com/ModernBlueprints/Foldweave`; project `1327974`, version
+  `9`, video URL `https://youtu.be/aQgpK5z9OUQ`, Build Week
+  `submitted_at: null`; live key-date state `submissions_open` through Wednesday
+  22 July 2026 at 02:00 CEST.
 
 ## User-owned work still pending
 
@@ -112,7 +115,8 @@ already prepared. Do not submit before that explicit release.`
   reported in the handoff.
 - **Evidence:** job/preview, Change File/receipt/verifier/reconstruction,
   native/browser, direct/hosted/replay, gateway, MCP/Codex, release visuals,
-  final 2:55 public video, Devpost project version 8, and the Codex evidence
+  final 2:55 public video, canonical Foldweave repository, Devpost project
+  version 9, and the Codex evidence
   card are verified; detailed fingerprints remain in the sole plan and build
   log.
 - **Budget:** sole USD 40 ledger; no further direct call is needed for the

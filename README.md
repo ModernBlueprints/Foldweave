@@ -199,7 +199,7 @@ Foldweave's accepted release evidence is public on `main`. Clone that branch
 for the judge path:
 
 ```text
-git clone https://github.com/ModernBlueprints/reversible-name-atlas.git foldweave
+git clone https://github.com/ModernBlueprints/Foldweave.git foldweave
 cd foldweave
 uv sync --frozen
 ```

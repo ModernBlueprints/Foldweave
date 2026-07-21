@@ -1368,3 +1368,21 @@ ownership, representative-authority where applicable, other personal/legal
 attestations, and explicit release of the submission hold. Final Devpost
 submission and confirmation have not occurred. The submission hold remains
 active.
+
+### Canonical Foldweave repository rename — 21 July 2026
+
+At the user's explicit request, the public GitHub repository was renamed in
+place from `ModernBlueprints/reversible-name-atlas` to
+`ModernBlueprints/Foldweave`. Repository identity, complete Git history,
+branches, settings, and release commits were preserved. The local `origin` now
+uses `https://github.com/ModernBlueprints/Foldweave.git`; the canonical public
+page returns successfully, and GitHub redirects the historical repository URL
+to the new Foldweave URL.
+
+Active release-facing references were updated without renaming historical
+schema identifiers, fingerprint domains, compatibility aliases, artifact
+paths, immutable evidence, or the local checkout directory. The public YouTube
+description was saved with the canonical Foldweave repository URL. Devpost
+project `1327974` was updated to version `9`; connector readback reports the
+canonical repository and public video while Build Week `submitted_at` remains
+`null`. No final submission occurred, and the submission hold remains active.

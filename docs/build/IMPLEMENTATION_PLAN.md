@@ -2250,8 +2250,10 @@ held.
   independent media audits passed. The video was published Public at
   <https://youtu.be/aQgpK5z9OUQ>, YouTube checks reported no issues, the 27-cue
   English caption track was published in YouTube Studio, and Google Chrome
-  playback reached Replay at 2:55 with audio enabled. Devpost project `1327974`
-  version `8` contains the video URL and remains unsubmitted.
+  playback reached Replay at 2:55 with audio enabled. GitHub repository
+  `ModernBlueprints/Foldweave` is the canonical public repository, and Devpost
+  project `1327974` version `9` contains both the video and canonical repository
+  URLs and remains unsubmitted.
 
 ## 19. Protected final 16-hour reserve and submission hold
 
